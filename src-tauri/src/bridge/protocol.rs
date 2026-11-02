@@ -19,20 +19,30 @@
 use serde::{Deserialize, Serialize};
 
 use crate::downloader::DownloadPreview;
+use crate::model::CapturedPlaylist;
 
 /// The native messaging host name. Registered under this key for every
 /// supported browser, and named by the extension in `connectNative`.
+#[cfg(not(feature = "debug-edition"))]
 pub const HOST_NAME: &str = "com.universaldownloader.bridge";
+/// A test copy registers under a name of its own: both copies rewrite their
+/// registry values on every launch, and sharing one name would hand the
+/// installed copy's extension to whichever app started last.
+#[cfg(feature = "debug-edition")]
+pub const HOST_NAME: &str = "com.universaldownloader.bridge.debug";
 
 /// The wire version. Bumped only for a breaking change; `Request` and
 /// `Response` are otherwise extended with optional fields, which an older peer
 /// ignores and a newer peer treats as absent.
 pub const WIRE_VERSION: u32 = 1;
 
-/// Chrome refuses a message larger than 1 MB in either direction. A push of a
-/// full YouTube cookie jar is a few kilobytes, so anything approaching this is
-/// a bug or an attempt to exhaust memory, and is rejected before allocation.
+/// The browser refuses an answer from the host larger than 1 MB.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
+
+/// The most the extension may send. Chrome allows 64 MiB that way and a film's
+/// playlists take a few, so anything past this is a bug or an attempt to exhaust
+/// memory, and is rejected before allocation.
+pub const MAX_REQUEST_BYTES: usize = 16 * 1024 * 1024;
 
 /// Extension ids the host will talk to.
 ///
@@ -78,7 +88,12 @@ pub fn origin_allowed(origin: &str) -> bool {
 /// the listing on addons.mozilla.org and an unpacked copy alike. It is named in
 /// the Firefox host manifest's `allowed_extensions`, the field Firefox reads in
 /// place of Chrome's `allowed_origins`.
+#[cfg(not(feature = "debug-edition"))]
 pub const FIREFOX_EXTENSION_ID: &str = "connector@universaldownloader.app";
+/// Firefox allows one add-on per id, so a test copy loaded beside the one from
+/// addons.mozilla.org needs an id of its own.
+#[cfg(feature = "debug-edition")]
+pub const FIREFOX_EXTENSION_ID: &str = "connector-debug@universaldownloader.app";
 
 /// Whether the browser started this host for one of our extensions, from the
 /// arguments it passed.
@@ -359,6 +374,10 @@ pub struct Download {
     pub user_agent: Option<String>,
     #[serde(default)]
     pub thumbnail: Option<String>,
+    /// What the page's player was answered, for a stream whose playlists
+    /// cannot be asked for again.
+    #[serde(default)]
+    pub playlists: Vec<CapturedPlaylist>,
 }
 
 /// Who is speaking. Present on every request so the host can bind, and check,

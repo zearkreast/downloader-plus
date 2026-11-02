@@ -15,16 +15,18 @@
 //   `// <full>` to `// </full>` in scripts, `/* <full> */` to `/* </full> */`
 //   in stylesheets, `<!-- full -->` to `<!-- /full -->` in pages. The store
 //   package does not carry that code switched off; it does not carry it;
-// - sessions.js, which only the sessions use, is left out of the package;
+// - sessions.js, which only the sessions use, is left out of the package, as
+//   are the two scripts that keep the playlists a player received;
 // - the manifest drops `cookies` and `alarms`, which only the sessions use, so
-//   the store copy cannot read a cookie at all, not merely chooses not to;
+//   the store copy cannot read a cookie at all, not merely chooses not to, and
+//   `content_scripts`, which only those two scripts use;
 // - the messages only the sessions use are left out of both locales, so
 //   nothing in the package describes a feature it lacks.
 
 export const STORE_DROPPED_PERMISSIONS = ['cookies', 'alarms'];
 
 /** Files of extension/ that the store build leaves out altogether. */
-export const STORE_LEFT_OUT = ['sessions.js'];
+export const STORE_LEFT_OUT = ['sessions.js', 'page-playlists.js', 'playlist-relay.js'];
 
 /** Files that must carry a fence: one that has lost it would ship whole. */
 const FENCED = ['edition.js', 'background.js', 'popup.js', 'media.js', 'popup.css', 'popup.html', 'welcome.html'];
@@ -77,6 +79,7 @@ export function forStore(name, contents) {
   if (name === 'manifest.json') {
     const manifest = JSON.parse(contents.toString('utf8'));
     manifest.permissions = manifest.permissions.filter((permission) => !STORE_DROPPED_PERMISSIONS.includes(permission));
+    delete manifest.content_scripts;
     return Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   }
   if (/^_locales\/[^/]+\/messages\.json$/.test(name)) {

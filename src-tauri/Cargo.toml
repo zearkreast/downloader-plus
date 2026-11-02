@@ -21,6 +21,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "ud-bridge"
 path = "src/bin/ud-bridge.rs"
 
+[features]
+# A side-by-side test copy: its own data folder, its own native messaging host
+# and Firefox id, so it can run beside an installed copy without either taking
+# the other's browser link. Pair it with `tauri.debug.conf.json`, which gives it
+# its own identifier and with that its own single-instance lock.
+debug-edition = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

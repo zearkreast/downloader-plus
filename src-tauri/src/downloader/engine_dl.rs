@@ -59,6 +59,9 @@ pub struct EngineDownload<'a> {
     /// wanted: it is a rendition with a picture of its own, the only place the
     /// source keeps its sound. See [`crate::downloader::plan::DownloadPlan::sound_from_muxed`].
     pub sound_from_second: bool,
+    /// The engine reads this description of the stream instead of the link.
+    /// See [`crate::providers::captured`].
+    pub info_file: Option<&'a Path>,
 }
 
 /// Download once with nothing behind it, and -- only for a refusal a linked
@@ -364,6 +367,10 @@ fn download_args(
         args.push(jar.to_string());
     }
 
+    if let Some(file) = options.info_file {
+        args.push("--load-info-json".into());
+        args.push(file.to_string_lossy().into_owned());
+    }
     args.push(options.url.to_string());
     args
 }
@@ -638,7 +645,18 @@ mod tests {
             headers: &[],
             page_url: None,
             sound_from_second: false,
+            info_file: None,
         }
+    }
+
+    #[test]
+    fn a_description_of_the_stream_goes_ahead_of_the_link() {
+        let file = Path::new("C:\\cache\\1.info.json");
+        let options = EngineDownload { info_file: Some(file), ..options(None, false) };
+        let args = download_args(&options, Vec::new(), None);
+        let at = args.iter().position(|arg| arg == "--load-info-json").unwrap();
+        assert_eq!(args[at + 1], "C:\\cache\\1.info.json");
+        assert_eq!(args.last().unwrap(), options.url);
     }
 
     fn args_for(section: Option<KeptRange>, force_keyframes: bool) -> Vec<String> {

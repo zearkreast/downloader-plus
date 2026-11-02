@@ -53,6 +53,12 @@ pub enum AppError {
     #[error("not found ({status})")]
     NotFound { status: u16, detail: String },
 
+    /// A stream's own address, turned away with nothing from its page behind
+    /// it. Kept apart from `NotFound` because "deleted or made private" is what
+    /// happens to a post: this one usually plays on.
+    #[error("the stream refused its bare address: {0}")]
+    StreamLink(String),
+
     /// A finished file that is no longer where the app saved it. Kept apart from
     /// `Io` so the interface can say exactly that, and only that: any other
     /// refusal to open a file is not evidence that it is gone.
@@ -132,6 +138,7 @@ impl AppError {
                 ..
             } => "tiktokNotForAccount",
             Self::NotFound { .. } => "notFound",
+            Self::StreamLink(_) => "streamLink",
             Self::FileMissing(_) => "fileMissing",
             Self::NoMatch(_) => "noMatch",
             Self::Protected(_) => "protected",
@@ -236,6 +243,10 @@ impl AppError {
             "notFound" => (
                 "This media no longer exists",
                 "The post may have been deleted or made private.",
+            ),
+            "streamLink" => (
+                "This stream link doesn't open on its own",
+                "Links like this expire quickly or only work on their own page. Play the video in your browser and send it from the extension.",
             ),
             "fileMissing" => ("File moved or deleted", "It's no longer where it was saved."),
             "noMatch" => (

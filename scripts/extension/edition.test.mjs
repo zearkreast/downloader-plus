@@ -145,6 +145,7 @@ describe('the Chrome Web Store build', () => {
   test('cannot read a cookie: neither permission the sessions use is asked for', () => {
     const manifest = JSON.parse(build.get('manifest.json'));
     for (const permission of STORE_DROPPED_PERMISSIONS) assert.ok(!manifest.permissions.includes(permission), permission);
+    assert.equal(manifest.content_scripts, undefined);
     // What the list and İndir need is all still there.
     for (const permission of ['nativeMessaging', 'storage', 'webRequest', 'scripting']) {
       assert.ok(manifest.permissions.includes(permission), permission);

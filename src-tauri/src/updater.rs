@@ -21,7 +21,7 @@ use crate::error::{AppError, AppResult};
 use crate::settings::Settings;
 use crate::{log_info, net, tools};
 
-const REPOSITORY: &str = "unsalable/downloader";
+const REPOSITORY: &str = "zearkreast/downloader-plus";
 const RELEASE_TAG: &str = "latest";
 const API: &str = "https://api.github.com";
 
@@ -523,7 +523,7 @@ mod tests {
         AppUpdate {
             commit: "05b60a1c2b1b5d97eaf1e60eda459987c70f717b".into(),
             asset_url: format!(
-                "https://github.com/unsalable/downloader/releases/download/latest/{NSIS_ASSET}"
+                "https://github.com/zearkreast/downloader-plus/releases/download/latest/{NSIS_ASSET}"
             ),
             asset_size: 5,
             digest: Some(GOOD_DIGEST.into()),
@@ -698,17 +698,17 @@ mod tests {
         let file = NSIS_ASSET;
         for url in [
             format!("https://example.com/{file}"),
-            format!("http://github.com/unsalable/downloader/releases/download/latest/{file}"),
+            format!("http://github.com/zearkreast/downloader-plus/releases/download/latest/{file}"),
             format!("https://github.com/someone/else/releases/download/latest/{file}"),
-            format!("https://github.com/unsalable/downloader/releases/download/../../../../someone/else/releases/download/latest/{file}"),
-            format!("https://github.com/unsalable/downloader/releases/download/../{file}"),
-            format!("https://github.com/unsalable/downloader/releases/download/{file}"),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/../../../../someone/else/releases/download/latest/{file}"),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/../{file}"),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/{file}"),
             // There is one release, and it is not this one.
-            format!("https://github.com/unsalable/downloader/releases/download/nightly/{file}"),
-            format!("https://github.com/unsalable/downloader/releases/download/latest/{file}?x=1"),
-            "https://github.com/unsalable/downloader/releases/download/latest/evil.exe".to_string(),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/nightly/{file}"),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/latest/{file}?x=1"),
+            "https://github.com/zearkreast/downloader-plus/releases/download/latest/evil.exe".to_string(),
             // The other installer kind is not what this copy was installed with.
-            format!("https://github.com/unsalable/downloader/releases/download/latest/{MSI_ASSET}"),
+            format!("https://github.com/zearkreast/downloader-plus/releases/download/latest/{MSI_ASSET}"),
         ] {
             let update = AppUpdate {
                 asset_url: url.clone(),

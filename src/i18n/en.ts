@@ -639,6 +639,8 @@ export const en = {
     'The account may look under 18 to TikTok, or the post may be for followers only.',
   'error.notFound.title': 'This media no longer exists',
   'error.notFound.message': 'The post may have been deleted or made private.',
+  'error.streamLink.title': "This stream link doesn't open on its own",
+  'error.streamLink.message': 'Links like this expire quickly or only work on their own page. Play the video in your browser and send it from the extension.',
   'error.fileMissing.title': 'File moved or deleted',
   'error.fileMissing.message': "It's no longer where it was saved.",
   'error.noMatch.title': "This song couldn't be found",

@@ -23,8 +23,8 @@ use std::sync::Arc;
 use universal_downloader_lib::downloader::control::TaskControl;
 use universal_downloader_lib::downloader;
 use universal_downloader_lib::model::{
-    DownloadMode, DownloadProgress, DownloadRequest, QualityPreference, SourceContext,
-    WatermarkPreference,
+    CapturedPlaylist, DownloadMode, DownloadProgress, DownloadRequest, QualityPreference,
+    SourceContext, WatermarkPreference,
 };
 use universal_downloader_lib::settings::Settings;
 use universal_downloader_lib::tools;
@@ -50,6 +50,37 @@ fn make_stream(dir: &Path) {
         .status()
         .expect("FFmpeg should run");
     assert!(status.success(), "FFmpeg could not cut the test stream");
+}
+
+/// The same six seconds with picture and sound cut apart, and a media playlist
+/// of each with the address of every segment spelled out, as a player is given
+/// them. The playlists go back to the caller and not onto the server: no one can
+/// fetch them after the player has.
+fn make_split_stream(dir: &Path, base: &str) -> (String, String) {
+    let ffmpeg = tools::ffmpeg_path().expect("FFmpeg should be installed");
+    let cut = |input: &str, kind: &str, codec: &[&str], name: &str| {
+        let status = std::process::Command::new(&ffmpeg)
+            .current_dir(dir)
+            .args(["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", input, kind])
+            .args(codec)
+            .args(["-hls_time", "2", "-hls_playlist_type", "vod"])
+            .args(["-hls_segment_filename", &format!("{name}%d.ts"), &format!("{name}.m3u8")])
+            .status()
+            .expect("FFmpeg should run");
+        assert!(status.success(), "FFmpeg could not cut the test stream");
+        let list = dir.join(format!("{name}.m3u8"));
+        let text = std::fs::read_to_string(&list).unwrap();
+        std::fs::remove_file(&list).unwrap();
+        text.lines()
+            .map(|line| if line.ends_with(".ts") { format!("{base}/{line}") } else { line.to_string() })
+            .collect::<Vec<_>>()
+            .join("
+")
+    };
+    (
+        cut("testsrc=duration=6:size=640x360:rate=25", "-an", &["-c:v", "libx264", "-pix_fmt", "yuv420p"], "video"),
+        cut("sine=frequency=440:duration=6", "-vn", &["-c:a", "aac"], "audio"),
+    )
 }
 
 /// Serve `dir` on a free port, refusing whatever does not name the player.
@@ -159,6 +190,7 @@ async fn a_handed_over_stream_downloads_with_the_pages_headers() {
         referer: Some(PLAYER.into()),
         origin: Some("https://player.example".into()),
         user_agent: Some("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/154.0 Safari/537.36".into()),
+        ..SourceContext::default()
     };
     let request = request(format!("{base}/index.m3u8"), &out_dir, Some(source));
 
@@ -173,6 +205,59 @@ async fn a_handed_over_stream_downloads_with_the_pages_headers() {
     let name = outcome.output_path.file_name().unwrap().to_string_lossy().into_owned();
     assert!(name.starts_with("Uzun Yol"), "named after the playlist, not the tab: {name}");
     assert_eq!(refused.load(Ordering::SeqCst), 0, "some request went out without the Referer");
+
+    let _ = std::fs::remove_dir_all(&stream_dir);
+    let _ = std::fs::remove_dir_all(&out_dir);
+}
+
+#[tokio::test]
+#[ignore = "runs the engine and FFmpeg"]
+async fn a_stream_whose_playlists_cannot_be_fetched_again_downloads_from_what_the_player_was_given() {
+    let settings = ready().await;
+    let stream_dir = scratch("captured");
+    let out_dir = scratch("out-captured");
+    let (base, refused) = serve(stream_dir.clone());
+    let (video, audio) = make_split_stream(&stream_dir, &base);
+
+    let at = |name: &str| format!("{base}/manifests/abc/{name}");
+    let master = [
+        "#EXTM3U",
+        r#"#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="a",NAME="Türkçe",LANGUAGE="tr",URI="tur~audio.txt?verify=1""#,
+        r#"#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=640x360,CODECS="avc1.64001e,mp4a.40.2",AUDIO="a""#,
+        "video~video.txt?verify=1",
+        r#"#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720,CODECS="avc1.64001f,mp4a.40.2",AUDIO="a""#,
+        "hd~video.txt?verify=1",
+    ]
+    .join("
+");
+    let source = SourceContext {
+        referer: Some(PLAYER.into()),
+        playlists: vec![
+            CapturedPlaylist { url: at("master.txt?verify=1"), text: master },
+            CapturedPlaylist { url: at("video~video.txt?verify=1"), text: video },
+            CapturedPlaylist { url: at("tur~audio.txt?verify=1"), text: audio },
+        ],
+        ..SourceContext::default()
+    };
+    let request = request(at("master.txt?verify=1"), &out_dir, Some(source));
+
+    let mut sink = |_: DownloadProgress| {};
+    let outcome = downloader::execute("handoff-captured", &request, &settings, Arc::new(TaskControl::new()), &mut sink)
+        .await
+        .expect("the stream should download from the playlists it was given");
+
+    eprintln!("{} ({} bytes, {})", outcome.output_path.display(), outcome.file_size, outcome.quality_label);
+    assert_eq!(refused.load(Ordering::SeqCst), 0, "some request went out without the Referer");
+
+    let ffprobe = tools::ffmpeg_path().unwrap().with_file_name(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" });
+    let probe = std::process::Command::new(ffprobe)
+        .args(["-v", "error", "-show_entries", "stream=codec_type,height", "-of", "csv=p=0"])
+        .arg(&outcome.output_path)
+        .output()
+        .unwrap();
+    let report = String::from_utf8_lossy(&probe.stdout);
+    assert!(report.contains("video,360"), "no picture: {report}");
+    assert!(report.contains("audio"), "no sound: {report}");
 
     let _ = std::fs::remove_dir_all(&stream_dir);
     let _ = std::fs::remove_dir_all(&out_dir);

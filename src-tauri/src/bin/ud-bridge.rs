@@ -119,7 +119,7 @@ fn read_frame(input: &mut impl Read) -> Frame {
     // another process and believing it would be a request to allocate four
     // gigabytes on demand.
     let length = u32::from_ne_bytes(header) as usize;
-    if length > protocol::MAX_MESSAGE_BYTES {
+    if length > protocol::MAX_REQUEST_BYTES {
         return Frame::TooLarge;
     }
 

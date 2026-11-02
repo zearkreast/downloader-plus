@@ -6,3 +6,4 @@ import './media.test.mjs';
 import './describe.test.mjs';
 import './sessions.test.mjs';
 import './edition.test.mjs';
+import './playlists.test.mjs';

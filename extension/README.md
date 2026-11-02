@@ -36,7 +36,9 @@ from there. No host reply ever carries cookie material.
 | `sessions.js` | Pure helpers for the lent sessions: which domain each site's cookies are read from, which of them mean a sign-in, which changes are worth a push, the push's wire head (`push` for YouTube, `pushSite` for any other site), and for the other sites' switch which site a page is (`registrableDomain`, `otherSiteOf`). |
 | `background.js` | The service worker (an ES module). Watches `webRequest`, keeps a list per tab in `chrome.storage.session`, draws the badge, answers the popup, talks to the host. |
 | `popup.*` | The list, the **İndir** buttons, the page picker's button and the session switches (TikTok's only on TikTok pages, the other sites' only on other sites' pages, each also while it is on). |
-| `picker.js` | The page picker, the only script this extension puts into a page, and only when its button is pressed: makes the video, sound or picture under the pointer glow in every frame and reports the one clicked; where the browser will not open the popup to show it, draws a card with **İndir** in the top frame instead. A plain script, since that is what `executeScript` injects. |
+| `picker.js` | The page picker, put into a page only when its button is pressed: makes the video, sound or picture under the pointer glow in every frame and reports the one clicked; where the browser will not open the popup to show it, draws a card with **İndir** in the top frame instead. A plain script, since that is what `executeScript` injects. |
+| `page-playlists.js` | Runs in every page, in the page's own world and ahead of its scripts: wraps `fetch` and `XMLHttpRequest` and reports any answer that begins `#EXTM3U`, because a player whose playlists take a one-use token cannot be asked again by anyone. Full build only. |
+| `playlist-relay.js` | Carries those reports to the worker, which a script in the page's own world cannot reach. The worker keeps the text on the tab's item and sends it with the row. Full build only. |
 | `welcome.*` | Opened once, on install. |
 | `theme.css`, `fonts/` | The app's tokens and its typeface (Inter, OFL; the licence ships beside it). |
 

@@ -93,6 +93,15 @@ pub(crate) const IMAGE_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "png", "webp", "gif", "avif", "bmp", "tiff", "heic", "heif",
 ];
 
+/// Whether `url` is a stream's own playlist rather than a page or a file.
+pub fn is_stream_address(url: &str) -> bool {
+    let Some(parsed) = reqwest::Url::parse(url.trim()).ok() else {
+        return false;
+    };
+    let path = parsed.path().to_ascii_lowercase();
+    path.ends_with(".m3u8") || path.ends_with(".mpd") || path.contains("/manifests/")
+}
+
 pub struct UrlInfo {
     pub host: String,
     pub path: String,
