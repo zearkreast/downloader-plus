@@ -8,12 +8,12 @@ Built with Tauri 2, React 19, TypeScript and Rust.
 
 ## Download
 
-Everything is on the [releases page](https://github.com/unsalable/downloader/releases/latest).
+Everything is on the [releases page](https://github.com/zearkreast/downloader-plus/releases/latest).
 
 ### Windows
 
-- [`UniversalDownloader_x64-setup.exe`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_x64-setup.exe) -- normal install, per user, no admin rights needed.
-- [`UniversalDownloader_x64.msi`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_x64.msi) -- for managed or scripted deployment.
+- [`UniversalDownloader_x64-setup.exe`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64-setup.exe) -- normal install, per user, no admin rights needed.
+- [`UniversalDownloader_x64.msi`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64.msi) -- for managed or scripted deployment.
 
 These links always point at the current build. Installing over an existing copy
 updates it in place; settings, history and the downloaded tools are kept.
@@ -26,6 +26,13 @@ moment nothing is downloading or converting.
 
 Windows 10/11, 64-bit. The installers are not code-signed, so SmartScreen warns on first
 run: choose **More info -> Run anyway**.
+
+### Browser extension
+
+The connector sends what a tab is playing to the app. It is not on any store.
+
+- [`extension-full.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-full.zip) -- Chrome, Edge, Brave, Opera and Vivaldi. Unzip it into a folder you keep, turn on Developer mode on the browser's extensions page, and choose **Load unpacked**.
+- [`extension-firefox.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.zip) -- Firefox. It is not signed by Mozilla, so it loads only as a temporary add-on from `about:debugging`, until Firefox closes.
 
 ### Android
 

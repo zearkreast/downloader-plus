@@ -149,7 +149,7 @@ extension marks it as protected and offers no way to download it.
 
 ## Contact
 
-Questions and reports: https://github.com/unsalable/downloader/issues
+Questions and reports: https://github.com/zearkreast/downloader-plus/issues
 
 ---
 
@@ -299,4 +299,4 @@ işaretler ve indirmek için hiçbir yol sunmaz.
 
 ## İletişim
 
-Sorular ve bildirimler: https://github.com/unsalable/downloader/issues
+Sorular ve bildirimler: https://github.com/zearkreast/downloader-plus/issues
