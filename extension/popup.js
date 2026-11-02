@@ -133,7 +133,7 @@ async function send(button, row) {
   button.disabled = true;
   button.dataset.state = 'sending';
   const started = Date.now();
-  const reply = await ask('download', { payload: row.payload });
+  const reply = await ask('download', { payload: row.payload, tabId });
   const wait = MIN_SENDING_MS - (Date.now() - started);
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
 
@@ -306,7 +306,7 @@ async function describe(items) {
   const queue = [...wanted];
   const worker = async () => {
     for (let item = queue.shift(); item; item = queue.shift()) {
-      apply(item, await ask('probe', { payload: item.row.payload }));
+      apply(item, await ask('probe', { payload: item.row.payload, tabId }));
     }
   };
   await Promise.all(Array.from({ length: PROBE_PARALLEL }, worker));

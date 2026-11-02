@@ -22,6 +22,15 @@ that they are not media. What it keeps is held in the browser's session
 storage, in memory: the list for a tab is dropped when the tab moves to another
 page or closes, and all of it is gone when the browser closes.
 
+**The playlists a video player is given.** Some players can ask for a stream's
+playlist only once, so the extension keeps the answer the player received. In
+every build but the Chrome Web Store's, a small script runs in each page and
+looks at the first bytes of the responses to that page's own scripts, long
+enough to see whether they are a playlist. Everything else is left unread. A
+playlist's text joins the tab's list in session storage and is dropped with it,
+and reaches the app, on the same computer, only for the row you press or
+preview.
+
 **The page you open the popup on.** When you click the toolbar icon, the
 extension reads the current tab's title, its preview image address, and its
 `<video>` and `<audio>` elements (their address, poster, length and size, and

@@ -42,6 +42,12 @@ describe('homeFromHandoff', () => {
     });
   });
 
+  it('carries the playlists a player was given on to the analysis', () => {
+    const playlists = [{ url: 'https://cdn.example.com/master.txt', text: '#EXTM3U\n' }];
+    const { context } = homeFromHandoff({ ...STREAM, playlists }, DEFAULTS);
+    expect(context.source.playlists).toEqual(playlists);
+  });
+
   it('takes a sound as a sound, without the video container', () => {
     const { options } = homeFromHandoff({ ...STREAM, kind: 'audio' }, DEFAULTS);
     expect(options.mode).toBe('audio');

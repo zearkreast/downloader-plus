@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use super::protocol::Download;
 use crate::error::AppResult;
-use crate::model::{DownloadMode, DownloadRequest, SourceContext, WatermarkPreference};
+use crate::model::{CapturedPlaylist, DownloadMode, DownloadRequest, SourceContext, WatermarkPreference};
 use crate::settings::Settings;
 
 /// The argument the host starts the app with. The running copy receives it
@@ -43,6 +43,9 @@ const MAX_URL_BYTES: usize = 8192;
 const MAX_ORIGIN_BYTES: usize = 512;
 const MAX_USER_AGENT_BYTES: usize = 512;
 const MAX_TITLE_CHARS: usize = 300;
+/// Unlike everything above, a film's playlists run to megabytes.
+const MAX_PLAYLISTS: usize = 16;
+const MAX_PLAYLIST_BYTES: usize = 6 * 1024 * 1024;
 
 const KINDS: &[&str] = &["page", "stream", "video", "audio", "image"];
 
@@ -65,6 +68,8 @@ pub struct Handoff {
     pub user_agent: Option<String>,
     #[serde(default)]
     pub thumbnail: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub playlists: Vec<CapturedPlaylist>,
     /// Unix seconds, stamped by the host when it accepted the link.
     pub received_at: i64,
 }
@@ -122,6 +127,7 @@ impl Handoff {
                 referer: given(&self.referer),
                 origin: given(&self.origin),
                 user_agent: given(&self.user_agent),
+                playlists: self.playlists.clone(),
             }),
         }
     }
@@ -173,8 +179,22 @@ pub fn validate(download: &Download, received_at: i64) -> Result<Handoff, &'stat
         origin,
         user_agent,
         thumbnail,
+        playlists: usable_playlists(&download.playlists),
         received_at,
     })
+}
+
+/// A playlist that fails a check is left behind rather than the link refused:
+/// the link is still worth trying without it.
+fn usable_playlists(playlists: &[CapturedPlaylist]) -> Vec<CapturedPlaylist> {
+    playlists
+        .iter()
+        .filter(|list| list.text.len() <= MAX_PLAYLIST_BYTES)
+        .filter(|list| list.text.trim_start_matches('\u{feff}').trim_start().starts_with("#EXTM3U"))
+        .filter(|list| matches!(web_address(Some(&list.url)), Ok(Some(_))))
+        .take(MAX_PLAYLISTS)
+        .cloned()
+        .collect()
 }
 
 /// `%APPDATA%\UniversalDownloader\bridge\inbox`. Not created by asking: only a
@@ -368,6 +388,7 @@ mod tests {
             origin: None,
             user_agent: None,
             thumbnail: None,
+            playlists: Vec::new(),
             received_at,
         }
     }
@@ -585,8 +606,29 @@ mod tests {
             origin: Some("https://player.example.com".into()),
             user_agent: Some("Mozilla/5.0".into()),
             thumbnail: Some("https://cdn.example.com/poster.jpg".into()),
+            playlists: Vec::new(),
             received_at: 1_790_000_000,
         }
+    }
+
+    #[test]
+    fn only_real_playlists_come_through_and_they_reach_the_request() {
+        let list = |url: &str, text: &str| CapturedPlaylist { url: url.to_string(), text: text.to_string() };
+        let kept = list("https://cdn.example/master.txt?verify=1", "\u{feff}#EXTM3U\n");
+        let usable = usable_playlists(&[
+            kept.clone(),
+            list("file:///C:/Windows/win.ini", "#EXTM3U\n"),
+            list("https://cdn.example/page.txt", "<html>"),
+            list("https://cdn.example/big.txt", &format!("#EXTM3U\n{}", "x".repeat(MAX_PLAYLIST_BYTES))),
+        ]);
+        assert_eq!(usable, std::slice::from_ref(&kept));
+
+        let many = vec![kept.clone(); MAX_PLAYLISTS + 3];
+        assert_eq!(usable_playlists(&many).len(), MAX_PLAYLISTS);
+
+        let handed = Handoff { playlists: usable, ..stream() };
+        let request = handed.to_request(&Settings::default());
+        assert_eq!(request.source.unwrap().playlists, [kept]);
     }
 
     #[test]

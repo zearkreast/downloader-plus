@@ -118,11 +118,15 @@ impl Database {
     // -- history -----------------------------------------------------------
 
     pub fn history_insert(&self, entry: &HistoryEntry) -> AppResult<i64> {
-        let request_json = entry
-            .request
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        // Their segment addresses expire long before anyone reads the history,
+        // and a film's playlists are megabytes on every row.
+        let request = entry.request.clone().map(|mut request| {
+            if let Some(source) = request.source.as_mut() {
+                source.playlists.clear();
+            }
+            request
+        });
+        let request_json = request.as_ref().map(serde_json::to_string).transpose()?;
         let conn = self.lock()?;
         conn.execute(
             "INSERT INTO downloads

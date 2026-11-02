@@ -13,6 +13,7 @@
 //! a few platforms, and answers "not one of mine" for everything else.
 
 pub mod anime;
+pub mod captured;
 pub mod detect;
 pub mod direct;
 pub mod engine;
@@ -184,7 +185,7 @@ pub async fn analyze_with_source(
                     }
                     engine_error = Some(AppError::Unsupported(detail));
                 }
-                Err(err) => return Err(err),
+                Err(err) => return Err(bare_stream_refusal(err, url, source)),
             }
         }
     } else if info.platform != PlatformId::Generic {
@@ -216,6 +217,17 @@ pub async fn analyze_with_source(
     Err(engine_error.unwrap_or_else(|| {
         AppError::Unsupported(format!("no provider could read {}", info.host))
     }))
+}
+
+/// A stream's address refused with no playlists behind it. The stream is rarely
+/// gone: the address was only ever good for the player that asked for it.
+fn bare_stream_refusal(err: AppError, url: &str, source: Option<&SourceContext>) -> AppError {
+    let refused = matches!(err, AppError::NotFound { .. } | AppError::Forbidden { .. });
+    let heard = source.is_some_and(|source| !source.playlists.is_empty());
+    if refused && !heard && detect::is_stream_address(url) {
+        return AppError::StreamLink(err.technical().unwrap_or_default());
+    }
+    err
 }
 
 /// What the engine finding nothing in a post means when the platform hides
@@ -539,6 +551,22 @@ pub(crate) mod tests_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refused_stream_address_says_so_rather_than_deleted() {
+        let gone = || AppError::NotFound { status: 404, detail: "x".into() };
+        let stream = "https://cdn.example/manifests/abc/master.txt?verify=1";
+
+        assert_eq!(bare_stream_refusal(gone(), stream, None).code(), "streamLink");
+        assert_eq!(bare_stream_refusal(gone(), "https://cdn.example/hls/a.m3u8", None).code(), "streamLink");
+        assert_eq!(bare_stream_refusal(gone(), "https://site.example/post/1", None).code(), "notFound");
+
+        let heard = SourceContext {
+            playlists: vec![crate::model::CapturedPlaylist::default()],
+            ..SourceContext::default()
+        };
+        assert_eq!(bare_stream_refusal(gone(), stream, Some(&heard)).code(), "notFound");
+    }
     use crate::model::WatermarkSupport;
 
     // The kept analyses are process-wide, so each test uses addresses of its own.

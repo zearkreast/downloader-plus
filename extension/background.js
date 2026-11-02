@@ -101,6 +101,12 @@ const PICK_PREFIX = 'pick:';
 const COLLECT_TIMEOUT_MS = 1500;
 const MANIFEST_TIMEOUT_MS = 2500;
 const MANIFEST_MAX_BYTES = 256 * 1024;
+// <full>
+// A three-hour film cut into two-second pieces, with a token on every address,
+// comes to about 2 MB. Session storage holds 10 MB across all tabs.
+const PLAYLIST_MAX_CHARS = 4 * 1024 * 1024;
+const PLAYLISTS_MAX_CHARS = 8 * 1024 * 1024;
+// </full>
 const MANIFESTS_PER_SCAN = 16;
 
 // Cached as a promise rather than a value: two events can arrive before the
@@ -1008,9 +1014,80 @@ async function download(message) {
   // <full>
   await lendFor(fields.url);
   await lendOther(fields.pageUrl ?? fields.url);
+  await withPlaylists(fields, message.tabId);
   // </full>
   return { result: await callHost({ type: 'download', ...(await peer()), ...fields }) };
 }
+
+// <full>
+// What a player was answered, kept on the tab's item for that playlist: behind a
+// one-use token it cannot be fetched again, and one named like a text file is
+// never listed by `onHeaders`. This comes from a page, so it is checked as such.
+function keepPlaylist(message, sender) {
+  const tabId = sender.tab?.id;
+  if (!Number.isInteger(tabId) || typeof message.text !== 'string') return;
+  if (message.text.length > PLAYLIST_MAX_CHARS) return;
+  const url = dedupeKey(message.url);
+  const info = url ? parseHls(message.text, url) : null;
+  if (!info) return;
+
+  void updateTab(tabId, async (record) => {
+    let item = record.items.find((entry) => entry.url === url);
+    if (!item) {
+      await withPage(tabId, record);
+      if (!record.url) return undefined;
+      item = {
+        id: crypto.randomUUID().slice(0, 8),
+        url,
+        kind: 'hls',
+        frameId: sender.frameId >= 0 ? sender.frameId : 0,
+        initiator: originOfSender(sender),
+        isXhr: true,
+        contentType: '',
+        size: null,
+        seenOn: record.url,
+        at: Date.now(),
+      };
+      record.items.push(item);
+      record.items = record.items.slice(-MAX_ITEMS);
+    }
+    item.info = info;
+    item.text = message.text;
+    forgetOldPlaylists(record);
+    return record;
+  });
+}
+
+function originOfSender(sender) {
+  try {
+    return sender.origin && sender.origin !== 'null' ? sender.origin : new URL(sender.url).origin;
+  } catch {
+    return '';
+  }
+}
+
+// Session storage is shared by every tab. The newest are the ones still playing.
+function forgetOldPlaylists(record) {
+  let room = PLAYLISTS_MAX_CHARS;
+  for (const item of [...record.items].reverse()) {
+    if (!item.text) continue;
+    room -= item.text.length;
+    if (room < 0) delete item.text;
+  }
+}
+
+// A row's own playlist and those it names, for a row whose player was heard.
+async function withPlaylists(fields, tabId) {
+  if (!Number.isInteger(tabId)) return;
+  const record = await readTab(tabId);
+  const row = record?.items.find((item) => item.url === fields.url);
+  if (!row?.text) return;
+  const named = new Set((row.info?.variants ?? []).map(dedupeKey));
+  fields.playlists = record.items
+    .filter((item) => item.text && (item === row || named.has(item.url)))
+    .map(({ url, text }) => ({ url, text }));
+}
+// </full>
 
 // <full>
 // A handoff never carries cookies: the host leaves it in the app's inbox as
@@ -1126,6 +1203,9 @@ function keepProbe(key, answer) {
 async function probe(message) {
   const fields = toPayload(message.payload);
   if (!fields) return { preview: null, protected: false };
+  // <full>
+  await withPlaylists(fields, message.tabId);
+  // </full>
   const answer = await probeAnswer(fields);
   // <full>
   if (answer?.signIn) {
@@ -1322,7 +1402,7 @@ function pickAgain(_message, { tabId }) {
 // As the popup's `apply`: the app's title and still also go with İndir.
 async function pickProbe(_message, { tabId, held }) {
   if (held.status !== 'ready' || !held.payload) return {};
-  const answer = await probe({ payload: held.payload });
+  const answer = await probe({ payload: held.payload, tabId });
   if (answer?.protected) {
     await changePick(tabId, (now) => (now?.token === held.token ? { ...now, status: 'protected' } : undefined));
     return { meta: t('kindProtected'), canGet: false };
@@ -1350,7 +1430,7 @@ async function pickGet(_message, { tabId, held }) {
   if (held.status !== 'ready' || !held.payload) return { sent: false, notice: t('pickUnavailable') };
   // Sent stays sent, as in the popup.
   if (held.sent) return { sent: true };
-  const reply = await download({ payload: held.payload });
+  const reply = await download({ payload: held.payload, tabId });
   const result = reply?.result ?? null;
   if (result?.ok) {
     await changePick(tabId, (now) => (now?.token === held.token ? { ...now, sent: true } : undefined));
@@ -1494,15 +1574,21 @@ chrome.cookies.onChanged.addListener((change) => {
 // </full>
 
 // Only this extension's own pages may ask for anything, and only by name. A
-// page in a tab never can. The picker, the one script this extension puts
-// into a page, may ask PAGE_ACTIONS, and only with its tab's pick token,
-// which the page cannot read. Anything else from a tab, or from anywhere
-// else, goes unanswered.
+// page in a tab never can. The picker may ask PAGE_ACTIONS, and only with its
+// tab's pick token, which the page cannot read. The playlist relay may leave
+// a playlist on its own tab and is told nothing back. Anything else from a tab,
+// or from anywhere else, goes unanswered.
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id) return false;
   const action = message?.action;
   if (typeof action !== 'string') return false;
   if (sender.tab !== undefined) {
+    // <full>
+    if (action === 'playlist') {
+      keepPlaylist(message, sender);
+      return false;
+    }
+    // </full>
     if (!Object.hasOwn(PAGE_ACTIONS, action)) return false;
     fromPage(action, message, sender).then(respond, () => respond(null));
     return true;

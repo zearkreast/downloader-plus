@@ -301,6 +301,7 @@ impl RangeFetchManager {
                 // page behind it; the address alone decides what is lent.
                 page_url: None,
                 sound_from_second: engine.sound_from_second,
+                info_file: None,
             },
             &settings,
             control,

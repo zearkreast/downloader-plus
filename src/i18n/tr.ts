@@ -633,6 +633,8 @@ export const tr: Record<TranslationKey, string> = {
     "Hesap TikTok'a 18 yaşından küçük görünüyor olabilir ya da gönderi yalnızca takipçilere açık.",
   'error.notFound.title': 'Bu medya artık mevcut değil',
   'error.notFound.message': 'Gönderi silinmiş veya gizli yapılmış olabilir.',
+  'error.streamLink.title': 'Bu yayın linki tek başına açılmıyor',
+  'error.streamLink.message': 'Bu tür linkler çabuk geçersiz olur veya yalnızca kendi sayfasında çalışır. Videoyu tarayıcıda oynatıp eklentiden gönderin.',
   'error.fileMissing.title': 'Dosya taşınmış veya silinmiş',
   'error.fileMissing.message': 'Kaydedildiği yerde artık yok.',
   'error.noMatch.title': 'Bu şarkı bulunamadı',

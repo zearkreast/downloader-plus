@@ -19,6 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::downloader::DownloadPreview;
+use crate::model::CapturedPlaylist;
 
 /// The native messaging host name. Registered under this key for every
 /// supported browser, and named by the extension in `connectNative`.
@@ -35,10 +36,13 @@ pub const HOST_NAME: &str = "com.universaldownloader.bridge.debug";
 /// ignores and a newer peer treats as absent.
 pub const WIRE_VERSION: u32 = 1;
 
-/// Chrome refuses a message larger than 1 MB in either direction. A push of a
-/// full YouTube cookie jar is a few kilobytes, so anything approaching this is
-/// a bug or an attempt to exhaust memory, and is rejected before allocation.
+/// The browser refuses an answer from the host larger than 1 MB.
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
+
+/// The most the extension may send. Chrome allows 64 MiB that way and a film's
+/// playlists take a few, so anything past this is a bug or an attempt to exhaust
+/// memory, and is rejected before allocation.
+pub const MAX_REQUEST_BYTES: usize = 16 * 1024 * 1024;
 
 /// Extension ids the host will talk to.
 ///
@@ -370,6 +374,10 @@ pub struct Download {
     pub user_agent: Option<String>,
     #[serde(default)]
     pub thumbnail: Option<String>,
+    /// What the page's player was answered, for a stream whose playlists
+    /// cannot be asked for again.
+    #[serde(default)]
+    pub playlists: Vec<CapturedPlaylist>,
 }
 
 /// Who is speaking. Present on every request so the host can bind, and check,

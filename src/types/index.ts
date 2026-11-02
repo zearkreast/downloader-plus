@@ -171,6 +171,14 @@ export interface SourceContext {
   /** Only for a link the page fetched by script, where the browser sends one. */
   origin?: string | null;
   userAgent?: string | null;
+  /** What the page's player was answered, for playlists no one can re-read. */
+  playlists?: CapturedPlaylist[];
+}
+
+/** One playlist as the browser received it. */
+export interface CapturedPlaylist {
+  url: string;
+  text: string;
 }
 
 /**
@@ -192,6 +200,7 @@ export interface Handoff {
   origin: string | null;
   userAgent: string | null;
   thumbnail: string | null;
+  playlists?: CapturedPlaylist[];
   /** Seconds since the epoch, stamped by the host. */
   receivedAt: number;
 }

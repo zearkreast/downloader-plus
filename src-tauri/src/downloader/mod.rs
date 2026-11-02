@@ -354,7 +354,7 @@ async fn download_analyzed(
     let mut aggregate = Aggregator::new(plan.estimated_bytes, plan.stage_count());
 
     let produced = if plan.needs_engine {
-        run_via_engine(task_id, &plan, &metadata, &headers, page_url, settings, &control, &mut aggregate, on_update, temp_dir)
+        run_via_engine(task_id, &plan, &metadata, &headers, page_url, request.source.as_ref(), settings, &control, &mut aggregate, on_update, temp_dir)
             .await?
     } else {
         match run_natively(task_id, &plan, &metadata, settings, &control, &mut aggregate, on_update, temp_dir).await {
@@ -370,7 +370,7 @@ async fn download_analyzed(
                 );
                 cleanup_task_files(task_id);
                 aggregate = Aggregator::new(plan.estimated_bytes, 1 + u32::from(plan.convert_to.is_some()));
-                run_via_engine(task_id, &plan, &metadata, &headers, page_url, settings, &control, &mut aggregate, on_update, temp_dir)
+                run_via_engine(task_id, &plan, &metadata, &headers, page_url, request.source.as_ref(), settings, &control, &mut aggregate, on_update, temp_dir)
                     .await
                     // The engine failing here is the same refusal seen from
                     // another angle; the access error is the one that explains
@@ -530,6 +530,7 @@ async fn run_via_engine(
     metadata: &MediaMetadata,
     headers: &[(String, String)],
     page_url: Option<&str>,
+    source: Option<&SourceContext>,
     settings: &Settings,
     control: &Arc<TaskControl>,
     aggregate: &mut Aggregator,
@@ -540,6 +541,10 @@ async fn run_via_engine(
 
     let target = engine_target(plan, metadata, headers);
     let staged = ffmpeg::intermediate_path(temp_dir, task_id, "e", &plan.container);
+    let captured = source
+        .map(|source| providers::captured::prepare(&target.url, source))
+        .transpose()?
+        .flatten();
 
     let mut sink = |sample: http::ProgressSample| {
         let progress = aggregate.sample(&sample);
@@ -559,6 +564,7 @@ async fn run_via_engine(
             headers: &target.headers,
             page_url,
             sound_from_second: target.sound_from_second,
+            info_file: captured.as_ref().map(|file| file.path()),
         },
         settings,
         Arc::clone(control),

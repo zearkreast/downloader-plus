@@ -54,6 +54,7 @@ export function homeFromHandoff(handoff: Handoff, defaults: Defaults): HandoffOn
         referer: handoff.referer || null,
         origin: handoff.origin || null,
         userAgent: handoff.userAgent || null,
+        ...(handoff.playlists?.length ? { playlists: handoff.playlists } : {}),
       },
       title: handoff.title?.trim() || null,
       thumbnail: handoff.thumbnail || null,

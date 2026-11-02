@@ -354,6 +354,18 @@ pub struct SourceContext {
     pub origin: Option<String>,
     #[serde(default)]
     pub user_agent: Option<String>,
+    /// What the page's player was answered, where its playlists cannot be
+    /// asked for again. See [`crate::providers::captured`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub playlists: Vec<CapturedPlaylist>,
+}
+
+/// One playlist as the browser received it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CapturedPlaylist {
+    pub url: String,
+    pub text: String,
 }
 
 impl SourceContext {
@@ -1264,6 +1276,7 @@ mod tests {
             referer: None,
             origin: Some("https://player.example".into()),
             user_agent: Some("Mozilla/5.0".into()),
+            ..SourceContext::default()
         };
         assert_eq!(
             source.headers(),
@@ -1279,6 +1292,7 @@ mod tests {
             referer: Some("https://player.example/".into()),
             origin: Some("https://player.example\r\nCookie: x".into()),
             user_agent: Some("  ".into()),
+            ..SourceContext::default()
         };
         assert_eq!(
             source.headers(),

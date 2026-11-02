@@ -24,7 +24,7 @@ use crate::error::{AppError, AppResult};
 use crate::model::{
     FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, WatermarkSupport,
 };
-use crate::providers::{self, detect};
+use crate::providers::{self, captured, detect};
 use crate::settings::Settings;
 use crate::{bridge, log_debug, logging, net, paths, process, tools};
 
@@ -65,6 +65,13 @@ impl EngineProvider {
         args.push("--ignore-no-formats-error".into());
         args.push("--no-playlist".into());
         args.push("-J".into());
+        let captured = source
+            .map(|source| captured::prepare(url, source))
+            .transpose()?
+            .flatten();
+        if let Some(file) = &captured {
+            args.extend(file.args());
+        }
 
         // The first look at any link is taken with no YouTube or TikTok session
         // behind it, which is why the overwhelming majority of downloads --
@@ -595,7 +602,7 @@ const TIKTOK_SIGN_IN_WALLS: &[&str] = &[
 
 /// What a protection the engine reported is reported against until the caller,
 /// which knows the address, names the site.
-const UNNAMED_SITE: &str = "this site";
+pub(super) const UNNAMED_SITE: &str = "this site";
 
 /// Put the site's name on a protection the engine reported without one. Its
 /// own words never say which site it was reading.
