@@ -1,10 +1,19 @@
 # Universal Downloader
 
-An app for Windows and Android that downloads media from a link. Paste a URL,
-it reads what the source publishes, shows the real qualities on offer, and
-downloads the one you pick. No ads, no account, no telemetry.
+[![Download for Windows](https://img.shields.io/badge/Download-Windows_10%2F11-ff8a4c?style=flat-square&logo=windows)](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64-setup.exe)
+[![Browser extension](https://img.shields.io/badge/Browser_extension-1.0.9-3c3c40?style=flat-square)](#browser-extension)
+[![MIT License](https://img.shields.io/badge/License-MIT-3c3c40?style=flat-square)](LICENSE)
 
-Built with Tauri 2, React 19, TypeScript and Rust.
+Download video, audio and photos from a link, or send what a tab is playing from
+your browser. The app reads what the source publishes, shows the real qualities
+on offer, and downloads the one you pick. No ads, no account, no telemetry.
+
+![The Home screen with a video ready to download](docs/home.png)
+
+Built on [unsalable/downloader](https://github.com/unsalable/downloader) by
+Melih. This repository adds [streams whose links work only inside their
+player](#download-from-a-page) and publishes its own Windows builds. Made with
+Tauri 2, React 19, TypeScript and Rust.
 
 ## Download
 
@@ -34,7 +43,23 @@ The connector sends what a tab is playing to the app. It is not on any store.
 - [`extension-full.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-full.zip) -- Chrome, Edge, Brave, Opera and Vivaldi. Unzip it into a folder you keep, turn on Developer mode on the browser's extensions page, and choose **Load unpacked**.
 - [`extension-firefox.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.zip) -- Firefox. It is not signed by Mozilla, so it loads only as a temporary add-on from `about:debugging`, until Firefox closes.
 
+### Download from a page
+
+Some videos can't be downloaded from their link: the player's stream address
+expires at once or answers only that player. For these, use the extension.
+
+1. Open the page and play the video for a few seconds, at the quality you want.
+2. Press the extension's icon, then **Get** on the video's row.
+3. The app opens with the video. Check the options and start the download.
+
+Keep the tab open until the download has started. Only the quality the player
+loaded can be downloaded, and streams protected by DRM can't be downloaded at
+all.
+
 ### Android
+
+This repository publishes no Android build. The APKs below are the upstream
+project's, and they update from there.
 
 - [`UniversalDownloader_android_arm64.apk`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_android_arm64.apk) -- practically every phone from the last several years. Pick this one if unsure.
 - [`UniversalDownloader_android_armv7.apk`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_android_armv7.apk) -- older 32-bit phones.
@@ -94,6 +119,9 @@ pick Universal Downloader.
   hands one to the app, which opens it on Home. Its picker lets the user click
   the video, sound or picture they mean on the page itself, as an eyedropper
   picks a colour. See [`extension/README.md`](extension/README.md).
+- **Downloads streams a link alone can't open** (Windows). Where a player's
+  playlists take a one-use token, the extension keeps what the player received
+  and the app downloads from that. See [Download from a page](#download-from-a-page).
 
 Recognised sources include YouTube, TikTok, Instagram, X, Reddit, Facebook,
 Twitch, Pinterest, Vimeo, Dailymotion and SoundCloud, plus direct media files
@@ -443,6 +471,10 @@ DNS answers.
 Thumbnails are fetched once, cached on disk and handed to the interface as data
 URLs, so the content-security policy can forbid remote image origins outright
 and re-opening History contacts nobody.
+
+The browser extension sends nothing off your computer. What it reads, including
+the playlists a page's player receives, is listed in
+[`extension/PRIVACY.md`](extension/PRIVACY.md).
 
 ## Licences
 
