@@ -22,7 +22,13 @@ use crate::downloader::DownloadPreview;
 
 /// The native messaging host name. Registered under this key for every
 /// supported browser, and named by the extension in `connectNative`.
+#[cfg(not(feature = "debug-edition"))]
 pub const HOST_NAME: &str = "com.universaldownloader.bridge";
+/// A test copy registers under a name of its own: both copies rewrite their
+/// registry values on every launch, and sharing one name would hand the
+/// installed copy's extension to whichever app started last.
+#[cfg(feature = "debug-edition")]
+pub const HOST_NAME: &str = "com.universaldownloader.bridge.debug";
 
 /// The wire version. Bumped only for a breaking change; `Request` and
 /// `Response` are otherwise extended with optional fields, which an older peer
@@ -78,7 +84,12 @@ pub fn origin_allowed(origin: &str) -> bool {
 /// the listing on addons.mozilla.org and an unpacked copy alike. It is named in
 /// the Firefox host manifest's `allowed_extensions`, the field Firefox reads in
 /// place of Chrome's `allowed_origins`.
+#[cfg(not(feature = "debug-edition"))]
 pub const FIREFOX_EXTENSION_ID: &str = "connector@universaldownloader.app";
+/// Firefox allows one add-on per id, so a test copy loaded beside the one from
+/// addons.mozilla.org needs an id of its own.
+#[cfg(feature = "debug-edition")]
+pub const FIREFOX_EXTENSION_ID: &str = "connector-debug@universaldownloader.app";
 
 /// Whether the browser started this host for one of our extensions, from the
 /// arguments it passed.

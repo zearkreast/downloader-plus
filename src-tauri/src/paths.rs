@@ -10,7 +10,12 @@ use once_cell::sync::OnceCell;
 
 use crate::error::{AppError, AppResult};
 
+#[cfg(not(feature = "debug-edition"))]
 const APP_DIR_NAME: &str = "UniversalDownloader";
+/// A test copy keeps a library, settings and bridge folder of its own, so it
+/// never opens the installed copy's database.
+#[cfg(feature = "debug-edition")]
+const APP_DIR_NAME: &str = "UniversalDownloaderDebug";
 
 static ROOT: OnceCell<PathBuf> = OnceCell::new();
 static DOWNLOADS: OnceCell<PathBuf> = OnceCell::new();
