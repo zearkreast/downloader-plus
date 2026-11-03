@@ -3,6 +3,7 @@ dist
 dist-ssr
 *.local
 .DS_Store
+.claude
 Thumbs.db
 
 # Rust build output and any tool binaries fetched for local testing.
