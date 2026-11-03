@@ -605,9 +605,19 @@
     })),
   });
 
+  /** Whether `url` is on `site` or a subdomain of it. */
+  const onSite = (url, site) => {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return host === site || host.endsWith(`.${site}`);
+    } catch {
+      return false;
+    }
+  };
+
   // A TikTok photo post: five pictures over a soundtrack, for any tiktok.com
   // link with /photo/ in it, as TikTok writes those.
-  const isPhotoPost = (url) => url.includes('tiktok.com/') && url.includes('/photo/');
+  const isPhotoPost = (url) => onSite(url, 'tiktok.com') && url.includes('/photo/');
   const picture = (id) => ({
     ...format(id, 1350, null),
     kind: 'image',
@@ -688,7 +698,7 @@
   });
   // Whichever of the lists above a link opens, for queueing it item by item.
   const galleryFor = (url) =>
-    url.includes('open.spotify.com/')
+    onSite(url, 'open.spotify.com')
       ? spotifyAlbum(url)
       : isPhotoPost(url)
         ? photoPost(url)
@@ -1040,13 +1050,13 @@
           retryable: false,
         };
       }
-      if (url.includes('open.spotify.com/')) return spotifyAlbum(url);
+      if (onSite(url, 'open.spotify.com')) return spotifyAlbum(url);
       if (url.includes('/playlist?list=')) return youtubeList(url);
       if (url.includes('watch?v=listed')) {
         return { ...metadataFor(url), listUrl: 'https://www.youtube.com/playlist?list=PLpreview' };
       }
       if (url.includes('watch?v=anime')) return animeEpisode(url);
-      if (url.includes('tiktok.com/') && url.includes('/video/')) return tiktokVideo(url);
+      if (onSite(url, 'tiktok.com') && url.includes('/video/')) return tiktokVideo(url);
       if (isPhotoPost(url)) return photoPost(url);
       if (isCarousel(url)) return carousel(url);
       return metadataFor(url);
