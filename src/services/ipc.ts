@@ -150,6 +150,8 @@ export const cancelDownload = (id: string) => invoke<void>('cancel_download', { 
 export const retryDownload = (id: string) => invoke<void>('retry_download', { id });
 export const removeDownload = (id: string) => invoke<void>('remove_download', { id });
 export const pauseAllDownloads = () => invoke<void>('pause_all_downloads');
+export const hostLimitCount = () => invoke<number>('host_limit_count');
+export const forgetHostLimits = () => invoke<void>('forget_host_limits');
 export const queueOutlook = () => invoke<QueueOutlook>('queue_outlook');
 export const runOutsideSchedule = () => invoke<void>('run_outside_schedule');
 export const setAfterQueue = (after: AfterQueue) => invoke<void>('set_after_queue', { after });

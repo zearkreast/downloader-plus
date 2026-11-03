@@ -329,6 +329,10 @@ export const en = {
   'settings.connections': 'Connections per download',
   'settings.connectionsHint':
     'Large files are split into pieces fetched in parallel when the host allows it. More connections are usually faster.',
+  'settings.hostLimits': 'Hosts with fewer connections',
+  'settings.hostLimitsHint':
+    '{n} hosts turned connections away, so they are asked for fewer. This wears off after a month.',
+  'settings.hostLimitsReset': 'Reset',
   'settings.speedLimit': 'Speed limit',
   'settings.speedLimitHint': 'The most all downloads may take together. Leaves room for everything else on your connection.',
   'settings.speedLimitOff': 'No limit',

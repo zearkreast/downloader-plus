@@ -182,6 +182,21 @@ async fn fetch_limited<F>(
     connections: u32,
     throttle: Option<&Throttle>,
     control: Arc<TaskControl>,
+    sink: F,
+) -> Result<u64, universal_downloader_lib::error::AppError>
+where
+    F: FnMut(http::ProgressSample) + Send,
+{
+    fetch_noting(url, target, connections, throttle, None, control, sink).await
+}
+
+async fn fetch_noting<F>(
+    url: &str,
+    target: &std::path::Path,
+    connections: u32,
+    throttle: Option<&Throttle>,
+    host_accepts: Option<&(dyn Fn(u32) + Send + Sync)>,
+    control: Arc<TaskControl>,
     mut sink: F,
 ) -> Result<u64, universal_downloader_lib::error::AppError>
 where
@@ -197,6 +212,7 @@ where
             low_resource: false,
             connections,
             throttle,
+            host_accepts,
         },
         control,
         &mut sink,
@@ -363,6 +379,39 @@ async fn a_host_that_refuses_extra_connections_still_gets_the_file_finished() {
 
     assert_eq!(written as usize, BODY_LEN);
     assert_eq!(std::fs::read(&target).unwrap(), body());
+    std::fs::remove_file(&target).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_host_that_turned_connections_away_is_told_on_and_one_that_did_not_is_not() {
+    let noted = Arc::new(Mutex::new(Vec::new()));
+    let note = {
+        let noted = Arc::clone(&noted);
+        move |worked: u32| noted.lock().unwrap().push(worked)
+    };
+
+    let server = start_server(Config {
+        cap: Some(2),
+        delay: Duration::from_millis(30),
+    });
+    let target = scratch("seg-noted.bin");
+    fetch_noting(&server.url(), &target, 8, None, Some(&note), TaskControl::shared(), |_| {})
+        .await
+        .expect("the connections that were let in should finish the job");
+    assert_eq!(std::fs::read(&target).unwrap(), body());
+
+    let told = noted.lock().unwrap().clone();
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!((2..8).contains(&told[0]), "{told:?}");
+    std::fs::remove_file(&target).unwrap();
+
+    noted.lock().unwrap().clear();
+    let open = start_server(quick());
+    let target = scratch("seg-not-noted.bin");
+    fetch_noting(&open.url(), &target, 4, None, Some(&note), TaskControl::shared(), |_| {})
+        .await
+        .unwrap();
+    assert!(noted.lock().unwrap().is_empty());
     std::fs::remove_file(&target).unwrap();
 }
 

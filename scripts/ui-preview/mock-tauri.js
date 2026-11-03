@@ -1187,6 +1187,8 @@
       tasks = tasks.filter((entry) => entry.id !== id);
       changed();
     },
+    host_limit_count: () => (params.has('hosts') ? 3 : 0),
+    forget_host_limits: () => null,
     queue_outlook: () => outlook,
     run_outside_schedule: () => {
       outlook = { ...outlook, heldUntil: null };

@@ -552,6 +552,8 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
           }
         />
 
+        <HostLimitsRow />
+
         <SettingRow
           title={t('settings.speedLimit')}
           description={t('settings.speedLimitHint')}
@@ -644,6 +646,35 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
         />
       </SettingGroup>
     </>
+  );
+}
+
+/** Shown only once a host has turned connections away, and until that is reset. */
+function HostLimitsRow() {
+  const { t } = useTranslation();
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    ipc.hostLimitCount().then(setCount).catch(() => {});
+  }, []);
+  if (count === 0) return null;
+
+  return (
+    <SettingRow
+      title={t('settings.hostLimits')}
+      description={t('settings.hostLimitsHint', { n: count })}
+      control={
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setCount(0);
+            void ipc.forgetHostLimits();
+          }}
+        >
+          {t('settings.hostLimitsReset')}
+        </Button>
+      }
+    />
   );
 }
 

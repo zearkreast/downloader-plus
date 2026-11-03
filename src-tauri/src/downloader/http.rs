@@ -77,6 +77,8 @@ pub struct FetchOptions<'a> {
     pub connections: u32,
     /// The budget to draw on. `None` is no limit.
     pub throttle: Option<&'a Throttle>,
+    /// Told how many connections a host served when it turned some away.
+    pub host_accepts: Option<&'a (dyn Fn(u32) + Send + Sync)>,
 }
 
 /// Outcome of one ranged request.

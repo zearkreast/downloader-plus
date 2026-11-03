@@ -23,6 +23,7 @@
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -315,6 +316,8 @@ struct Shared<'a> {
     control: &'a TaskControl,
     request_bytes: u64,
     throttle: Option<&'a Throttle>,
+    /// Connections refused that never got to serve a byte.
+    turned_away: AtomicU32,
 }
 
 impl Shared<'_> {
@@ -421,6 +424,7 @@ pub async fn fetch(
             REQUEST_BYTES
         },
         throttle: options.throttle,
+        turned_away: AtomicU32::new(0),
     };
 
     let start_received = shared.board().received();
@@ -478,6 +482,15 @@ pub async fn fetch(
     }
     drop(workers);
 
+    // Every connection refused says nothing about how many the host takes:
+    // that is a network going down as often as a host saying no.
+    let turned_away = shared.turned_away.load(Ordering::Relaxed);
+    if turned_away > 0 && turned_away < connections {
+        if let Some(accepts) = options.host_accepts {
+            accepts(connections - turned_away);
+        }
+    }
+
     let (complete, segments, map) = {
         let board = shared.board();
         (board.complete(), board.segments(), board.progress())
@@ -503,9 +516,31 @@ pub async fn fetch(
     Ok(Some(total))
 }
 
-/// One connection: claim a segment, fill it, claim the next, until nothing is
-/// left that is worth taking.
+#[derive(Default)]
+struct Connection {
+    served: bool,
+    refused: bool,
+}
+
+/// One connection, and whether the host let it in.
 async fn worker(id: usize, shared: &Shared<'_>) -> AppResult<()> {
+    let mut connection = Connection::default();
+    let result = fill_segments(id, shared, &mut connection).await;
+    if connection.refused && !connection.served {
+        shared.turned_away.fetch_add(1, Ordering::Relaxed);
+    }
+    result
+}
+
+/// Too many connections reach a host's limit as a refused or dropped one, or
+/// as one of the two statuses that mean "not now".
+fn is_refusal(err: &AppError) -> bool {
+    matches!(err, AppError::Network(_) | AppError::Forbidden { status: 429, .. })
+}
+
+/// Claim a segment, fill it, claim the next, until nothing is left that is
+/// worth taking.
+async fn fill_segments(id: usize, shared: &Shared<'_>, connection: &mut Connection) -> AppResult<()> {
     let mut attempt = 0u32;
     loop {
         if shared.control.interrupted() {
@@ -521,11 +556,13 @@ async fn worker(id: usize, shared: &Shared<'_>) -> AppResult<()> {
 
         if written > 0 {
             attempt = 0;
+            connection.served = true;
         }
         match result {
             Ok(()) => {}
             Err(AppError::Canceled) => return Err(AppError::Canceled),
             Err(err) => {
+                connection.refused |= is_refusal(&err);
                 attempt += 1;
                 // The others may still finish; this one steps aside, and its
                 // segment goes back on the board for them.
@@ -830,6 +867,15 @@ mod tests {
         assert_eq!(board.claim(0), Some(1));
         assert_eq!(board.claim(1), Some(2));
         assert_eq!(board.claim(2), Some(0));
+    }
+
+    #[test]
+    fn a_full_host_is_told_apart_from_one_that_says_no() {
+        assert!(is_refusal(&AppError::from_status(503, "busy")));
+        assert!(is_refusal(&AppError::from_status(429, "slow down")));
+        assert!(is_refusal(&AppError::Network("connection reset".into())));
+        assert!(!is_refusal(&AppError::from_status(403, "forbidden")));
+        assert!(!is_refusal(&AppError::from_status(404, "gone")));
     }
 
     #[test]

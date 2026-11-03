@@ -11,6 +11,7 @@
 
 pub mod control;
 pub mod engine_dl;
+pub mod host_limits;
 pub mod http;
 pub mod plan;
 pub mod segmented;
@@ -777,6 +778,7 @@ async fn fetch_format(
         let progress = aggregate.sample(&sample);
         on_update(progress);
     };
+    let host_accepts = |worked: u32| host_limits::note(url, worked);
 
     http::fetch(
         client,
@@ -785,8 +787,9 @@ async fn fetch_format(
             headers: &headers,
             target,
             low_resource: settings.low_resource_mode,
-            connections: settings.connections_per_download,
+            connections: host_limits::allowed(url, settings.connections_per_download),
             throttle: Some(throttle::shared()),
+            host_accepts: Some(&host_accepts),
         },
         Arc::clone(control),
         &mut sink,

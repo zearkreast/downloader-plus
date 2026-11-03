@@ -476,6 +476,17 @@ pub fn remove_download(state: State<'_, AppState>, id: String) {
     state.queue.remove(&id);
 }
 
+/// How many hosts are being held to fewer connections than the setting.
+#[tauri::command]
+pub fn host_limit_count() -> u32 {
+    downloader::host_limits::count()
+}
+
+#[tauri::command]
+pub fn forget_host_limits() {
+    downloader::host_limits::forget_all();
+}
+
 #[tauri::command]
 pub fn queue_outlook(state: State<'_, AppState>) -> crate::queue::QueueOutlook {
     state.queue.outlook()

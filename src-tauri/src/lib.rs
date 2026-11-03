@@ -256,6 +256,8 @@ pub fn run() {
             commands::cancel_download,
             commands::retry_download,
             commands::remove_download,
+            commands::host_limit_count,
+            commands::forget_host_limits,
             commands::queue_outlook,
             commands::run_outside_schedule,
             commands::set_after_queue,

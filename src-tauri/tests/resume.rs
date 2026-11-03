@@ -175,6 +175,7 @@ where
             // split one has tests/segmented.rs.
             connections: 1,
             throttle: None,
+            host_accepts: None,
         },
         control,
         &mut sink,
