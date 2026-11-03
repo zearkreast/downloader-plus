@@ -26,7 +26,7 @@ import {
   pickedOf,
   pickedPositions,
 } from '@/lib/gallerySelection';
-import { formatDate } from '@/lib/format';
+import { formatDay } from '@/lib/format';
 import { COLLAPSE, FADE, RISE, T, rise } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import { normalizeUrl } from '@/lib/url';
@@ -512,7 +512,7 @@ export function HomePage({
                     {alreadyHave.queued
                       ? t('preview.alreadyQueued')
                       : t('preview.alreadyDownloaded', {
-                          date: formatDate(alreadyHave.downloadedAt ?? 0, language),
+                          date: formatDay(alreadyHave.downloadedAt ?? 0, language),
                         })}
                   </span>
                   {alreadyHave.filePath && !alreadyHave.queued && (

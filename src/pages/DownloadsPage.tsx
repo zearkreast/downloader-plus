@@ -161,10 +161,10 @@ function QueueBar({ tasks }: { tasks: DownloadTask[] }) {
   const { t } = useTranslation();
   const outlook = useQueueStore((state) => state.outlook);
   const inFlight = selectInFlightCount(tasks) > 0;
-  const waiting = tasks.some((task) => task.status === 'queued');
-  if (!inFlight) return null;
+  const held = outlook.heldUntil != null && tasks.some((task) => task.status === 'queued');
+  // A phone has only the first of the two to show.
+  if (!inFlight || (IS_MOBILE && !held)) return null;
 
-  const held = outlook.heldUntil != null && waiting;
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
       {held && (

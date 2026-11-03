@@ -496,7 +496,8 @@ Android, in the app's private storage):
 
 ```
 library.db     settings, history and the durable queue (SQLite, WAL)
-host-limits.json  hosts that turned connections away, and how many they took
+host-limits.json
+               hosts that turned connections away, and how many they took
 tools/         managed copies of yt-dlp and ffmpeg
 cache/         thumbnails, bounded by the configured cache limit
 temp/          in-flight downloads; a finished file is moved out

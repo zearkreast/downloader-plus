@@ -585,7 +585,10 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
                 <TextInput
                   type="time"
                   value={settings.scheduleStart}
-                  onChange={(event) => void update({ scheduleStart: event.target.value })}
+                  onChange={(event) => {
+                    // A time being typed reads as empty until it is whole.
+                    if (event.target.value) void update({ scheduleStart: event.target.value });
+                  }}
                   aria-label={t('settings.scheduleStart')}
                 />
                 <span className="text-fg-muted" aria-hidden="true">
@@ -594,7 +597,9 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
                 <TextInput
                   type="time"
                   value={settings.scheduleEnd}
-                  onChange={(event) => void update({ scheduleEnd: event.target.value })}
+                  onChange={(event) => {
+                    if (event.target.value) void update({ scheduleEnd: event.target.value });
+                  }}
                   aria-label={t('settings.scheduleEnd')}
                 />
               </div>
