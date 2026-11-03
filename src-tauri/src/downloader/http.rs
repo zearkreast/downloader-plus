@@ -29,6 +29,7 @@ use reqwest::StatusCode;
 use crate::downloader::control::TaskControl;
 use crate::downloader::speed::SpeedTracker;
 use crate::downloader::segmented;
+use crate::downloader::throttle::Throttle;
 use crate::error::{AppError, AppResult};
 use crate::model::SegmentProgress;
 use crate::{log_debug, log_warn};
@@ -74,6 +75,8 @@ pub struct FetchOptions<'a> {
     /// How many connections the transfer may open. One keeps it on the
     /// single-connection path.
     pub connections: u32,
+    /// The budget to draw on. `None` is no limit.
+    pub throttle: Option<&'a Throttle>,
 }
 
 /// Outcome of one ranged request.
@@ -318,6 +321,9 @@ async fn fetch_span(
         if window_closed || last_emit.elapsed() >= Duration::from_millis(500) {
             emit(on_progress, tracker, total, resumable);
             *last_emit = Instant::now();
+        }
+        if let Some(throttle) = options.throttle {
+            throttle.pace(chunk.len(), control).await;
         }
     }
 

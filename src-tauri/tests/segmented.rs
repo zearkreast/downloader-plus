@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use universal_downloader_lib::downloader::control::TaskControl;
+use universal_downloader_lib::downloader::throttle::Throttle;
 use universal_downloader_lib::downloader::{http, segmented};
 use universal_downloader_lib::net;
 use universal_downloader_lib::settings::Settings;
@@ -167,6 +168,20 @@ async fn fetch<F>(
     target: &std::path::Path,
     connections: u32,
     control: Arc<TaskControl>,
+    sink: F,
+) -> Result<u64, universal_downloader_lib::error::AppError>
+where
+    F: FnMut(http::ProgressSample) + Send,
+{
+    fetch_limited(url, target, connections, None, control, sink).await
+}
+
+async fn fetch_limited<F>(
+    url: &str,
+    target: &std::path::Path,
+    connections: u32,
+    throttle: Option<&Throttle>,
+    control: Arc<TaskControl>,
     mut sink: F,
 ) -> Result<u64, universal_downloader_lib::error::AppError>
 where
@@ -181,6 +196,7 @@ where
             target,
             low_resource: false,
             connections,
+            throttle,
         },
         control,
         &mut sink,
@@ -294,6 +310,43 @@ async fn an_interrupted_split_download_resumes_where_each_piece_stopped() {
     assert_eq!(last as usize, BODY_LEN);
     assert_eq!(std::fs::read(&target).unwrap(), body(), "the stitched file is corrupt");
     std::fs::remove_file(&target).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_limit_holds_across_every_connection_of_a_download() {
+    let server = start_server(quick());
+    let target = scratch("limited.bin");
+    let size = body().len() as u64;
+
+    // Two seconds' worth of file, whatever the connections do between them.
+    let throttle = Throttle::new(size / 2);
+    let started = std::time::Instant::now();
+    let written = fetch_limited(&server.url(), &target, 4, Some(&throttle), TaskControl::shared(), |_| {})
+        .await
+        .unwrap();
+    let took = started.elapsed();
+
+    assert_eq!(written, size);
+    assert_eq!(std::fs::read(&target).unwrap(), body());
+    assert!(took >= Duration::from_millis(1800), "finished in {took:?}");
+    let _ = std::fs::remove_file(&target);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_pause_gets_through_a_limit() {
+    let server = start_server(quick());
+    let target = scratch("limited-paused.bin");
+    let size = body().len() as u64;
+
+    let throttle = Throttle::new(size / 60);
+    let control = TaskControl::shared();
+    cancel_after(&control, Duration::from_millis(400));
+    let started = std::time::Instant::now();
+    let result = fetch_limited(&server.url(), &target, 4, Some(&throttle), control, |_| {}).await;
+
+    assert!(result.is_err());
+    assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
+    http::discard_partial(&target);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

@@ -35,6 +35,7 @@ use serde::{Deserialize, Serialize};
 use crate::downloader::control::TaskControl;
 use crate::downloader::http::{self, FetchOptions, ProgressSample};
 use crate::downloader::speed::SpeedTracker;
+use crate::downloader::throttle::Throttle;
 use crate::error::{AppError, AppResult};
 use crate::model::SegmentProgress;
 use crate::{log_debug, log_info, log_warn};
@@ -313,6 +314,7 @@ struct Shared<'a> {
     board: &'a Mutex<Board>,
     control: &'a TaskControl,
     request_bytes: u64,
+    throttle: Option<&'a Throttle>,
 }
 
 impl Shared<'_> {
@@ -418,6 +420,7 @@ pub async fn fetch(
         } else {
             REQUEST_BYTES
         },
+        throttle: options.throttle,
     };
 
     let start_received = shared.board().received();
@@ -602,6 +605,9 @@ async fn fill(slot: usize, shared: &Shared<'_>, written: &mut u64) -> AppResult<
                     // The rest of this response belongs to someone else.
                     return Ok(());
                 }
+            }
+            if let Some(throttle) = shared.throttle {
+                throttle.pace(chunk.len(), shared.control).await;
             }
         }
 

@@ -88,6 +88,7 @@ pub async fn save_settings(
     state.db.save_settings(&settings)?;
 
     logging::set_debug_enabled(settings.debug_logging);
+    downloader::throttle::shared().set(settings.speed_limit_bytes());
 
     // Anything that changes how requests are made invalidates the pooled client.
     if previous.proxy_url != settings.proxy_url

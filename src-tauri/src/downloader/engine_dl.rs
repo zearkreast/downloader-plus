@@ -262,6 +262,15 @@ fn transfer_args(settings: &Settings, sectioned: bool) -> Vec<String> {
     if sectioned {
         return args;
     }
+    // The engine is outside the app's shared budget and limits each of its
+    // connections, not the run. So one connection, on the share of the limit
+    // that leaves room for as many runs as may be going at once.
+    if settings.speed_limit_kb > 0 {
+        let share = settings.speed_limit_kb / settings.max_concurrent_downloads.max(1);
+        args.push("--limit-rate".into());
+        args.push(format!("{}K", share.max(1)));
+        return args;
+    }
     if settings.connections_per_download > 1 && !settings.low_resource_mode {
         args.push("--concurrent-fragments".into());
         args.push(settings.connections_per_download.to_string());
@@ -651,6 +660,20 @@ fn parse_number(value: &str) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_limit_gives_each_run_one_connection_and_a_share() {
+        let settings = Settings {
+            connections_per_download: 8,
+            max_concurrent_downloads: 3,
+            ..Settings::default()
+        };
+        assert_eq!(transfer_args(&settings, false), ["--concurrent-fragments", "8"]);
+
+        let limited = Settings { speed_limit_kb: 3000, ..settings };
+        assert_eq!(transfer_args(&limited, false), ["--limit-rate", "1000K"]);
+        assert!(transfer_args(&limited, true).is_empty(), "FFmpeg takes neither option");
+    }
 
     fn options(section: Option<KeptRange>, force_keyframes: bool) -> EngineDownload<'static> {
         EngineDownload {

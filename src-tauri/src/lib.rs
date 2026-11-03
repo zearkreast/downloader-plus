@@ -96,6 +96,7 @@ pub fn run() {
             let database = Arc::new(Database::open(&paths::database_path()?)?);
             let loaded = database.load_settings().unwrap_or_default();
             logging::set_debug_enabled(loaded.debug_logging);
+            downloader::throttle::shared().set(loaded.speed_limit_bytes());
             log_info!("app", "starting version {}", app.package_info().version);
 
             let settings = Arc::new(Mutex::new(loaded.clone()));

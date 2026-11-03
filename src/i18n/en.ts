@@ -317,6 +317,9 @@ export const en = {
   'settings.connections': 'Connections per download',
   'settings.connectionsHint':
     'Large files are split into pieces fetched in parallel when the host allows it. More connections are usually faster.',
+  'settings.speedLimit': 'Speed limit',
+  'settings.speedLimitHint': 'The most all downloads may take together. Leaves room for everything else on your connection.',
+  'settings.speedLimitOff': 'No limit',
   'settings.embedMetadata': 'Write details into the file',
   'settings.embedMetadataHint':
     'Adds the title, creator, chapters and, where the format allows, a cover. Needs FFmpeg.',

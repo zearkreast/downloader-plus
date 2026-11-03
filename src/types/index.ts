@@ -653,6 +653,8 @@ export interface Settings {
   connectionsPerDownload: number;
   /** Write tags, a cover and chapters into a finished file. */
   embedMetadata: boolean;
+  /** The most all downloads together may take, in KB/s. Zero is no limit. */
+  speedLimitKb: number;
 
   // Appearance
   theme: ThemePreference;

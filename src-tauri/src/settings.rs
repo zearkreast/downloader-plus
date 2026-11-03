@@ -77,6 +77,10 @@ pub struct Settings {
     /// Write tags, a cover and chapters into a finished file.
     #[serde(default = "default_true")]
     pub embed_metadata: bool,
+    /// The most all downloads together may take, in kilobytes a second. Zero
+    /// is no limit.
+    #[serde(default)]
+    pub speed_limit_kb: u32,
 
     // Appearance
     pub theme: ThemePreference,
@@ -142,6 +146,7 @@ impl Default for Settings {
             filename_template: DEFAULT_FILENAME_TEMPLATE.to_string(),
             connections_per_download: default_connections(),
             embed_metadata: default_true(),
+            speed_limit_kb: 0,
 
             // A phone opens in the phone's own theme, so a light phone's first
             // run is not a dark film. The desktop keeps the dark it has had.
@@ -179,6 +184,10 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub fn speed_limit_bytes(&self) -> u64 {
+        u64::from(self.speed_limit_kb) * 1024
+    }
+
     /// Clamp anything that could destabilise the app if a stale or hand-edited
     /// config carried an out-of-range value.
     pub fn sanitize(&mut self) {

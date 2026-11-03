@@ -16,6 +16,7 @@ pub mod plan;
 pub mod segmented;
 pub mod speed;
 pub mod subtitles;
+pub mod throttle;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -785,6 +786,7 @@ async fn fetch_format(
             target,
             low_resource: settings.low_resource_mode,
             connections: settings.connections_per_download,
+            throttle: Some(throttle::shared()),
         },
         Arc::clone(control),
         &mut sink,
