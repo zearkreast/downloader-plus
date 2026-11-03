@@ -38,7 +38,7 @@ other. A failed build stops the whole run, and the tag stays where it was.
 ## The release page
 
 Each run writes the release's title and page. The page is
-`.github/release-template.md`, filled in by `scripts/release-notes.mjs`: the
+`.github/release-template.md`, filled in by `scripts/release/notes.mjs`: the
 version, download buttons, screenshots from `docs/screens/`, install steps
 for each platform, and what is new.
 
@@ -50,7 +50,7 @@ neither, the page points at the commits.
 To see the page before a run:
 
 ```bash
-node scripts/release-notes.mjs > notes.md
+node scripts/release/notes.mjs > notes.md
 ```
 
 The run also tags the commit `v<version>`, unless that tag already exists.

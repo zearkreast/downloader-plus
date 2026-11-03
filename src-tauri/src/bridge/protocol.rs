@@ -192,7 +192,7 @@ impl Site {
 /// on its own.
 ///
 /// A heuristic, and deliberately the same one `registrableDomain` in
-/// `extension/sessions.js` uses, so the domain the extension reads cookies for
+/// `extension/src/sessions.js` uses, so the domain the extension reads cookies for
 /// is the domain this side accepts: the last two labels, or the last three
 /// when the second-to-last is one of the generic second levels a country code
 /// puts under itself (`co.uk`, `com.tr`, `ac.jp`). A full public suffix list

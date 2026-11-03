@@ -1,5 +1,5 @@
 # The private half of the extension signing key, written by
-# scripts/extension-key.mjs. Whoever holds it can publish an update that Chrome
+# scripts/extension/key.mjs. Whoever holds it can publish an update that Chrome
 # accepts as this extension.
 key.pem
 

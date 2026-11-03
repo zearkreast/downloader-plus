@@ -3,7 +3,7 @@
 //! Some players ask for their playlists with a token good for that one
 //! request, so the address alone is a 404 to everyone after them: the app, the
 //! engine, and the extension itself. The extension keeps what the player was
-//! answered (see `extension/page-playlists.js`), and here that text becomes the
+//! answered (see `extension/src/page-playlists.js`), and here that text becomes the
 //! engine's input. `hls_media_playlist_data` on a format is read in place of
 //! the format's address, so the engine asks for the segments and nothing else.
 //!
@@ -276,7 +276,7 @@ fn seconds_of(text: &str) -> f64 {
         .sum()
 }
 
-/// DRM, the counterpart of `drmKey` in extension/media.js. AES-128 is plain HLS:
+/// DRM, the counterpart of `drmKey` in extension/src/media.js. AES-128 is plain HLS:
 /// its key is an ordinary request.
 fn is_protected(text: &str) -> bool {
     text.lines()

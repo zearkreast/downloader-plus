@@ -5,41 +5,62 @@ its files. For using the app, see the [README](../README.md).
 
 ## Architecture
 
+UMD+ is a Tauri 2 app. A React interface (`src/`) talks to a Rust core
+(`src-tauri/`) over Tauri's IPC, and only through `src/services/ipc.ts`. The
+same core and interface make the Android app; a browser extension
+(`extension/`) hands links and sessions to the desktop app over native
+messaging.
+
 ```
-src/                     React front end
-  components/ui/         Design-system primitives
-  components/home/       Analyse, preview and download options
-  components/downloads/  Queue cards
-  components/history/    History rows, clearing it, recent downloads
-  components/editor/     The editor's preview, timeline and inspector
-  components/settings/   Tool cards, hotkey recorder, browser link
-  components/convert/    Conversion job rows
-  components/intro/      The phone's first-run film (Remotion)
-  pages/                 Home, Downloads, Editor, Convert, History, Settings, About
-  stores/                Zustand stores (settings, queue, convert, editor,
-                         tools, analysis, update)
-  services/ipc.ts        The only place that calls `invoke`
-  lib/                   Pure helpers (formatting, URLs, option derivation)
-  i18n/                  English source dictionary + Turkish translation;
-                         a first launch takes the system's language
+src/                       React interface
+  App.tsx, main.tsx        The shell: routing between screens, shortcuts, overlays
+  pages/                   One per screen: Home, Downloads, Editor, Convert,
+                           History, Settings, About
+  components/ui/           Design-system primitives (buttons, menus, dialogs)
+  components/layout/       Sidebar, phone tab bar, top bar, background, the mark
+  components/home/         Analyse, preview and download options
+  components/downloads/    Queue rows and the detail window
+  components/history/      History rows, clearing it, recent downloads
+  components/editor/       The editor's preview, timeline and inspector
+  components/convert/      Conversion job rows
+  components/settings/     Tool cards, hotkey recorder, browser link
+  components/intro/        First run: the phone's film (Remotion), the
+                           desktop's welcome
+  components/updates/      The update prompt and the silent desktop updater
+  stores/                  Zustand stores (settings, queue, convert, editor,
+                           tools, analysis, update)
+  services/ipc.ts          The only place that calls `invoke`
+  lib/                     Pure helpers (formatting, URLs, option derivation),
+                           tested beside them
+  hooks/                   Shared React hooks
+  i18n/                    English source dictionary + Turkish translation;
+                           a first launch takes the system's language
+  styles/globals.css       Design tokens and the few global classes
 
-src-tauri/src/           Rust core
-  providers/             Source adapters and URL classification
-  downloader/            Planning, HTTP transfer, control, speed smoothing
-  queue.rs               Scheduling, retries, persistence, progress events
-  ffmpeg.rs              Merging and conversion during a download
-  converter.rs           Probing and converting files already on disk
-  export.rs              The editor's cuts, joined into one file
-  range.rs               Fetching only a piece of a link for the editor
-  editor_media.rs        The editor timeline's waveform and frame strip
-  bridge/                The browser link: native messaging host, handoffs,
-                         lent sessions (bin/ud-bridge.rs is the host)
-  updater.rs             Finding and installing a newer build
-  tools.rs               Discovery and installation of the external tools
-  db.rs                  SQLite: settings, history, durable queue
-  commands.rs            The IPC surface
+src-tauri/                 Rust core and the native projects
+  src/lib.rs               Wiring: what starts once, in what order
+  src/commands.rs          The IPC surface: every command the interface calls
+  src/providers/           Reading a link: source adapters and URL detection
+  src/downloader/          Getting the file: planning, HTTP and segmented
+                           transfer, control, speed, the queue and its schedule
+  src/media/               Everything FFmpeg: merging, converting, the editor's
+                           export, range fetches, timeline waveforms and frames
+  src/bridge/              The browser link: native messaging host, handoffs,
+                           lent sessions (src/bin/ud-bridge.rs is the host)
+  src/tools.rs             Finding and installing yt-dlp, FFmpeg and Deno
+  src/updater.rs           Finding and installing a newer build
+  src/db.rs, cache.rs      SQLite (settings, history, durable queue), thumbnails
+  src/android.rs           What only the phone does (see below)
+  tests/                   Integration tests against local servers, and the
+                           online ones
+  gen/android/             The Android project (Gradle, Kotlin plugin)
+  capabilities/            What the interface may ask of Tauri
+  tauri.conf.json          App, window and installer settings
 
-extension/               The browser extension (see its own README)
+extension/                 The browser extension: what ships in src/, its tests,
+                           its store listing (see extension/README.md)
+scripts/                   Tools for working on it (see scripts/README.md)
+packaging/arch/            The Arch Linux package
 ```
 
 ### Provider architecture
@@ -152,9 +173,10 @@ byte counts either way.
 
 ### The conversion path
 
-`converter.rs` starts from a local file rather than a URL, but reuses the same
-machinery: FFmpeg is driven through `ffmpeg::run_with_progress`, and a job is
-interrupted through the same `TaskControl` a download uses.
+`media/converter.rs` starts from a local file rather than a URL, but reuses
+the same machinery: FFmpeg is driven through `ffmpeg::run_with_progress`
+(`media/ffmpeg.rs`), and a job is interrupted through the same `TaskControl`
+a download uses.
 
 Each job runs up to three passes, stopping at the first that produces a file:
 
@@ -187,7 +209,7 @@ Three rules the codebase holds to:
   over IPC rather than keeping a second copy of the host patterns.
 - Format selection lives only in `downloader/plan.rs`. The options panel calls
   it rather than re-deriving the same rules in TypeScript.
-- The set of conversion targets lives only in `converter.rs`. The Convert screen
+- The set of conversion targets lives only in `media/converter.rs`. The Convert screen
   fetches it (`convert_formats`) rather than listing formats a second time, so
   it cannot offer one the backend would refuse.
 
@@ -210,12 +232,19 @@ npm run app:build      # production build + NSIS installer
 npm run android:build  # signed release APKs for arm64, armv7 and x86_64
 npm run android:dev    # run on a connected phone or emulator
 npm run test:web       # front-end unit tests (Vitest)
+npm run test:extension # the browser extension's tests (node --test)
 npm run test:rust      # Rust unit and hermetic integration tests
 npm run test:python    # the DNS fallback the phone app loads into yt-dlp
 npm run test:online    # network tests (installs the engine, downloads real files)
 npm run test:all       # build, then the web, Rust and Python tests
 npm run lint:rust      # clippy, warnings denied
+npm run ui:preview     # the interface in a browser, on a mocked backend
+npm run extension:pack # the extension's store, full and Firefox zips
+npm run release:notes  # the release page's text, for a look before a release
 ```
+
+Everything under `scripts/` is listed, with what it is for, in
+[scripts/README.md](../scripts/README.md).
 
 The Android build needs JDK 17, the Android SDK with NDK r29, and the Rust
 targets `aarch64-linux-android`, `armv7-linux-androideabi` and
@@ -250,9 +279,9 @@ catches up.
 - `src/**/*.test.ts` — front-end unit tests (Vitest) for the pure helpers and
   stores: option derivation, the editor's segments and bitrates, settings,
   hand-offs, recent downloads.
-- `scripts/extension/` — the browser extension's tests, `node --test
-  scripts/extension/`, kept outside `extension/` so the store package never
-  carries them.
+- `extension/tests/` — the browser extension's tests, `npm run
+  test:extension`, kept outside `extension/src/` so no package ever carries
+  them.
 - `src-tauri/src/**` — unit tests next to the code they cover: URL
   classification, format selection, file naming, speed smoothing, pause/cancel
   signalling, engine output parsing, FFmpeg argument construction.
@@ -270,38 +299,46 @@ catches up.
   on each platform and download real pictures through the queue's own path,
   plus a check that videos on the same platforms still go to the engine.
 
-### Driving the UI during development
+### Looking at the interface without the app
 
-`scripts/drive-ui.mjs` talks to the running app's WebView over the Chrome
+`npm run ui:preview` serves the real interface at http://localhost:1430 with
+`scripts/dev/ui-preview/mock-tauri.js` standing in for the Rust side, so every
+screen can be looked at and clicked through without building it. Add
+`?platform=android` for the phone, `?theme=light`, or `?lang=en`; the header of
+`mock-tauri.js` lists the other switches.
+
+### Driving the running app
+
+`scripts/dev/drive-ui.mjs` talks to the running app's WebView over the Chrome
 DevTools Protocol, so real flows can be exercised against the real backend:
 
 ```bash
 WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \
   ./src-tauri/target/debug/universal-downloader.exe &
 
-node scripts/drive-ui.mjs type "https://..."
-node scripts/drive-ui.mjs press Enter
-node scripts/drive-ui.mjs wait "text==Download" 30000
-node scripts/drive-ui.mjs click "text==Download"
-node scripts/drive-ui.mjs text
+node scripts/dev/drive-ui.mjs type "https://..."
+node scripts/dev/drive-ui.mjs press Enter
+node scripts/dev/drive-ui.mjs wait "text==Download" 30000
+node scripts/dev/drive-ui.mjs click "text==Download"
+node scripts/dev/drive-ui.mjs text
 ```
 
-`scripts/capture_window.ps1` captures the window to a PNG (via `PrintWindow`
+`scripts/dev/capture-window.ps1` captures the window to a PNG (via `PrintWindow`
 with `PW_RENDERFULLCONTENT`, which a plain screen copy would render black).
 
 ### Generated assets
 
 ```bash
-python scripts/generate_icon.py       # the mark, flat on transparency, at 1024
-node extension/make-icons.mjs         # the extension's toolbar icons
+python scripts/generate/icon.py               # the mark, flat on transparency, at 1024
+node scripts/extension/make-icons.mjs         # the extension's toolbar icons
 npx tauri icon src-tauri/icons/app-icon.json -o src-tauri/icons
-python scripts/generate_licenses.py   # third-party licence list for About
+python scripts/generate/licenses.py           # third-party licence list for About
 ```
 
 The mark is an eight-blade aperture with a plus in its opening and nothing
-else: no tile, no plate, no backing. It is the same shape in three hands — `scripts/generate_icon.py`,
-`src/components/layout/Logo.tsx` and `extension/make-icons.mjs` — which have to
-be changed together.
+else: no tile, no plate, no backing. It is the same shape in three hands — `scripts/generate/icon.py`,
+`src/components/layout/Logo.tsx` and `scripts/extension/make-icons.mjs` — which
+have to be changed together.
 
 The Tauri CLI is pointed at `app-icon.json` rather than straight at a PNG for
 two reasons. A bare-PNG run writes its own default background into

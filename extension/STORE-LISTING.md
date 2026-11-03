@@ -2,15 +2,15 @@
 
 Everything the dashboard asks for. Paste each block into the field it names.
 
-**Package:** `extension-upload.zip`, from `node scripts/pack-extension.mjs`. That is the **store
-build** (see `extension/edition.js`): it lists nothing on YouTube or Spotify, has no session
+**Package:** `extension-upload.zip`, from `node scripts/extension/pack.mjs`. That is the **store
+build** (see `extension/src/edition.js`): it lists nothing on YouTube or Spotify, has no session
 switches, carries none of their code and does not ask for `cookies` or `alarms`. The script also
 strips the development `key` from the manifest, as Google's guidance says, and leaves out
 `key.pem`, `sessions.js`, the icon generator, the notes and any test file. Bump `version` in
-`extension/manifest.json` before every upload; Chrome refuses a package whose version has not
+`extension/src/manifest.json` before every upload; Chrome refuses a package whose version has not
 increased. This one is **1.0.8**.
 
-**Images:** `store-assets/`, from `node scripts/build-store-assets.mjs` (rerun it whenever the
+**Images:** `extension/store-assets/`, from `node scripts/extension/store-assets.mjs` (rerun it whenever the
 popup or the mark changes). They are photographs of the store build's real popup, rendered with
 its own HTML, CSS and JavaScript — not mock-ups — so they show no session switch.
 
@@ -26,7 +26,7 @@ session for members-only videos, and its screenshots showed a "YouTube session" 
 counts a repeat refusal against the developer account, so the store build changes all of that
 rather than appealing:
 
-- **No YouTube, no Spotify.** `UNLISTED_SITES` in `extension/media.js` holds their hosts in the
+- **No YouTube, no Spotify.** `UNLISTED_SITES` in `extension/src/media.js` holds their hosts in the
   store build: no watch page, short link, track or embedded player of theirs is listed, and the
   popup says the site is not available. (The app finds Spotify songs on YouTube, so Spotify is
   YouTube by another road.) Outside that one list, neither name appears anywhere in the package,
@@ -43,7 +43,7 @@ rather than appealing:
   Firefox.
 - **New permissions: none; dropped: two.** Chrome updates it without switching it off.
 
-`scripts/extension/edition.test.mjs` holds all of this: it fails if the store copy names YouTube
+`extension/tests/edition.test.mjs` holds all of this: it fails if the store copy names YouTube
 or Spotify outside the list, carries a fence, `sessions.js` or a `chrome.cookies` call, or if its
 service worker does anything but list, describe and hand over.
 
@@ -96,8 +96,8 @@ Universal Media Downloader+ is open source: https://github.com/zearkreast/downlo
 
 **Category:** Tools · **Language:** English
 
-**Images:** `store-assets/en/1-videos.png`, `2-sites.png`, `3-privacy.png` (1280×800),
-small promo tile `store-assets/en/promo-tile-440x280.png` (440×280).
+**Images:** `extension/store-assets/en/1-videos.png`, `2-sites.png`, `3-privacy.png` (1280×800),
+small promo tile `extension/store-assets/en/promo-tile-440x280.png` (440×280).
 
 ---
 
@@ -146,8 +146,8 @@ Universal Media Downloader+ açık kaynaktır: https://github.com/zearkreast/dow
 
 **Kategori:** Tools · **Dil:** Türkçe
 
-**Görseller:** `store-assets/tr/1-videos.png`, `2-sites.png`, `3-privacy.png` (1280×800),
-küçük tanıtım karosu `store-assets/tr/promo-tile-440x280.png` (440×280).
+**Görseller:** `extension/store-assets/tr/1-videos.png`, `2-sites.png`, `3-privacy.png` (1280×800),
+küçük tanıtım karosu `extension/store-assets/tr/promo-tile-440x280.png` (440×280).
 
 ---
 
@@ -276,7 +276,7 @@ durdurur.
 
 ## 5. addons.mozilla.org
 
-**Package:** `extension-firefox.zip`, from `node scripts/pack-extension.mjs --firefox`: the
+**Package:** `extension-firefox.zip`, from `node scripts/extension/pack.mjs --firefox`: the
 **full build**, with YouTube and the three session switches, in the same version as Chrome's;
 only the manifest is changed for Firefox (see `extension/README.md`).
 
@@ -299,7 +299,7 @@ cookies the session switches read go to the Universal Media Downloader+ applicat
 over native messaging. If a reviewer counts that as collecting authentication information all the
 same, the category that fits is `authenticationInfo`, as optional rather than required, since
 nothing is read until the user turns a switch on. The declaration lives in `forFirefox()` in
-`scripts/pack-extension.mjs`.
+`scripts/extension/pack.mjs`.
 
 **Notes to reviewer**
 

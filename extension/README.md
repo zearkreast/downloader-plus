@@ -27,6 +27,22 @@ user's own hive naming it. The wire format is
 `src-tauri/src/bridge/protocol.rs`; every field name in `background.js` comes
 from there. No host reply ever carries cookie material.
 
+## What is where
+
+```
+extension/
+  src/               what ships: the manifest, scripts, pages, styles, icons,
+                     fonts and locales -- the folder to load unpacked
+  tests/             node --test extension/tests/
+  store-assets/      the listing images (scripts/extension/store-assets.mjs)
+  STORE-LISTING.md   what the Chrome Web Store and addons.mozilla.org are told
+  PRIVACY.md         the privacy policy; PRIVACY-CHROME.md is the store's copy
+  key.pem            not committed: the development signing key
+```
+
+The tools that build and pack it are in `scripts/extension/`. File names
+below are inside `src/` unless they say otherwise.
+
 ## How the pieces fit
 
 | File | What it does |
@@ -81,26 +97,26 @@ naming a DRM system or a DASH `ContentProtection` makes the row "Protected",
 with no button, and the services the app refuses by name (`PROTECTED`, a mirror
 of `src-tauri/src/providers/detect.rs`) list nothing at all.
 
-The tests are `node --test scripts/extension/`, outside this folder so the
-store package never carries them. They also check that `PROTECTED` still
+The tests are `node --test extension/tests/` (or `npm run test:extension`),
+outside `src/` so no package ever carries them. They also check that `PROTECTED` still
 matches `detect.rs`, that the sites in `sessions.js` are the host's `Site`
 names, and that every sign-in cookie it names is one the app's log masks.
 
 ## Loading it for development
 
-1. `node scripts/extension-key.mjs` once, if `key.pem` is not already there. It
-   writes the private key, puts the matching `key` into `manifest.json` and
+1. `node scripts/extension/key.mjs` once, if `extension/key.pem` is not already
+   there. It writes the private key, puts the matching `key` into `manifest.json` and
    prints the extension id.
 2. Set `EXTENSION_ID_DEV` in `src-tauri/src/bridge/protocol.rs` to that id, and
    rebuild. The host compares the origin Chrome passes it against its two ids
    and refuses anything else.
 3. Run the app once so it writes the native messaging registry values.
 4. `chrome://extensions`, turn on Developer mode, **Load unpacked**, and pick
-   this `extension` directory.
+   the `extension/src` directory.
 5. The welcome tab opens by itself. Play a video and open the popup.
 
-The toolbar icons are the application's own six-blade aperture, drawn from the
-same proportions as `scripts/generate_icon.py`. `node extension/make-icons.mjs`
+The toolbar icons are the application's own eight-blade aperture, drawn from the
+same proportions as `scripts/generate/icon.py`. `node scripts/extension/make-icons.mjs`
 regenerates `icons/` when the mark changes; `welcome.html` carries the same
 shape inline and has to be changed with it.
 
@@ -118,16 +134,16 @@ every development copy. That is why `protocol.rs` holds two constants and
 accepts both; an app built without the store id is what a store user meets as
 "UMD+'yı güncelleyin".
 
-Regenerating `key.pem` changes the development id. `scripts/extension-key.mjs`
+Regenerating `key.pem` changes the development id. `scripts/extension/key.mjs`
 refuses to overwrite an existing key for that reason, and prints the id it
 already implies.
 
 ## Packaging for the store
 
 There are two builds of the same files (`edition.js`). The **full build** is
-this folder as it is: it lists YouTube and has the three session switches. The
+`src/` as it is: it lists YouTube and has the three session switches. The
 **store build** is what the Chrome Web Store accepts after it refused 1.0.5 for
-working on YouTube, made by `scripts/extension-edition.mjs`:
+working on YouTube, made by `scripts/extension/edition.mjs`:
 
 - Whatever only the full build runs -- the sessions, the switches, and the code
   that serves YouTube and Spotify -- is fenced where it is written and cut out:
@@ -143,25 +159,26 @@ working on YouTube, made by `scripts/extension-edition.mjs`:
   messages.
 
 New code for the full build alone goes inside a fence; new code for both goes
-outside one and must not name YouTube or Spotify. `scripts/extension/edition.test.mjs`
+outside one and must not name YouTube or Spotify. `extension/tests/edition.test.mjs`
 holds the store build to all of that: its files are cut for real, `media.js` and
 `background.js` are imported from a scratch copy, and the service worker is run
 against a `chrome` with only the store's permissions.
 
-`node scripts/pack-extension.mjs` writes `extension-upload.zip` at the
+`node scripts/extension/pack.mjs` writes `extension-upload.zip` at the
 repository root: the store build, for the Chrome Web Store, and the only zip
 that ever goes there. `--full` writes `extension-full.zip`, the full build for
 Chrome, published beside the app for loading unpacked. The store build removes
 the `key` from the manifest -- Google's guidance is to strip it -- while the
 full build keeps it, since an unpacked copy without it gets an id from its
-folder that the host refuses. Both leave out `key.pem` (which must never leave the machine that
-publishes), `make-icons.mjs`, `.gitignore`, these notes, `PRIVACY.md`,
-`PRIVACY-CHROME.md`, `STORE-LISTING.md` and any test file; the store build
-also leaves out `sessions.js`. Everything else ships, `media.js` and
+folder that the host refuses. Both pack `src/` and nothing else, so `key.pem`
+(which must never leave the machine that publishes), the tests, the store
+images and these notes stay out by where they live; a key, zip or test file
+dropped into `src/` by mistake is left out all the same. The store build also
+leaves out `sessions.js`. Everything else in `src/` ships, `media.js` and
 `fonts/` included. It prints what it packed, so a file that should not ship is
 visible in the output rather than in the listing.
 
-`node scripts/pack-extension.mjs --firefox` writes `extension-firefox.zip` for
+`node scripts/extension/pack.mjs --firefox` writes `extension-firefox.zip` for
 addons.mozilla.org from the same files, as the full build. Only the manifest
 differs: the
 background runs as a module script instead of a service worker, the id is
@@ -173,8 +190,8 @@ Chrome's has `allowed_origins`, and the host accepts Firefox's way of naming
 the caller -- the manifest path first, the extension id second. `npx web-ext
 lint` on the unpacked zip reports no errors or warnings.
 
-`node scripts/build-store-assets.mjs` photographs the real popup for the
-listing images in `store-assets/`, with headless Chrome and no user
+`node scripts/extension/store-assets.mjs` photographs the real popup for the
+listing images in `extension/store-assets/`, with headless Chrome and no user
 interaction.
 
 ## What the store listing has to say

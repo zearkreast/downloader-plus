@@ -9,7 +9,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{DownloadMode, QualityPreference};
-use crate::{paths, schedule};
+use crate::downloader::schedule;
+use crate::paths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

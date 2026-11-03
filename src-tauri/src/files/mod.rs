@@ -381,13 +381,13 @@ mod tests {
             .iter()
             .chain(AUDIO_EXTENSIONS)
             .chain(IMAGE_EXTENSIONS)
-            .chain(crate::export::CONTAINERS.iter())
+            .chain(crate::media::export::CONTAINERS.iter())
             .copied()
             .map(str::to_string)
             .chain(
-                crate::converter::catalogue()
+                crate::media::converter::catalogue()
                     .into_iter()
-                    .map(|format| crate::converter::extension_for(&format.id).to_string()),
+                    .map(|format| crate::media::converter::extension_for(&format.id).to_string()),
             );
         for ext in written {
             assert!(openable(Path::new(&format!("x.{ext}"))).is_ok(), "{ext}");

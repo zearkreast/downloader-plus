@@ -1,5 +1,5 @@
 {
-  "generatedBy": "scripts/generate_licenses.py",
+  "generatedBy": "scripts/generate/licenses.py",
   "packages": [
     {
       "name": "@remotion/bundler",

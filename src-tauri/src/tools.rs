@@ -331,7 +331,7 @@ pub async fn encoder_runs(name: &str) -> bool {
         // question short: libaom left at its own default is several times
         // slower than an export runs it, and on a phone fifteen frames of
         // that can outlast the timeout below.
-        args.extend(crate::ffmpeg::speed_args(&encoder));
+        args.extend(crate::media::ffmpeg::speed_args(&encoder));
         // Nothing is kept. The question is whether the encoder opens and takes
         // frames, and a file on disk would not answer it any better.
         args.extend(["-f".into(), "null".into(), "-".into()]);

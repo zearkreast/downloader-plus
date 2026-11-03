@@ -167,7 +167,7 @@ impl AppError {
             // Like a membership on the desktop: the user turns the browser's
             // TikTok session on, then presses Try again. Never once the session
             // was tried -- the queue repeats a retryable failure on its own
-            // (`queue.rs`), and each repeat would spend the account on a post
+            // (`downloader/queue.rs`), and each repeat would spend the account on a post
             // TikTok will not show it -- and never on a phone, which has no
             // session to lend.
             Self::TiktokSignIn { session_tried, .. } => !*session_tried && cfg!(windows),

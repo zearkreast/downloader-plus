@@ -7,7 +7,7 @@ use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
 
 use crate::model::{AppErrorInfo, HistoryEntry};
-use crate::schedule::AfterQueue;
+use crate::downloader::schedule::AfterQueue;
 use crate::settings::Settings;
 
 fn file_name(path: &str) -> String {

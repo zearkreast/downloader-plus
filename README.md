@@ -182,9 +182,23 @@ in [`extension/PRIVACY.md`](extension/PRIVACY.md).
 ## For developers
 
 Made with Tauri 2, React 19, TypeScript and Rust.
+
+```
+src/            the interface (React, TypeScript): screens in pages/, parts in components/
+src-tauri/      the core (Rust): reading links, downloading, FFmpeg, the browser link,
+                and the Android project in gen/android/
+extension/      the browser extension: what ships in src/, its tests, its store listing
+scripts/        tools for working on it: previews, packing, generators, release notes
+packaging/      the Arch Linux package
+docs/           for developers and releases, screenshots, release notes
+.github/        the release workflow and the release page's template
+```
+
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) covers the architecture, building,
 tests and where the app keeps its files.
 [`docs/RELEASING.md`](docs/RELEASING.md) covers the release workflow.
+[`scripts/README.md`](scripts/README.md) lists the tools, and
+[`extension/README.md`](extension/README.md) explains the extension.
 
 ## Credits and licences
 

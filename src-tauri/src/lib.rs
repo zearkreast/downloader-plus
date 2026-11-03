@@ -9,25 +9,19 @@ pub mod android;
 pub mod bridge;
 pub mod cache;
 pub mod commands;
-pub mod converter;
 pub mod db;
 pub mod downloader;
-pub mod editor_media;
 pub mod error;
-pub mod export;
-pub mod ffmpeg;
 pub mod filename;
 pub mod files;
 pub mod logging;
+pub mod media;
 pub mod model;
 pub mod net;
 pub mod notify;
 pub mod paths;
 pub mod process;
 pub mod providers;
-pub mod queue;
-pub mod range;
-pub mod schedule;
 pub mod settings;
 pub mod tools;
 #[cfg(desktop)]
@@ -42,12 +36,12 @@ use tauri::{Emitter, Manager};
 use tauri::{Listener, WindowEvent};
 
 use commands::AppState;
-use converter::ConvertManager;
 use db::Database;
-use editor_media::TimelineManager;
-use export::ExportManager;
-use queue::QueueManager;
-use range::RangeFetchManager;
+use downloader::queue::{self, QueueManager};
+use media::converter::ConvertManager;
+use media::editor_media::TimelineManager;
+use media::export::ExportManager;
+use media::range::RangeFetchManager;
 
 /// Temp files older than a day are leftovers from a crash, not resumable state.
 const TEMP_SWEEP_AGE_SECS: u64 = 60 * 60 * 24;
