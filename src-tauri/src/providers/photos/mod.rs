@@ -175,6 +175,7 @@ impl Post {
             music: None,
             listing: false,
             list_url: None,
+            subtitles: Vec::new(),
         }
     }
 

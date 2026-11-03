@@ -553,6 +553,7 @@ pub(crate) mod tests_support {
             music: None,
             listing: false,
             list_url: None,
+            subtitles: Vec::new(),
         }
     }
 }
@@ -607,6 +608,7 @@ mod tests {
             music: None,
             listing: false,
             list_url: None,
+            subtitles: Vec::new(),
         }
     }
 
@@ -659,6 +661,8 @@ mod tests {
             entry: None,
             audio_language: None,
             collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         }
     }

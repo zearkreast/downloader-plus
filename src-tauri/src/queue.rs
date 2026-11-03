@@ -675,6 +675,8 @@ mod tests {
                 entry: None,
                 audio_language: None,
                 collection: None,
+                subtitle_language: None,
+                embed_subtitles: false,
                 source: None,
             },
         }

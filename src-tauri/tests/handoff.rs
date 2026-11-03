@@ -156,6 +156,8 @@ fn request(url: String, output_dir: &Path, source: Option<SourceContext>) -> Dow
         entry: None,
         audio_language: None,
         collection: None,
+        subtitle_language: None,
+        embed_subtitles: false,
         source,
     }
 }

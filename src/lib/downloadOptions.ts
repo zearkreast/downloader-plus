@@ -186,6 +186,56 @@ export function audioLanguageOptions(metadata: MediaMetadata): DropdownOption<st
   return options;
 }
 
+/** What a list is offered, since none of its videos has been read yet. */
+const LIST_SUBTITLES = ['tr', 'en', 'de', 'fr', 'es', 'it', 'pt', 'ru', 'ar', 'ja', 'ko'];
+
+/**
+ * The subtitles to pick from, starting with none. Machine captions come in
+ * every language a site can translate into, so only the two worth having are
+ * offered: the one the video speaks, which the source marks `-orig`, and the
+ * language of this app.
+ */
+export function subtitleOptions(metadata: MediaMetadata): DropdownOption<string>[] {
+  const names = displayNames();
+  const nameOf = (code: string) => {
+    let shown: string | undefined;
+    try {
+      shown = names?.of(code);
+    } catch {
+      // A code `Intl` will not take, such as `en-orig`: the language in front of it may do.
+      shown = code.includes('-') ? names?.of(code.split('-')[0]!) : undefined;
+    }
+    const text = shown ?? code;
+    return text.charAt(0).toLocaleUpperCase(getLanguage()) + text.slice(1);
+  };
+
+  const none = { value: '', label: translate('options.none') };
+  if (metadata.listing) {
+    return [none, ...LIST_SUBTITLES.map((code) => ({ value: code, label: nameOf(code) }))];
+  }
+
+  const tracks = metadata.subtitles ?? [];
+  if (tracks.length === 0) return [];
+  const worthOffering = (language: string) =>
+    language.endsWith('-orig') || language.split('-')[0] === getLanguage();
+  const byName = (a: string, b: string) => a.localeCompare(b, getLanguage());
+
+  const people = tracks
+    .filter((track) => !track.automatic)
+    .map((track) => ({ value: track.language, label: track.name ?? nameOf(track.language) }))
+    .sort((a, b) => byName(a.label, b.label));
+  const machines = tracks
+    .filter((track) => track.automatic && worthOffering(track.language))
+    .map((track) => ({
+      value: track.language,
+      label: translate('options.subtitleAuto', { name: nameOf(track.language) }),
+    }))
+    .sort((a, b) => byName(a.label, b.label));
+
+  const offered = [...people, ...machines];
+  return offered.length > 0 ? [none, ...offered] : [];
+}
+
 function displayNames(): Intl.DisplayNames | null {
   try {
     return new Intl.DisplayNames([getLanguage()], { type: 'language' });

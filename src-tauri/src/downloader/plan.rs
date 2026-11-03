@@ -888,6 +888,7 @@ mod tests {
             music: None,
             listing: false,
             list_url: None,
+            subtitles: Vec::new(),
         }
     }
 
@@ -1514,6 +1515,8 @@ mod tests {
             entry: None,
             audio_language: audio_language.map(str::to_string),
             collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         }
     }

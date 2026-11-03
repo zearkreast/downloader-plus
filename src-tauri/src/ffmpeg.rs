@@ -359,6 +359,82 @@ pub fn tag_args(
     args
 }
 
+/// The text format a container keeps subtitles in, for one that keeps any.
+pub fn subtitle_codec(container: &str) -> Option<&'static str> {
+    match container {
+        "mp4" | "m4v" | "mov" => Some("mov_text"),
+        "mkv" => Some("srt"),
+        "webm" => Some("webvtt"),
+        _ => None,
+    }
+}
+
+/// A language as containers record it, for the ones players are likeliest to
+/// be asked for. `en-GB` is English. Any other language is left unnamed, which
+/// a player shows as a numbered track.
+fn subtitle_language_tag(language: &str) -> Option<&'static str> {
+    Some(match language.split('-').next()? {
+        "ar" => "ara",
+        "de" => "ger",
+        "en" => "eng",
+        "es" => "spa",
+        "fr" => "fre",
+        "hi" => "hin",
+        "id" => "ind",
+        "it" => "ita",
+        "ja" => "jpn",
+        "ko" => "kor",
+        "nl" => "dut",
+        "pl" => "pol",
+        "pt" => "por",
+        "ru" => "rus",
+        "sv" => "swe",
+        "tr" => "tur",
+        "uk" => "ukr",
+        "zh" => "chi",
+        _ => return None,
+    })
+}
+
+/// Copy a video and its sound as they are, with subtitles beside them.
+///
+/// Picture and sound are named rather than taking all of the input, because a
+/// data stream some sources leave in the file is one that MP4 refuses to copy.
+pub fn subtitle_args(input: &Path, subtitle: &Path, output: &Path, language: &str) -> Vec<String> {
+    let target = output
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    let mut args = base_args();
+    args.extend([
+        "-i".into(),
+        input.to_string_lossy().into_owned(),
+        "-i".into(),
+        subtitle.to_string_lossy().into_owned(),
+        "-map".into(),
+        "0:v?".into(),
+        "-map".into(),
+        "0:a?".into(),
+        "-map".into(),
+        "1:0".into(),
+        "-c".into(),
+        "copy".into(),
+    ]);
+    if let Some(codec) = subtitle_codec(&target) {
+        args.extend(["-c:s".into(), codec.into()]);
+    }
+    if let Some(tag) = subtitle_language_tag(language) {
+        args.extend(["-metadata:s:s:0".into(), format!("language={tag}")]);
+    }
+    if target == "mp4" {
+        args.extend(["-movflags".into(), "+faststart".into()]);
+    }
+    args.push(output.to_string_lossy().into_owned());
+    args
+}
+
 fn is_image_target(target: &str) -> bool {
     matches!(target, "jpg" | "jpeg" | "png" | "webp")
 }
@@ -1663,6 +1739,22 @@ pub fn intermediate_path(dir: &Path, task_id: &str, role: &str, extension: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subtitles_are_added_to_a_copy_in_the_form_the_container_keeps() {
+        let args = subtitle_args(Path::new("v.mp4"), Path::new("s.srt"), Path::new("o.mp4"), "en-GB");
+        let text = args.join(" ");
+        assert!(text.contains("-map 0:v? -map 0:a? -map 1:0 -c copy -c:s mov_text"), "{text}");
+        assert!(text.contains("-metadata:s:s:0 language=eng"), "{text}");
+        assert!(text.ends_with("-movflags +faststart o.mp4"), "{text}");
+
+        let text = subtitle_args(Path::new("v.webm"), Path::new("s.srt"), Path::new("o.webm"), "xx").join(" ");
+        assert!(text.contains("-c:s webvtt"), "{text}");
+        assert!(!text.contains("language="), "{text}");
+
+        assert_eq!(subtitle_codec("mkv"), Some("srt"));
+        assert_eq!(subtitle_codec("avi"), None);
+    }
 
     fn args_for(target: &str, copy_only: bool, hw: bool) -> Vec<String> {
         conversion_args(

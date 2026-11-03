@@ -30,6 +30,7 @@ import {
   decodeQuality,
   encodeQuality,
   qualityOptions,
+  subtitleOptions,
   videoStreamOptions,
   watermarkState,
 } from '@/lib/downloadOptions';
@@ -94,6 +95,7 @@ export function DownloadOptionsPanel({
   );
   const watermark = watermarkState(metadata);
   const languages = useMemo(() => audioLanguageOptions(metadata), [metadata]);
+  const subtitles = useMemo(() => subtitleOptions(metadata), [metadata]);
 
   const request = useMemo<DownloadRequest>(
     () => ({
@@ -195,6 +197,29 @@ export function DownloadOptionsPanel({
             onChange={(language) => onChange({ audioLanguage: language || null })}
             disabled={options.advanced}
           />
+        </div>
+      )}
+
+      {subtitles.length > 1 && options.mode === 'video' && (
+        <div className="mt-3 grid gap-3">
+          <Dropdown
+            label={t('options.subtitles')}
+            value={options.subtitleLanguage ?? ''}
+            options={subtitles}
+            onChange={(language) => onChange({ subtitleLanguage: language || null })}
+          />
+          {options.subtitleLanguage && (
+            <Segmented
+              label={t('options.subtitlePlacement')}
+              value={options.embedSubtitles ? 'embed' : 'file'}
+              options={[
+                { value: 'file', label: t('options.subtitleFile') },
+                { value: 'embed', label: t('options.subtitleEmbed') },
+              ]}
+              onChange={(value) => onChange({ embedSubtitles: value === 'embed' })}
+              size="sm"
+            />
+          )}
         </div>
       )}
 

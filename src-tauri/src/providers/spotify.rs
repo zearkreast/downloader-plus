@@ -423,6 +423,7 @@ fn pending_song(tags: MusicTags) -> MediaMetadata {
         music: Some(tags),
         listing: false,
         list_url: None,
+        subtitles: Vec::new(),
     }
 }
 

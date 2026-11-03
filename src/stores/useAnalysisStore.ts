@@ -26,6 +26,10 @@ export interface DownloadOptions {
   advanced: boolean;
   /** The sound track's language, where there are several. Null: the original. */
   audioLanguage: string | null;
+  /** The subtitles to fetch with it. Null: none. */
+  subtitleLanguage: string | null;
+  /** Write them into the video rather than beside it. */
+  embedSubtitles: boolean;
 }
 
 interface AnalysisState {
@@ -69,6 +73,8 @@ const DEFAULT_OPTIONS: DownloadOptions = {
   outputDir: null,
   advanced: false,
   audioLanguage: null,
+  subtitleLanguage: null,
+  embedSubtitles: false,
 };
 
 /**

@@ -106,6 +106,16 @@ export interface MediaMetadata {
   listing?: boolean;
   /** The list a link to one video also names. */
   listUrl?: string | null;
+  /** The subtitles it offers. */
+  subtitles?: SubtitleTrack[];
+}
+
+/** One language of subtitles a video offers. */
+export interface SubtitleTrack {
+  language: string;
+  name: string | null;
+  /** Speech recognition or machine translation rather than a person. */
+  automatic: boolean;
 }
 
 /** One song of an album or playlist. */
@@ -161,6 +171,10 @@ export interface DownloadRequest {
   audioLanguage?: string | null;
   /** The list it was queued from, which names the folder it lands in. */
   collection?: string | null;
+  /** The subtitles to fetch with a video. Null: none. */
+  subtitleLanguage?: string | null;
+  /** Write them into the video rather than beside it. */
+  embedSubtitles?: boolean;
   /**
    * The page a link was found on, for a link the browser extension handed
    * over. Null for everything else: a link pasted into Home needs no headers.

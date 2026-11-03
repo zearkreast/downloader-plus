@@ -187,6 +187,7 @@ impl GenericProvider {
             music: None,
             listing: false,
             list_url: None,
+            subtitles: Vec::new(),
         })
     }
 }

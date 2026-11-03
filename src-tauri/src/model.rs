@@ -217,6 +217,9 @@ pub struct MediaMetadata {
     /// The list a link to one video also names, for the interface to offer.
     #[serde(default)]
     pub list_url: Option<String>,
+    /// The subtitles it offers.
+    #[serde(default)]
+    pub subtitles: Vec<SubtitleTrack>,
 }
 
 impl MediaMetadata {
@@ -229,6 +232,17 @@ impl MediaMetadata {
             .and_then(|music| music.stream_page.as_deref())
             .unwrap_or(&self.canonical_url)
     }
+}
+
+/// One language of subtitles a video offers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleTrack {
+    /// The source's own code, which is how the engine is asked for it.
+    pub language: String,
+    pub name: Option<String>,
+    /// Speech recognition or machine translation rather than a person.
+    pub automatic: bool,
 }
 
 /// One song of an album or playlist, as the interface lists it.
@@ -340,6 +354,14 @@ pub struct DownloadRequest {
     /// The list it was queued from, which names the folder it lands in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collection: Option<String>,
+    /// The subtitles to fetch with a video. `None` fetches none. A language a
+    /// video does not have is passed over, which is how one choice can cover a
+    /// whole list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle_language: Option<String>,
+    /// Write them into the video rather than beside it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub embed_subtitles: bool,
     /// The page and headers a link was found with, when the browser extension
     /// handed it over. `None` for everything typed or pasted.
     #[serde(default, skip_serializing_if = "Option::is_none")]

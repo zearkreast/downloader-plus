@@ -15,6 +15,7 @@ pub mod http;
 pub mod plan;
 pub mod segmented;
 pub mod speed;
+pub mod subtitles;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -412,9 +413,27 @@ async fn download_analyzed(
         _ => produced,
     };
 
+    let subtitle = match request.subtitle_language.as_deref().filter(|_| plan.video.is_some()) {
+        Some(wanted) => {
+            on_update(aggregate.processing(DownloadStage::Finalizing, Some(96.0)));
+            fetch_subtitle(task_id, &metadata, wanted, &headers, settings, temp_dir).await
+        }
+        None => None,
+    };
+    let (produced, subtitle) = match subtitle {
+        Some(subtitle) if request.embed_subtitles => {
+            on_update(aggregate.processing(DownloadStage::Finalizing, Some(97.0)));
+            embed_subtitle(task_id, produced, subtitle, &control, temp_dir).await?
+        }
+        subtitle => (produced, subtitle),
+    };
+
     // Move into place last, so the user's folder never holds a partial file.
     on_update(aggregate.processing(DownloadStage::Finalizing, Some(99.0)));
     let final_path = finalize(&produced, &final_path)?;
+    if let Some(subtitle) = subtitle {
+        subtitles::keep_beside(&final_path, &subtitle.path, &subtitle.language);
+    }
     let file_size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
 
     let mut done = aggregate.processing(DownloadStage::Done, Some(100.0));
@@ -765,6 +784,78 @@ async fn fetch_format(
     .await
 }
 
+struct FetchedSubtitle {
+    path: PathBuf,
+    language: String,
+}
+
+/// The subtitles asked for, when this video has them.
+async fn fetch_subtitle(
+    task_id: &str,
+    metadata: &MediaMetadata,
+    wanted: &str,
+    headers: &[(String, String)],
+    settings: &Settings,
+    temp_dir: &Path,
+) -> Option<FetchedSubtitle> {
+    let track = subtitles::pick(&metadata.subtitles, wanted)?;
+    let stem = temp_dir.join(format!("{task_id}.subtitle"));
+    let path = subtitles::fetch(
+        subtitles::FetchTarget {
+            page: metadata.stream_page(),
+            language: &track.language,
+            headers,
+            stem: &stem,
+        },
+        settings,
+    )
+    .await?;
+    Some(FetchedSubtitle {
+        path,
+        language: track.language.clone(),
+    })
+}
+
+/// Write subtitles into the video, or hand them back to go beside it: where
+/// the container takes none, where there is no FFmpeg, and where the attempt
+/// fails, since a file next to the video is nearly as good.
+async fn embed_subtitle(
+    task_id: &str,
+    produced: PathBuf,
+    subtitle: FetchedSubtitle,
+    control: &Arc<TaskControl>,
+    temp_dir: &Path,
+) -> AppResult<(PathBuf, Option<FetchedSubtitle>)> {
+    let container = produced
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ffmpeg::subtitle_codec(&container).is_none() || crate::tools::ffmpeg_path().is_none() {
+        return Ok((produced, Some(subtitle)));
+    }
+
+    let output = ffmpeg::intermediate_path(temp_dir, task_id, "s", &container);
+    let args = ffmpeg::subtitle_args(&produced, &subtitle.path, &output, &subtitle.language);
+    let mut quiet = |_: ffmpeg::FfmpegProgress| {};
+    match ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut quiet).await {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&produced);
+            let _ = std::fs::remove_file(&subtitle.path);
+            Ok((output, None))
+        }
+        Err(AppError::Canceled) => {
+            let _ = std::fs::remove_file(&output);
+            Err(AppError::Canceled)
+        }
+        Err(err) => {
+            log_info!("downloader", "task {task_id}: subtitles could not be embedded: {err}");
+            let _ = std::fs::remove_file(&output);
+            Ok((produced, Some(subtitle)))
+        }
+    }
+}
+
 /// Write a song's tags and cover into the file that was downloaded for it.
 ///
 /// Worth doing, not worth failing over: a file whose tags could not be written
@@ -1068,6 +1159,8 @@ mod tests {
             entry: None,
             audio_language: None,
             collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source,
         }
     }

@@ -365,6 +365,8 @@ async fn downloads_a_spotify_song_as_that_song() {
         entry: Some(2),
         audio_language: None,
         collection: None,
+        subtitle_language: None,
+        embed_subtitles: false,
         source: None,
     };
     providers::remember_analysis(&request.url, &settings, &album);
@@ -508,6 +510,8 @@ async fn a_tiktok_video_whose_best_picture_is_silent_downloads_with_its_sound() 
             entry: None,
             audio_language: None,
             collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         };
         let mut last_received = 0u64;

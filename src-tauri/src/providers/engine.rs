@@ -22,7 +22,8 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 use crate::model::{
-    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, TrackSummary, WatermarkSupport,
+    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, SubtitleTrack, TrackSummary,
+    WatermarkSupport,
 };
 use crate::providers::{self, captured, detect};
 use crate::settings::Settings;
@@ -872,6 +873,7 @@ fn listed(requested_url: &str, canonical_url: &str) -> MediaMetadata {
         music: None,
         listing: false,
         list_url: None,
+        subtitles: Vec::new(),
     }
 }
 
@@ -998,7 +1000,40 @@ pub fn parse_metadata(node: &Value, requested_url: &str) -> AppResult<MediaMetad
         music: None,
         listing: false,
         list_url: None,
+        subtitles: parse_subtitles(node),
     })
+}
+
+/// The subtitles a video offers, people's ahead of machines'. Where both exist
+/// for a language the engine fetches the person's, so the machine's is no
+/// choice at all. Live chat comes as a "language" of its own.
+fn parse_subtitles(node: &Value) -> Vec<SubtitleTrack> {
+    let languages = |key: &str| {
+        let mut found = Vec::new();
+        for (language, tracks) in node.get(key).and_then(Value::as_object).into_iter().flatten() {
+            let Some(tracks) = tracks.as_array().filter(|tracks| !tracks.is_empty()) else {
+                continue;
+            };
+            let code = !language.is_empty()
+                && language.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-');
+            if code && language != "live_chat" {
+                let name = tracks.iter().find_map(|track| track.get("name")?.as_str());
+                found.push((language.clone(), name.map(str::to_string)));
+            }
+        }
+        found
+    };
+
+    let mut subtitles: Vec<SubtitleTrack> = languages("subtitles")
+        .into_iter()
+        .map(|(language, name)| SubtitleTrack { language, name, automatic: false })
+        .collect();
+    for (language, name) in languages("automatic_captions") {
+        if !subtitles.iter().any(|track| track.language == language) {
+            subtitles.push(SubtitleTrack { language, name, automatic: true });
+        }
+    }
+    subtitles
 }
 
 /// The first line of a post's caption, for when it has no title of its own.
@@ -2240,6 +2275,33 @@ mod tests {
         let post = parse_result(&carousel(), "https://www.instagram.com/p/DQ3zR6-DPGm/").unwrap();
         assert!(!post.listing);
         assert_eq!(post.items.len(), 3);
+    }
+
+    #[test]
+    fn subtitles_are_listed_with_a_persons_ahead_of_a_machines() {
+        let video = serde_json::json!({
+            "title": "One video",
+            "formats": [{ "format_id": "18", "url": "https://cdn.test/v.mp4", "ext": "mp4",
+                          "vcodec": "avc1", "acodec": "mp4a", "height": 360 }],
+            "subtitles": {
+                "tr": [{ "ext": "vtt", "url": "https://cdn.test/tr.vtt", "name": "Türkçe" }],
+                "live_chat": [{ "ext": "json", "url": "https://cdn.test/chat" }],
+                "de": [],
+            },
+            "automatic_captions": {
+                "tr": [{ "ext": "vtt", "url": "https://cdn.test/a-tr.vtt" }],
+                "en-orig": [{ "ext": "vtt", "url": "https://cdn.test/a-en.vtt", "name": "English (Original)" }],
+                "a,b": [{ "ext": "vtt", "url": "https://cdn.test/odd.vtt" }],
+            },
+        });
+        let meta = parse_result(&video, "https://www.youtube.com/watch?v=a").unwrap();
+        assert_eq!(
+            meta.subtitles,
+            vec![
+                SubtitleTrack { language: "tr".into(), name: Some("Türkçe".into()), automatic: false },
+                SubtitleTrack { language: "en-orig".into(), name: Some("English (Original)".into()), automatic: true },
+            ]
+        );
     }
 
     /// A carousel as the engine prints it: a photo, a video, a photo.
