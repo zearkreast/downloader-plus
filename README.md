@@ -1,563 +1,198 @@
 <p align="center">
-  <img src="docs/logo.png" width="148" alt="">
+  <img src="docs/logo.png" width="120" alt="">
 </p>
 
 <h1 align="center">Universal Media Downloader+</h1>
 
 <p align="center">
-  <b>UMD+</b> &middot; Download video, audio and photos from a link, or send what a tab is playing from your browser.
+  <b>Paste a link, download it.</b> Video, sound and photos from YouTube, TikTok, Instagram, X and many more.<br>
+  No ads, no account, no tracking.
 </p>
 
 <p align="center">
-  <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows_10%2F11-ff7a3d?style=flat-square&logo=windows"></a>
-  <a href="#browser-extension"><img alt="Browser extension" src="https://img.shields.io/badge/Browser_extension-2.5.1-3c3c40?style=flat-square"></a>
-  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-3c3c40?style=flat-square"></a>
+  <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Windows-Download-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
+  <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_arm64.apk"><img alt="Download for Android" src="https://img.shields.io/badge/Android-Download-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
+  <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x86_64.pkg.tar.zst"><img alt="Download for Arch Linux" src="https://img.shields.io/badge/Arch_Linux-Download-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+  <a href="#browser-extension"><img alt="Browser extension" src="https://img.shields.io/badge/Browser_extension-Download-ff7a3d?style=for-the-badge&logo=googlechrome&logoColor=white"></a>
 </p>
 
-The app reads what the source publishes, shows the real qualities on offer, and
-downloads the one you pick. No ads, no account, no telemetry.
+<p align="center">
+  <a href="https://github.com/zearkreast/downloader-plus/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/zearkreast/downloader-plus?style=flat-square&label=release&color=3c3c40"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-3c3c40?style=flat-square"></a>
+</p>
 
-![The Home screen with a video ready to download](docs/home.png)
+<p align="center">
+  <img src="docs/screens/home.png" width="860" alt="UMD+ with a video ready to download">
+</p>
 
-Built on [unsalable/downloader](https://github.com/unsalable/downloader) by
-Melih. UMD+ adds [streams whose links work only inside their
-player](#download-from-a-page), downloads split over several connections, and its
-own Windows builds. Made with Tauri 2, React 19, TypeScript and Rust.
+## Which file do I need?
 
-## Download
+| Your device | Download |
+| --- | --- |
+| **Windows 10 / 11** | [`UMD-Plus_x64-setup.exe`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe) |
+| **Android phone** (almost every phone) | [`UMD-Plus_android_arm64.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_arm64.apk) |
+| Older 32-bit Android phone | [`UMD-Plus_android_armv7.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_armv7.apk) |
+| **Arch Linux, CachyOS, EndeavourOS, Manjaro** | [`UMD-Plus_x86_64.pkg.tar.zst`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x86_64.pkg.tar.zst) |
+| **Chrome, Edge, Brave, Opera, Vivaldi** extension | [`extension-full.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-full.zip) |
+| **Firefox** extension | [`extension-firefox.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.zip) |
 
-Everything is on the [releases page](https://github.com/zearkreast/downloader-plus/releases/latest).
+The links always point at the newest build. Everything else, including an MSI
+for managed installs and x86_64 Android, is on the
+[releases page](https://github.com/zearkreast/downloader-plus/releases/latest).
 
-### Windows
+## Install
 
-- [`UMD-Plus_x64-setup.exe`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe) -- normal install, per user, no admin rights needed.
-- [`UMD-Plus_x64.msi`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64.msi) -- for managed or scripted deployment.
+<details>
+<summary><b>Windows</b></summary>
 
-These links always point at the current build. Installing over an existing copy
-updates it in place; settings, history and the downloaded tools are kept. A copy
-installed under the old name, Universal Downloader, is removed by the installer
-and carries its settings across.
+1. Download `UMD-Plus_x64-setup.exe` and open it.
+2. If a blue "Windows protected your PC" window appears, press **More info**, then **Run anyway**. It appears because the installer is not code-signed.
+3. UMD+ opens when the installer finishes. No administrator rights are needed.
 
-The app looks for a newer release when it starts, and again when its window is
-brought back six hours or more after the last look. When there is one it
-downloads the installer it was installed with in the background, checks it
-against the SHA-256 digest GitHub publishes for it, and installs it at the first
-moment nothing is downloading or converting.
+Installing over an earlier copy keeps your settings and history, and a copy
+under the old name, Universal Downloader, is replaced. From then on the app
+updates itself: it fetches the new installer in the background, checks it
+against the checksum GitHub publishes, and installs it when nothing is
+downloading.
+</details>
 
-Windows 10/11, 64-bit. The installers are not code-signed, so SmartScreen warns on first
-run: choose **More info -> Run anyway**.
+<details>
+<summary><b>Android</b></summary>
 
-### Browser extension
+<img src="docs/screens/phone.png" width="200" align="right" alt="UMD+ on a phone">
 
-The connector sends what a tab is playing to the app. It is not on any store.
+1. On the phone, download `UMD-Plus_android_arm64.apk`.
+2. Tap the downloaded file. If Android asks about installing from this source, allow it.
+3. Tap **Install**.
 
-- [`extension-full.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-full.zip) -- Chrome, Edge, Brave, Opera and Vivaldi. Unzip it into a folder you keep, turn on Developer mode on the browser's extensions page, and choose **Load unpacked**.
-- [`extension-firefox.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.zip) -- Firefox. It is not signed by Mozilla, so it loads only as a temporary add-on from `about:debugging`, until Firefox closes.
+Android 7.0 or newer. If the upstream **Universal Downloader** app is
+installed, uninstall it first: it has the same package name and a different
+signature, so Android will not install this one over it.
 
-### Download from a page
+To download from another app, press its **Share** button and pick UMD+.
+Downloads land in `Download/Universal Downloader`. When a new version is out,
+the app offers it as it opens.
+<br clear="right">
+</details>
 
-Some videos can't be downloaded from their link: the player's stream address
-expires at once or answers only that player. For these, use the extension.
+<details>
+<summary><b>Arch Linux and derivatives</b></summary>
 
-1. Open the page and play the video for a few seconds, at the quality you want.
-2. Press the extension's icon, then **Get** on the video's row.
-3. The app opens with the video. Check the options and start the download.
-
-Keep the tab open until the download has started. Only the quality the player
-loaded can be downloaded, and streams protected by DRM can't be downloaded at
-all.
-
-### Android
-
-- [`UMD-Plus_android_arm64.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_arm64.apk) -- practically every phone from the last several years. Pick this one if unsure.
-- [`UMD-Plus_android_armv7.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_armv7.apk) -- older 32-bit phones.
-- [`UMD-Plus_android_x86_64.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_x86_64.apk) -- emulators and x86 Chromebooks.
-
-Android 7.0 or newer. The app is not on Google Play: open the APK on the phone
-and allow installs from that source when Android asks. Every build is signed
-with the same key, so a newer APK installs over the old one and keeps settings
-and history. A copy of the upstream Universal Downloader app has the same
-package name and a different signature, so Android will not install this one
-over it: uninstall that one first.
-
-The app looks for a newer release each time it is opened. When there is one it
-offers to update: the APK for the phone's processor is downloaded, checked
-against the checksum on the release page, and handed to Android's installer.
-Nothing is shown when the app is up to date or offline. **About** has a button
-to check by hand.
-
-Downloads land in `Download/Universal Downloader`, where the gallery and file
-manager find them. To download from another app, use its **Share** button and
-pick Universal Downloader.
-
-### Linux (Arch, CachyOS)
-
-- [`UMD-Plus_x86_64.pkg.tar.zst`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x86_64.pkg.tar.zst) -- Arch Linux and the distributions built on it: CachyOS, EndeavourOS, Manjaro.
-
-Download it, then install it from the folder it is in:
+Download the package, then install it from the folder it is in:
 
 ```bash
 sudo pacman -U ./UMD-Plus_x86_64.pkg.tar.zst
 ```
 
-The package is not signed. pacman installs an unsigned package from a file, but
-not from a link. yt-dlp and FFmpeg are installed with it from your
-distribution's repositories, and pacman keeps them up to date. For YouTube,
-install `deno` too.
+yt-dlp and FFmpeg come with it from your distribution. For YouTube, add Deno:
 
-The Linux app does not update itself. To update, install a newer package over
-it the same way. The browser extension's link to the app works on Windows
-only, for now.
+```bash
+sudo pacman -S deno
+```
 
----
+The package is unsigned, so pacman takes it from a file rather than a link. It
+does not update itself: install a newer package the same way.
+</details>
+
+<details>
+<summary id="browser-extension"><b>Browser extension</b></summary>
+
+The extension sends what a tab is playing to the app. It works with the
+Windows app, for now.
+
+1. Unzip `extension-full.zip` into a folder you keep.
+2. Open the extensions page: `chrome://extensions`, `edge://extensions` or `brave://extensions`.
+3. Turn on **Developer mode**, press **Load unpacked** and pick the folder.
+
+To update it, unzip the new file into the same folder and press **Reload** on
+the extensions page. Firefox loads `extension-firefox.zip` as a temporary
+add-on from `about:debugging`, until Firefox closes.
+</details>
 
 ## What it does
 
-- **Reads a link and shows what is actually there** — title, creator, duration,
-  thumbnail, and the genuine list of renditions the source offers. Nothing in
-  the quality menu is aspirational: a 720p video does not show a 4K option.
-- **Picks the best combination for you**, merging separate video and audio
-  streams when that is what "best quality" requires, and telling you *before*
-  you start if that merge needs a tool you have not installed yet.
-- **Downloads photos, not just videos** — Instagram photos and carousels, X
-  photos, TikTok photo posts, Reddit images and galleries, and Pinterest pins,
-  each at the largest size the platform publishes. A carousel downloads item by
-  item, videos and photos alike, each as the file it actually is.
-- **Downloads fast.** Transfers are issued as bounded ranged requests rather
-  than one long connection, which is what several large hosts throttle. On one
-  measured CDN this is the difference between 35 kB/s and 15 MB/s.
-- **Splits large files over several connections.** A file on a host that
-  answers ranged requests is fetched over up to 32 connections at once (8 by
-  default, Settings -> Connections per download), each filling its own piece
-  of one preallocated file. A connection that finishes takes over the back half
-  of the largest piece still running, so the last seconds are not one slow
-  connection working alone. HLS and DASH streams get the same number of
-  fragments in parallel from the engine.
-- **Shows a download's detail window**: the file as a bar cut into the pieces
-  its connections fetch, each filled as far as it has got, the list of pieces
-  and which are downloading now, the speed, the time left and whether it can
-  be resumed. Press a download that is still running, waiting or paused.
-- **Downloads whole playlists and channels.** A list opens in seconds, however
-  long, because it is read as a list of links. Tick what you want; each video
-  is read when its own turn comes and lands in a folder named after the list.
-  One already downloaded is marked and left unticked.
-- **Fetches subtitles** in the language chosen, beside the video or inside it.
-- **Writes the file's details into it**: title, creator, date, chapters and,
-  where the format allows, a cover. Settings can turn this off.
-- **Keeps to a speed limit and to hours.** The limit is shared by every
-  connection of every download. Scheduled hours hold the queue back and pick
-  up where they stopped, and when the queue runs out the app can close, or the
-  computer can sleep or shut down, after a minute that can be called off.
-- **Learns what a host accepts.** One that turns connections away is asked for
-  only as many as it served, for a month.
-- **Pauses, resumes and retries** without losing progress. Partial files live
-  outside your Downloads folder until they are complete.
-- **Queues** as many links as you like, with a configurable number running at
-  once, and survives a restart.
-- **Keeps a history** with the file, its size, and a one-click re-download.
-- **Converts files you already have.** Drop in a video, a sound or a photo --
-  or tick one of the recent downloads listed under the Convert button -- and
-  write it out as one of twelve video containers (MP4, MOV, MKV, WebM, AVI and
-  more), twelve audio formats (MP3, WAV, M4A, FLAC, Opus and more), an animated
-  GIF, or one of nine picture formats (JPG, PNG, WebP, AVIF and more). With the
-  "Original" quality, when the target container can already hold the streams,
-  it repackages rather than re-encodes -- seconds instead of minutes, and
-  nothing is lost.
-- **Cuts and joins.** The editor keeps several ranges of a video and joins
-  them into one file, cut against a waveform and a strip of frames. It can
-  fetch just the piece of a link that is wanted, and lay a sound under the
-  picture.
-- **Takes a video from the browser** (Windows). The UMD+
-  Connector extension for Chrome and Firefox lists what a tab is playing and
-  hands one to the app, which opens it on Home. Its picker lets the user click
-  the video, sound or picture they mean on the page itself, as an eyedropper
-  picks a colour. Right-click a link, a video or a page to send it directly, or
-  press Alt+Shift+S. See [`extension/README.md`](extension/README.md).
-- **Downloads streams a link alone can't open** (Windows). Where a player's
-  playlists take a one-use token, the extension keeps what the player received
-  and the app downloads from that. See [Download from a page](#download-from-a-page).
+**Downloading**
+- Shows what a link really offers (title, creator, length and the actual qualities) and downloads the one you pick. A 720p video never shows a 4K option.
+- Whole **playlists and channels**: they open in seconds, you tick the videos, and they land in a folder named after the list.
+- **Photos** too: Instagram posts and carousels, X, TikTok photo posts, Reddit galleries and Pinterest pins, at full size.
+- **Fast**: large files are split over several connections, and the queue can be paused, resumed and retried without losing progress.
+- **Subtitles** beside the video or inside it, and the file's **title, creator, chapters and cover** written into it.
 
-Recognised sources include YouTube, TikTok, Instagram, X, Reddit, Facebook,
-Twitch, Pinterest, Vimeo, Dailymotion and SoundCloud, plus direct media files
-and any page that publishes its media in Open Graph tags. A song shared from
-Spotify is described by Spotify's public pages and downloaded as the same
-recording published on YouTube; Spotify's own encrypted audio is never touched.
+**Staying out of the way**
+- A **speed limit** for all downloads together, and **scheduled hours** for the queue.
+- When the queue runs out, the app can close, or the computer can sleep or shut down, after a countdown you can call off.
+- Points out a link you have already downloaded.
 
-"Recognised" is the honest word. Whether a particular link yields anything is
-decided by the platform, not by this app: several now gate parts of their
-catalogue behind a signed-in session, and Vimeo currently requires one for most
-videos. The app does not work around that — it reports it in plain language and
-says why. Nothing in the interface is shown as available when it is not.
+**Working with files**
+- **Converts** video, sound and pictures between the common formats, without re-encoding when it does not have to.
+- **Cuts and joins** clips in the editor, against a waveform and a strip of frames.
 
-## What it deliberately does not do
+**From the browser** (Windows)
+- The extension lists what a tab is playing. Press **Get**, or right-click a link, a video or a page, or press `Alt+Shift+S`.
+- Streams whose links work only inside their player are downloaded from what the player received.
 
-The app only downloads what a source makes available to you. It contains no DRM
-circumvention, no paywall or authentication bypass, and no watermark removal.
-Where a platform publishes both a watermarked and a clean rendition, the clean
-one can be selected; where it publishes only a watermarked one, the app says so
-rather than pretending otherwise.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screens/playlist.png" alt="Picking videos from a playlist"></td>
+    <td width="50%"><img src="docs/screens/downloads.png" alt="The Downloads screen"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Pick the videos you want from a playlist</sub></td>
+    <td align="center"><sub>Downloads, with speed and time left</sub></td>
+  </tr>
+</table>
 
----
+## Download from a page
 
-## Architecture
+Some videos cannot be downloaded from their link, because the player's stream
+address expires at once or answers only that player. Use the extension for these:
 
-```
-src/                     React front end
-  components/ui/         Design-system primitives
-  components/home/       Analyse, preview and download options
-  components/downloads/  Queue cards
-  components/history/    History rows, clearing it, recent downloads
-  components/editor/     The editor's preview, timeline and inspector
-  components/settings/   Tool cards, hotkey recorder, browser link
-  components/convert/    Conversion job rows
-  components/intro/      The phone's first-run film (Remotion)
-  pages/                 Home, Downloads, Editor, Convert, History, Settings, About
-  stores/                Zustand stores (settings, queue, convert, editor,
-                         tools, analysis, update)
-  services/ipc.ts        The only place that calls `invoke`
-  lib/                   Pure helpers (formatting, URLs, option derivation)
-  i18n/                  English source dictionary + Turkish translation;
-                         a first launch takes the system's language
+1. Open the page and play the video for a few seconds, at the quality you want.
+2. Press the extension's icon, then **Get** on the video's row.
+3. The app opens with the video. Check the options and start the download.
 
-src-tauri/src/           Rust core
-  providers/             Source adapters and URL classification
-  downloader/            Planning, HTTP transfer, control, speed smoothing
-  queue.rs               Scheduling, retries, persistence, progress events
-  ffmpeg.rs              Merging and conversion during a download
-  converter.rs           Probing and converting files already on disk
-  export.rs              The editor's cuts, joined into one file
-  range.rs               Fetching only a piece of a link for the editor
-  editor_media.rs        The editor timeline's waveform and frame strip
-  bridge/                The browser link: native messaging host, handoffs,
-                         lent sessions (bin/ud-bridge.rs is the host)
-  updater.rs             Finding and installing a newer build
-  tools.rs               Discovery and installation of the external tools
-  db.rs                  SQLite: settings, history, durable queue
-  commands.rs            The IPC surface
+Keep the tab open until the download starts. Only the quality the player
+loaded can be downloaded.
 
-extension/               The browser extension (see its own README)
-```
+## Sites
 
-### Provider architecture
+YouTube, TikTok, Instagram, X, Reddit, Facebook, Twitch, Pinterest, Vimeo,
+Dailymotion and SoundCloud, plus direct media files and most pages that publish
+their media. A song shared from Spotify is downloaded as the same recording
+published on YouTube.
 
-Every source adapter implements the same three-method `MediaProvider` trait
-(`id`, `can_handle`, `analyze`) in `src-tauri/src/providers/mod.rs`. Adding a
-platform means adding a module and a branch in `analyze`. Resolution order is:
-a service that encrypts its streams (refused at once) or a song shared from
-Spotify → a direct media file → a photo post → the engine → the generic page
-reader → unsupported.
+Whether a link yields anything is up to the site: some keep parts of their
+catalogue behind a sign-in, and the app says so plainly rather than pretending.
 
-The engine is a video tool, and photo posts are where that shows. It is run
-with `--ignore-no-formats-error`, so a post with pictures and no stream is
-reported rather than refused, and on Instagram and Pinterest the pictures it
-lists are offered at full size. For the platforms whose photos it does not
-return at all -- X, Reddit and TikTok photo mode -- `providers/photos/` reads
-the post from the same public data the platform's website loads for a
-signed-out visitor, before the engine is started; anything that turns out to
-be a video is left to the engine as before. A gallery is one analysis with
-every item in it (`MediaMetadata::entries`), and each queued item names its
-position, so it downloads that item and not the first one again.
-
-The trait is used for static dispatch rather than behind `dyn`: its methods are
-async and the set of providers is closed, so calling them directly keeps the
-path allocation-free while still making the shared contract explicit.
-
-### Android
-
-The phone build is the same Rust core and the same interface. What differs is
-confined to `src-tauri/src/android.rs`, a Kotlin plugin in
-`src-tauri/gen/android` (`BridgePlugin.kt`, `BackgroundWorkService.kt`) and a
-handful of `IS_MOBILE` branches in the front end.
-
-- **Tools.** Android refuses to run a file an app has downloaded, so Python 3,
-  FFmpeg, ffprobe and QuickJS ship inside the APK as native libraries -- the
-  packaging maintained by [youtubedl-android](https://github.com/JunkFood02/youtubedl-android),
-  whose `jni` folders the Gradle build extracts. Their support libraries are
-  unpacked once per install. yt-dlp itself is a Python program, so it is still
-  fetched on request and kept up to date exactly as on Windows; the bundled
-  interpreter runs it, and QuickJS is passed to it as the JavaScript runtime.
-- **Files.** Downloads are written to the shared Downloads folder and then
-  announced to the media index. Files picked for conversion arrive as content
-  URIs, so they are copied into the cache first, and results go to Downloads.
-- **Background.** A foreground service runs while anything is downloading or
-  converting; without it Android freezes the app as soon as it leaves the
-  screen. It stops when the queue is empty.
-- **Interface.** A bottom tab bar replaces the sidebar, Back returns to Home,
-  and links shared from other apps are analysed on arrival. Settings is a list
-  of sections, each opening on its own page, with rows and controls sized for
-  touch. Desktop-only settings (tray, autostart, shortcuts, tool paths, folder
-  pickers) are hidden. Pressing Download moves to the Downloads tab.
-- **First run.** The first launch plays a short film of how the app is used,
-  drawn live from the app's own screens and strings with `@remotion/player`
-  (`src/components/intro`, loaded only then), so it follows the language and
-  theme and adds no video to the APK. The screen is held upright while it
-  plays, About can play it again, and with reduced motion or low resource mode
-  it is the still welcome the desktop shows. `node scripts/intro-video/render.mjs`
-  renders the same film to stills or an MP4 for review.
-- **Heat.** A phone pays for effects a desktop does not notice. Frosted glass
-  and the moving aurora are replaced by solid panels and a still backdrop,
-  progress bars move by transform, list items skip layout animation, and the
-  app no longer re-renders every screen on each progress tick. The analysis
-  the user just saw is reused when Download is pressed rather than run again
-  -- for YouTube that is a Python start and a JavaScript challenge solved
-  twice -- and yt-dlp reports progress twice a second instead of per block.
-- **Updates.** A build records the commit it came from (`build.rs`). Releases
-  are unversioned, so `src-tauri/src/updater.rs` compares that commit with the
-  one the `latest` tag points at; a difference means a newer build. The APK is
-  verified against the SHA-256 digest GitHub publishes for the asset, and
-  `BridgePlugin.installApk` asks for the install permission if needed and opens
-  the system installer. Always build release APKs from a committed tree, and
-  move the tag only after the new files are uploaded.
-
-### Two external tools
-
-On Windows neither is bundled. Both are fetched once, on request, into the
-app's own data directory — and a copy already on your `PATH` is preferred over
-downloading anything. (On Android FFmpeg ships inside the APK and only yt-dlp
-is fetched; see above.)
-
-- **yt-dlp** reads public metadata and stream URLs. It changes weekly, so a
-  bundled copy would be stale the month after release.
-- **FFmpeg** merges separate audio and video streams and handles conversion.
-  It is GPL, which is cleanest to keep as a separate process the user opts into.
-
-Both run as separate processes with an argument vector. No user-supplied URL
-ever reaches a command line as text that could be re-parsed.
-
-### The download path
-
-`downloader/plan.rs` turns a request into concrete streams — this is where
-"Best quality" stops being a word. It is pure, so the selection rules are
-tested directly. The UI asks this same code what a selection resolves to
-(`summarize_plan`), which is why the quality, container and estimated size it
-shows always match what the download does.
-
-Progressive streams are fetched by `downloader/http.rs` in bounded chunks. A
-file on a host that answers ranged requests and states its size is handed to
-`downloader/segmented.rs` instead, which splits it over the configured number
-of connections, writes each piece at its own offset of one preallocated
-`.part` file, and keeps the pieces' progress in a `.part.segs` sidecar written
-only after the data it describes has been synced, so a pause, a crash or a
-restart carries on every piece where it stopped. A file that changed on the
-server is fetched again rather than stitched. Its progress reports carry the
-segment map the detail window draws. Anything that cannot be split -- no range
-support, no stated size, under 4 MiB -- stays on the single-connection path.
-Segmented protocols (HLS, DASH) are handed to the engine, whose progress is
-read back through a machine-readable template so the UI shows the same real
-byte counts either way.
-
-### The conversion path
-
-`converter.rs` starts from a local file rather than a URL, but reuses the same
-machinery: FFmpeg is driven through `ffmpeg::run_with_progress`, and a job is
-interrupted through the same `TaskControl` a download uses.
-
-Each job runs up to three passes, stopping at the first that produces a file:
-
-1. **Repackage.** Attempted when the target container can already hold the
-   source codecs -- H.264 and AAC moving from MKV into MP4, say. No encoder is
-   named at all, so it is I/O bound and lossless. Where a quality is offered,
-   only "Original" asks for it; High, Balanced and Small always re-encode, and
-   so does asking for a smaller frame, a lower frame rate or a specific
-   bitrate, since a copy would ignore them. A GIF is never a copy: its palette
-   is the conversion.
-2. **GPU encode.** Attempted for an H.264 video target when hardware
-   acceleration is enabled. It is absent on most machines without an NVIDIA
-   card, so it is only ever an attempt.
-3. **CPU encode.** Always last, and what actually guarantees a result.
-
-Conversions run one at a time: encoding saturates every core it is given, so a
-second job alongside finishes neither any sooner. Nothing is written over the
-source -- the output name is made unique in its directory at the moment the job
-runs, so converting `clip.mkv` to MP4 beside itself yields `clip.mp4`, and doing
-it again yields `clip (2).mp4`.
-
-The job list is deliberately not persisted. An interrupted encode has no
-resumable state, and re-running one nobody asked for would burn a CPU at sign-in.
-
-### Single source of truth
-
-Three rules the codebase holds to:
-
-- Platform detection lives only in `providers/detect.rs`. The front end asks
-  over IPC rather than keeping a second copy of the host patterns.
-- Format selection lives only in `downloader/plan.rs`. The options panel calls
-  it rather than re-deriving the same rules in TypeScript.
-- The set of conversion targets lives only in `converter.rs`. The Convert screen
-  fetches it (`convert_formats`) rather than listing formats a second time, so
-  it cannot offer one the backend would refuse.
-
----
-
-## Development
-
-Requirements: Node 22.12+, Rust 1.82+, and the MSVC build tools.
-
-```bash
-npm install
-npm run app:dev      # Vite + Tauri, hot reload
-```
-
-Other scripts:
-
-```bash
-npm run build          # type-check and build the front end
-npm run app:build      # production build + NSIS installer
-npm run android:build  # signed release APKs for arm64, armv7 and x86_64
-npm run android:dev    # run on a connected phone or emulator
-npm run test:web       # front-end unit tests (Vitest)
-npm run test:rust      # Rust unit and hermetic integration tests
-npm run test:python    # the DNS fallback the phone app loads into yt-dlp
-npm run test:online    # network tests (installs the engine, downloads real files)
-npm run test:all       # build, then the web, Rust and Python tests
-npm run lint:rust      # clippy, warnings denied
-```
-
-The Android build needs JDK 17, the Android SDK with NDK r29, and the Rust
-targets `aarch64-linux-android`, `armv7-linux-androideabi` and
-`x86_64-linux-android`, with `JAVA_HOME`, `ANDROID_HOME` and `NDK_HOME` set.
-Release APKs are signed from `src-tauri/gen/android/keystore.properties`, which
-is not in the repository:
-
-```properties
-storeFile=C:/path/to/universal-downloader.jks
-storePassword=...
-keyAlias=universal-downloader
-keyPassword=...
-```
-
-Without it the release build is produced unsigned. Keep the keystore safe: an
-APK signed with a different key cannot update an installed copy.
-
-Releases are built and published by GitHub Actions, for Windows, Android and
-Arch Linux at once. See [docs/RELEASING.md](docs/RELEASING.md) for how to run
-it and which secrets it needs.
-
-There is no JavaScript linter configured. `typescript-eslint` does not yet
-support TypeScript 7, and forcing it past its peer range would leave a parser
-running against a compiler API it does not understand. The TypeScript config
-carries the checks that would otherwise be delegated to lint rules — `strict`,
-`noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`,
-`noFallthroughCasesInSwitch` — and should be revisited once the plugin
-catches up.
-
-### Tests
-
-- `src/**/*.test.ts` — front-end unit tests (Vitest) for the pure helpers and
-  stores: option derivation, the editor's segments and bitrates, settings,
-  hand-offs, recent downloads.
-- `scripts/extension/` — the browser extension's tests, `node --test
-  scripts/extension/`, kept outside `extension/` so the store package never
-  carries them.
-- `src-tauri/src/**` — unit tests next to the code they cover: URL
-  classification, format selection, file naming, speed smoothing, pause/cancel
-  signalling, engine output parsing, FFmpeg argument construction.
-- `src-tauri/tests/resume.rs` — chunking and resume, against a purpose-built
-  local HTTP server. Hermetic: no network, and the server's range behaviour is
-  a controlled variable rather than a guess about some CDN.
-- `src-tauri/tests/segmented.rs` — splitting over real concurrent connections
-  against a local server: byte-exact output, the segment map, resume of every
-  piece, a host that refuses extra connections, a file that changed between
-  runs, a split partial continued by one connection, and one that lost its
-  record.
-- `src-tauri/tests/pipeline.rs` — `#[ignore]`d online tests that install the
-  engine, read live metadata, and download a real file end to end.
-- `src-tauri/tests/photos.rs` — `#[ignore]`d online tests that read photo posts
-  on each platform and download real pictures through the queue's own path,
-  plus a check that videos on the same platforms still go to the engine.
-
-### Driving the UI during development
-
-`scripts/drive-ui.mjs` talks to the running app's WebView over the Chrome
-DevTools Protocol, so real flows can be exercised against the real backend:
-
-```bash
-WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 \
-  ./src-tauri/target/debug/universal-downloader.exe &
-
-node scripts/drive-ui.mjs type "https://..."
-node scripts/drive-ui.mjs press Enter
-node scripts/drive-ui.mjs wait "text==Download" 30000
-node scripts/drive-ui.mjs click "text==Download"
-node scripts/drive-ui.mjs text
-```
-
-`scripts/capture_window.ps1` captures the window to a PNG (via `PrintWindow`
-with `PW_RENDERFULLCONTENT`, which a plain screen copy would render black).
-
-### Generated assets
-
-```bash
-python scripts/generate_icon.py       # the mark, flat on transparency, at 1024
-node extension/make-icons.mjs         # the extension's toolbar icons
-npx tauri icon src-tauri/icons/app-icon.json -o src-tauri/icons
-python scripts/generate_licenses.py   # third-party licence list for About
-```
-
-The mark is an eight-blade aperture with a plus in its opening and nothing
-else: no tile, no plate, no backing. It is the same shape in three hands — `scripts/generate_icon.py`,
-`src/components/layout/Logo.tsx` and `extension/make-icons.mjs` — which have to
-be changed together.
-
-The Tauri CLI is pointed at `app-icon.json` rather than straight at a PNG for
-two reasons. A bare-PNG run writes its own default background into
-`gen/android/app/src/main/res/values/ic_launcher_background.xml`, losing the
-colour the adaptive icon sits on; and Android's launcher mask crops a
-foreground that reaches the canvas edge, so the manifest points at the inset
-`icon-source-fg.png` instead. Every run also drops a `src-tauri/icons/ios/`
-directory this project has no target for; delete it afterwards. There is nothing
-separate to generate for the notification area — the tray takes the window icon
-the bundle already carries.
-
----
-
-## Where things are stored
-
-Everything the app writes lives under `%APPDATA%\UniversalDownloader` (on
-Android, in the app's private storage):
-
-```
-library.db     settings, history and the durable queue (SQLite, WAL)
-host-limits.json
-               hosts that turned connections away, and how many they took
-tools/         managed copies of yt-dlp and ffmpeg
-cache/         thumbnails, bounded by the configured cache limit
-temp/          in-flight downloads; a finished file is moved out
-logs/          app.log and error.log, rotated by size
-bridge/        the browser link's state and the sessions it lends, sealed
-               with DPAPI (Windows only)
-```
-
-Downloads themselves go to your own Downloads folder by default.
+**What it deliberately does not do:** it contains no DRM circumvention, no
+paywall or sign-in bypass and no watermark removal. Where a site offers a
+version without a watermark, that one can be chosen.
 
 ## Privacy
 
-No account, no ads, no analytics, no telemetry. Links are resolved by tools
-running on this machine, and the only network requests made are to the media
-source itself and — when you ask for it — to GitHub to fetch the two tools.
+No account, no ads, no analytics, no telemetry. Links are read by tools
+running on your computer, and the app talks only to the site you are
+downloading from and to GitHub, to fetch its tools and to check for updates.
+When a phone's own DNS cannot find a site, the app asks Cloudflare's or
+Google's public resolver for that one host name.
 
-The app also asks GitHub whether a newer build exists. And when the
-phone's own DNS cannot find a site's address — a VPN or Private DNS server that
-does not answer, or a filter that refuses the name — the app asks a public
-DNS-over-HTTPS resolver (Cloudflare's 1.1.1.1 or Google's 8.8.8.8) instead.
-Only the site's host name is sent, and nothing is asked of it while the phone's
-DNS answers.
+The browser extension sends nothing off your computer. What it reads is listed
+in [`extension/PRIVACY.md`](extension/PRIVACY.md).
 
-Thumbnails are fetched once, cached on disk and handed to the interface as data
-URLs, so the content-security policy can forbid remote image origins outright
-and re-opening History contacts nobody.
+## For developers
 
-The browser extension sends nothing off your computer. What it reads, including
-the playlists a page's player receives, is listed in
-[`extension/PRIVACY.md`](extension/PRIVACY.md).
+Made with Tauri 2, React 19, TypeScript and Rust.
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) covers the architecture, building,
+tests and where the app keeps its files.
+[`docs/RELEASING.md`](docs/RELEASING.md) covers the release workflow.
 
-## Licences
+## Credits and licences
 
-UMD+ is released under the [MIT License](LICENSE).
+Built on [unsalable/downloader](https://github.com/unsalable/downloader) by
+Melih. UMD+ is released under the [MIT License](LICENSE).
 
-Third-party licences are listed in the app's About screen, generated into
-`src-tauri/resources/licenses.json`. Inter is used under the SIL Open Font
-License; its licence text ships in `src/assets/fonts/`. The phone's intro film
-uses [Remotion](https://www.remotion.dev/license), which is free for
-individuals, non-profits and companies of up to three people; a larger company
-building this app needs a Remotion company licence.
+Third-party licences are listed in the app's About screen. Inter is used under
+the SIL Open Font License. The phone's intro film uses
+[Remotion](https://www.remotion.dev/license), which is free for individuals,
+non-profits and companies of up to three people; a larger company building this
+app needs a Remotion company licence.

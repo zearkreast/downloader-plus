@@ -223,9 +223,13 @@ jobs:
       - name: Check the signatures
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          # Whether it verifies is the exit status. The lines printed after it
+          # are for the log, and their wording differs between versions: a
+          # newer apksigner names a signer by the SDK range it covers.
           for file in out/*.apk; do
             echo "== $file"
-            "$apksigner" verify --print-certs "$file" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+            report=$("$apksigner" verify --print-certs "$file")
+            printf '%s\n' "$report" | grep -E 'certificate (DN|SHA-256 digest)' || printf '%s\n' "$report"
           done
 
       - name: Remove the signing key
