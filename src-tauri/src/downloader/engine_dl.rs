@@ -142,7 +142,9 @@ async fn attempt(
     }
     clear_stale_part(options);
 
-    let args = download_args(options, engine::base_args(settings), cookies);
+    let mut base = engine::base_args(settings);
+    base.extend(transfer_args(settings, options.section.is_some()));
+    let args = download_args(options, base, cookies);
     engine::log_engine_invocation(&args);
 
     let mut tree = process::spawn_tree(
@@ -251,6 +253,20 @@ async fn attempt(
     let written = resolve_output(options.target)?;
     let size = std::fs::metadata(&written).map(|m| m.len()).unwrap_or(0);
     Ok(size)
+}
+
+/// A fragmented stream (HLS, DASH) over as many connections as a download may
+/// open. A section is fetched by FFmpeg, which takes no such option.
+fn transfer_args(settings: &Settings, sectioned: bool) -> Vec<String> {
+    let mut args = Vec::new();
+    if sectioned {
+        return args;
+    }
+    if settings.connections_per_download > 1 && !settings.low_resource_mode {
+        args.push("--concurrent-fragments".into());
+        args.push(settings.connections_per_download.to_string());
+    }
+    args
 }
 
 /// Everything after the shared arguments: what to fetch, how much of it, and
@@ -550,6 +566,7 @@ fn parse_progress(line: &str) -> Option<ProgressSample> {
         // A segmented download resumes by re-running the engine, which picks up
         // its own fragment state.
         resumable: true,
+        segments: Vec::new(),
     })
 }
 
@@ -583,6 +600,7 @@ fn already_on_disk(line: &str) -> Option<ProgressSample> {
         eta_sec: None,
         percent: Some(100.0),
         resumable: true,
+        segments: Vec::new(),
     })
 }
 
@@ -1053,5 +1071,32 @@ mod tests {
     fn percent_is_clamped_when_the_total_was_underestimated() {
         let sample = parse_progress("@P 1200 1000 NA 1.0 0").unwrap();
         assert_eq!(sample.percent, Some(100.0));
+    }
+
+    #[test]
+    fn connections_reach_the_engine() {
+        let settings = Settings {
+            connections_per_download: 8,
+            low_resource_mode: false,
+            ..Settings::default()
+        };
+        let args = transfer_args(&settings, false);
+        assert_eq!(value_after(&args, "--concurrent-fragments").as_deref(), Some("8"));
+
+        // A section is FFmpeg's to fetch, and FFmpeg takes no such option.
+        assert!(transfer_args(&settings, true).is_empty());
+
+        // One connection, or low-resource mode, says nothing at all.
+        let single = Settings {
+            connections_per_download: 1,
+            ..Settings::default()
+        };
+        assert!(transfer_args(&single, false).is_empty());
+        let frugal = Settings {
+            connections_per_download: 8,
+            low_resource_mode: true,
+            ..Settings::default()
+        };
+        assert!(transfer_args(&frugal, false).is_empty());
     }
 }

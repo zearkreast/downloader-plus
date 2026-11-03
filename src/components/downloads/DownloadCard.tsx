@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { FolderOpen, Pause, Play, RotateCw, Share, X } from 'lucide-react';
+import { Activity, FolderOpen, Pause, Play, RotateCw, Share, X } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import { IconButton } from '@/components/ui/IconButton';
@@ -25,6 +25,8 @@ interface DownloadCardProps {
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
+  /** Open the download's detail window. A row still to finish opens it when pressed. */
+  onDetails?: (id: string) => void;
 }
 
 /** Stages that are simply "downloading"; the bar already says that. */
@@ -49,6 +51,7 @@ export const DownloadCard = memo(function DownloadCard({
   onCancel,
   onRetry,
   onRemove,
+  onDetails,
 }: DownloadCardProps) {
   const { t } = useTranslation();
   const { src } = useThumbnail(task.thumbnailUrl);
@@ -65,6 +68,9 @@ export const DownloadCard = memo(function DownloadCard({
   // attempt is what finds that out, so the row says what it found: gone only
   // when the backend said so, and otherwise which press did not work.
   const file = useFileActions(outputPath);
+  // A row still to finish opens its detail window, as a finished one opens
+  // its file.
+  const details = onDetails && !isDone && !isAbandoned ? () => onDetails(task.id) : null;
 
   const copy = task.error ? errorCopy(task.error, IS_MOBILE) : null;
   const errorTitle = copy?.title ?? t('downloads.failed');
@@ -216,7 +222,7 @@ export const DownloadCard = memo(function DownloadCard({
       aria-label={task.title}
       className={cn(
         'group',
-        outputPath &&
+        (outputPath || details) &&
           'transition-colors duration-150 ease-out-quint hover:bg-surface-hover has-[[data-open]:active]:bg-surface-active',
       )}
     >
@@ -228,6 +234,15 @@ export const DownloadCard = memo(function DownloadCard({
               data-open=""
               onClick={file.open}
               aria-label={t('downloads.openFileNamed', { title: task.title })}
+              className="absolute inset-0 cursor-pointer rounded-[12px]"
+            />
+          )}
+          {details && (
+            <button
+              type="button"
+              data-open=""
+              onClick={details}
+              aria-label={t('downloads.detailsOf', { title: task.title })}
               className="absolute inset-0 cursor-pointer rounded-[12px]"
             />
           )}
@@ -247,6 +262,16 @@ export const DownloadCard = memo(function DownloadCard({
               'reveal-on-hover transition-opacity duration-150 ease-out-quint group-focus-within:opacity-100',
           )}
         >
+          {/* A phone opens the window by pressing the row; the icon is for a
+              pointer, which has the room for it. */}
+          {details && !IS_MOBILE && (
+            <IconButton
+              icon={<Activity size={15} />}
+              label={t('downloads.openDetails')}
+              size={ACTION_SIZE}
+              onClick={details}
+            />
+          )}
           {isActive && (
             <IconButton
               icon={<Pause size={15} />}

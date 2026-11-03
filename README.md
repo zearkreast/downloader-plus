@@ -97,6 +97,17 @@ pick Universal Downloader.
 - **Downloads fast.** Transfers are issued as bounded ranged requests rather
   than one long connection, which is what several large hosts throttle. On one
   measured CDN this is the difference between 35 kB/s and 15 MB/s.
+- **Splits large files over several connections.** A file on a host that
+  answers ranged requests is fetched over up to 32 connections at once (8 by
+  default, Settings -> Connections per download), each filling its own piece
+  of one preallocated file. A connection that finishes takes over the back half
+  of the largest piece still running, so the last seconds are not one slow
+  connection working alone. HLS and DASH streams get the same number of
+  fragments in parallel from the engine.
+- **Shows a download's detail window**: the file as a bar cut into the pieces
+  its connections fetch, each filled as far as it has got, the list of pieces
+  and which are downloading now, the speed, the time left and whether it can
+  be resumed. Press a download that is still running, waiting or paused.
 - **Pauses, resumes and retries** without losing progress. Partial files live
   outside your Downloads folder until they are complete.
 - **Queues** as many links as you like, with a configurable number running at
@@ -278,7 +289,16 @@ tested directly. The UI asks this same code what a selection resolves to
 (`summarize_plan`), which is why the quality, container and estimated size it
 shows always match what the download does.
 
-Progressive streams are fetched by `downloader/http.rs` in bounded chunks.
+Progressive streams are fetched by `downloader/http.rs` in bounded chunks. A
+file on a host that answers ranged requests and states its size is handed to
+`downloader/segmented.rs` instead, which splits it over the configured number
+of connections, writes each piece at its own offset of one preallocated
+`.part` file, and keeps the pieces' progress in a `.part.segs` sidecar written
+only after the data it describes has been synced, so a pause, a crash or a
+restart carries on every piece where it stopped. A file that changed on the
+server is fetched again rather than stitched. Its progress reports carry the
+segment map the detail window draws. Anything that cannot be split -- no range
+support, no stated size, under 4 MiB -- stays on the single-connection path.
 Segmented protocols (HLS, DASH) are handed to the engine, whose progress is
 read back through a machine-readable template so the UI shows the same real
 byte counts either way.
@@ -388,6 +408,11 @@ catches up.
 - `src-tauri/tests/resume.rs` — chunking and resume, against a purpose-built
   local HTTP server. Hermetic: no network, and the server's range behaviour is
   a controlled variable rather than a guess about some CDN.
+- `src-tauri/tests/segmented.rs` — splitting over real concurrent connections
+  against a local server: byte-exact output, the segment map, resume of every
+  piece, a host that refuses extra connections, a file that changed between
+  runs, a split partial continued by one connection, and one that lost its
+  record.
 - `src-tauri/tests/pipeline.rs` — `#[ignore]`d online tests that install the
   engine, read live metadata, and download a real file end to end.
 - `src-tauri/tests/photos.rs` — `#[ignore]`d online tests that read photo posts

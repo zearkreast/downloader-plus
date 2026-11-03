@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
 
 import { DownloadCard } from '@/components/downloads/DownloadCard';
+import { DownloadDetailDialog, openDownloadDetails } from '@/components/downloads/DownloadDetailDialog';
 import { HistoryList } from '@/components/history/HistoryList';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -35,6 +36,7 @@ const HANDLERS = {
   onCancel: (id: string) => void ipc.cancelDownload(id),
   onRetry: (id: string) => void ipc.retryDownload(id),
   onRemove: (id: string) => void ipc.removeDownload(id),
+  onDetails: openDownloadDetails,
 };
 
 /** Where a row's text starts: its padding, the 72px thumbnail, the gap. */
@@ -228,6 +230,8 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
           </AnimatePresence>
         </ListGroup>
       )}
+
+      <DownloadDetailDialog />
     </>
   );
 }

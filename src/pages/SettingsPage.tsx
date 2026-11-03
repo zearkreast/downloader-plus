@@ -536,6 +536,23 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
         />
 
         <SettingRow
+          title={t('settings.connections')}
+          description={t('settings.connectionsHint')}
+          stacked={IS_MOBILE}
+          control={
+            <div className={controlWidth('w-[180px]')}>
+              <Slider
+                value={settings.connectionsPerDownload}
+                min={1}
+                max={32}
+                onChange={(value) => void update({ connectionsPerDownload: value })}
+                formatValue={(value) => String(value)}
+              />
+            </div>
+          }
+        />
+
+        <SettingRow
           title={t('settings.autoRetry')}
           description={t('settings.autoRetryHint')}
           stacked={IS_MOBILE}

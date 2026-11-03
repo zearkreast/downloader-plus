@@ -716,6 +716,7 @@ mod tests {
             eta_sec: None,
             percent: None,
             resumable: true,
+            segments: Vec::new(),
         }
     }
 

@@ -246,6 +246,21 @@ export interface DownloadProgress {
   stageIndex: number;
   stageCount: number;
   resumable: boolean;
+  /**
+   * The pieces of a transfer split over several connections, in file order;
+   * absent for one fetched over a single connection or by the engine. Offsets
+   * are into the current stage's stream.
+   */
+  segments?: SegmentProgress[];
+}
+
+/** One piece of a split transfer: `[start, end)`, the first `received` bytes on disk. */
+export interface SegmentProgress {
+  start: number;
+  end: number;
+  received: number;
+  /** A connection is filling it right now. */
+  active: boolean;
 }
 
 /** A user-facing failure. `technical` is only shown behind "View details". */
@@ -611,6 +626,8 @@ export interface Settings {
   maxConcurrentDownloads: number;
   autoRetryCount: number;
   filenameTemplate: string;
+  /** Connections one download may open on a host that allows splitting. */
+  connectionsPerDownload: number;
 
   // Appearance
   theme: ThemePreference;
