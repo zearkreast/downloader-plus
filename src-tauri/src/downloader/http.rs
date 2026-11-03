@@ -63,6 +63,9 @@ pub struct ProgressSample {
     /// The pieces of a split transfer and how far each has got; empty for one
     /// fetched over a single connection.
     pub segments: Vec<SegmentProgress>,
+    /// The engine has finished transferring and is merging or fixing what it
+    /// fetched. `percent` is then that step's own, when it can be measured.
+    pub finishing: bool,
 }
 
 pub struct FetchOptions<'a> {
@@ -358,6 +361,7 @@ fn emit(
         percent: tracker.percent(total),
         resumable,
         segments: Vec::new(),
+        finishing: false,
     });
 }
 

@@ -15,7 +15,7 @@
 //! a grandchild, costs the progress readout entirely, and is why every run
 //! started here is started as a family that can be killed as one.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -179,6 +179,7 @@ async fn attempt(
     let mut reader = BufReader::new(stdout).lines();
     let mut last_sample: Option<ProgressSample> = None;
     let mut run_progress = RunProgress::default();
+    let mut finishing = Finishing::default();
     let mut last_emit = Instant::now();
     let mut poll = tokio::time::interval(Duration::from_millis(250));
     poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -199,6 +200,10 @@ async fn attempt(
                             last_sample = Some(sample);
                         } else if !line.trim().is_empty() {
                             log_debug!("engine-dl", "{}", logging::redact(line.trim()));
+                            if finishing.read(&line) {
+                                on_progress(finishing.sample(None));
+                                last_emit = Instant::now();
+                            }
                         }
                     }
                     Ok(None) => break false,
@@ -213,6 +218,12 @@ async fn attempt(
             _ = poll.tick() => {
                 if control.interrupted() {
                     break true;
+                }
+                if last_emit.elapsed() >= Duration::from_millis(400) {
+                    if let Some(percent) = finishing.measure() {
+                        on_progress(finishing.sample(Some(percent)));
+                        last_emit = Instant::now();
+                    }
                 }
             }
         }
@@ -244,7 +255,9 @@ async fn attempt(
         ));
     }
 
-    if let Some(sample) = last_sample {
+    // Not after a merge: the last transfer figure would put the bar back on
+    // the download it has already moved past.
+    if let Some(sample) = last_sample.filter(|_| !finishing.started) {
         on_progress(sample);
     }
 
@@ -586,6 +599,7 @@ fn parse_progress(line: &str) -> Option<ProgressSample> {
         // its own fragment state.
         resumable: true,
         segments: Vec::new(),
+        finishing: false,
     })
 }
 
@@ -620,6 +634,7 @@ fn already_on_disk(line: &str) -> Option<ProgressSample> {
         percent: Some(100.0),
         resumable: true,
         segments: Vec::new(),
+        finishing: false,
     })
 }
 
@@ -660,6 +675,106 @@ impl RunProgress {
     }
 }
 
+/// What the engine does once its transfers are over: merge the formats it
+/// fetched, or fix a file it wrote. Each step rewrites the whole download --
+/// minutes for a film on a hard disk -- with nothing printed until it is done,
+/// so how far it has got is read off the size of the file it is writing.
+#[derive(Default)]
+struct Finishing {
+    started: bool,
+    /// The files the engine wrote, in the order it named them.
+    parts: Vec<PathBuf>,
+    /// The file the current step is writing, and the bytes it reads from.
+    writing: Option<(PathBuf, u64)>,
+    last_percent: Option<f64>,
+}
+
+impl Finishing {
+    /// Take in a line that is not a progress line. True when a step has just
+    /// begun.
+    fn read(&mut self, line: &str) -> bool {
+        if let Some(part) = part_written(line) {
+            self.parts.push(part);
+            return false;
+        }
+        let Some((step, rest)) = post_step(line) else {
+            return false;
+        };
+        self.started = true;
+        self.last_percent = None;
+        self.writing = quoted(rest).map(PathBuf::from).and_then(|file| {
+            // A merge reads every part; a fix reads the file it rewrites.
+            let read: u64 = if step == "Merger" {
+                self.parts.iter().filter_map(|part| std::fs::metadata(part).ok()).map(|meta| meta.len()).sum()
+            } else {
+                std::fs::metadata(&file).ok()?.len()
+            };
+            (read > 0).then(|| (temp_name(&file), read))
+        });
+        true
+    }
+
+    /// How far the current step has got, when that has moved since last asked.
+    fn measure(&mut self) -> Option<f64> {
+        let (file, read) = self.writing.as_ref()?;
+        let written = std::fs::metadata(file).ok()?.len();
+        // Never the whole: the step is not over until the engine says so.
+        let percent = (written as f64 / *read as f64 * 100.0).clamp(0.0, 99.0).floor();
+        if self.last_percent == Some(percent) {
+            return None;
+        }
+        self.last_percent = Some(percent);
+        Some(percent)
+    }
+
+    fn sample(&self, percent: Option<f64>) -> ProgressSample {
+        ProgressSample {
+            percent,
+            finishing: true,
+            ..ProgressSample::default()
+        }
+    }
+}
+
+/// A file the engine has written or found already written:
+/// `[download] Destination: <path>` or `[download] <path> has already been
+/// downloaded`.
+fn part_written(line: &str) -> Option<PathBuf> {
+    let rest = line.strip_prefix("[download] ")?;
+    let path = rest
+        .strip_prefix("Destination: ")
+        .or_else(|| rest.strip_suffix(" has already been downloaded"))?;
+    (!path.trim().is_empty()).then(|| PathBuf::from(path.trim()))
+}
+
+/// The step a post-processing line announces, and what follows its tag:
+/// `[Merger] Merging formats into "<path>"`, `[FixupM3u8] Fixing MPEG-TS in
+/// MP4 container of "<path>"`.
+fn post_step(line: &str) -> Option<(&str, &str)> {
+    let (tag, rest) = line.strip_prefix('[')?.split_once("] ")?;
+    let known = tag == "Merger"
+        || tag.starts_with("Fixup")
+        || matches!(tag, "VideoRemuxer" | "VideoConvertor" | "ExtractAudio");
+    known.then_some((tag, rest))
+}
+
+/// The path a post-processing line names in double quotes.
+fn quoted(text: &str) -> Option<&str> {
+    let start = text.find('"')? + 1;
+    let end = text.rfind('"')?;
+    (end > start).then(|| &text[start..end])
+}
+
+/// Where the engine writes a step's output before it replaces the original:
+/// `job.e.mp4` becomes `job.e.temp.mp4` (its `prepend_extension`).
+fn temp_name(file: &Path) -> PathBuf {
+    let stem = file.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+    match file.extension() {
+        Some(extension) => file.with_file_name(format!("{stem}.temp.{}", extension.to_string_lossy())),
+        None => file.with_file_name(format!("{stem}.temp")),
+    }
+}
+
 fn parse_number(value: &str) -> Option<f64> {
     if value.is_empty() || value == "NA" || value == "None" {
         return None;
@@ -670,6 +785,60 @@ fn parse_number(value: &str) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_engine_s_own_lines_name_its_files_and_steps() {
+        assert_eq!(part_written(r"[download] Destination: C:\t\job.e.fvideo-1080p.mp4"), Some(PathBuf::from(r"C:\t\job.e.fvideo-1080p.mp4")));
+        assert_eq!(part_written(r"[download] C:\t\job.e.faudio.m4a has already been downloaded"), Some(PathBuf::from(r"C:\t\job.e.faudio.m4a")));
+        assert_eq!(part_written("[download] 100% of 1.70GiB in 00:00:04"), None);
+
+        let (step, rest) = post_step(r#"[Merger] Merging formats into "C:\t\job.e.mp4""#).unwrap();
+        assert_eq!((step, quoted(rest)), ("Merger", Some(r"C:\t\job.e.mp4")));
+        let (step, rest) = post_step(r#"[FixupM3u8] Fixing MPEG-TS in MP4 container of "C:\t\job.e.mp4""#).unwrap();
+        assert_eq!((step, quoted(rest)), ("FixupM3u8", Some(r"C:\t\job.e.mp4")));
+        assert!(post_step("[download] Destination: x").is_none());
+        assert!(post_step("[info] Downloading 1 format(s)").is_none());
+
+        assert_eq!(temp_name(Path::new(r"C:\t\job.e.mp4")), PathBuf::from(r"C:\t\job.e.temp.mp4"));
+    }
+
+    #[test]
+    fn a_merge_is_measured_by_what_it_has_written_of_what_it_reads() {
+        let dir = std::env::temp_dir().join(format!("ud-finishing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let video = dir.join("job.e.fvideo.mp4");
+        let audio = dir.join("job.e.faudio.m4a");
+        std::fs::write(&video, vec![0u8; 900]).unwrap();
+        std::fs::write(&audio, vec![0u8; 100]).unwrap();
+
+        let mut finishing = Finishing::default();
+        assert!(!finishing.read(&format!("[download] Destination: {}", video.display())));
+        assert!(!finishing.read(&format!("[download] Destination: {}", audio.display())));
+        assert!(!finishing.started);
+        assert!(finishing.read(&format!(r#"[Merger] Merging formats into "{}""#, dir.join("job.e.mp4").display())));
+        assert!(finishing.started);
+
+        // Nothing written yet is nothing to say.
+        assert_eq!(finishing.measure(), None);
+        std::fs::write(dir.join("job.e.temp.mp4"), vec![0u8; 250]).unwrap();
+        assert_eq!(finishing.measure(), Some(25.0));
+        assert_eq!(finishing.measure(), None, "an unchanged figure is not sent again");
+        std::fs::write(dir.join("job.e.temp.mp4"), vec![0u8; 1200]).unwrap();
+        assert_eq!(finishing.measure(), Some(99.0));
+
+        let sample = finishing.sample(Some(25.0));
+        assert!(sample.finishing);
+        assert_eq!(sample.percent, Some(25.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_step_with_nothing_to_measure_is_still_announced() {
+        let mut finishing = Finishing::default();
+        assert!(finishing.read("[VideoRemuxer] Remuxing video from mp4 to mkv; Destination: x.mkv"));
+        assert_eq!(finishing.measure(), None);
+    }
 
     #[test]
     fn a_limit_gives_each_run_one_connection_and_a_share() {

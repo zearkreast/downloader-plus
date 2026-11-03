@@ -520,10 +520,15 @@ impl QueueManager {
                 }
             }
 
-            *manager.ending.lock().unwrap_or_else(|e| e.into_inner()) = Ending::default();
-            manager.emit_outlook();
             log_info!("queue", "the queue ran out; carrying out {after:?}");
             schedule::perform(&manager.app, after);
+            // Only a sleep comes back here, once the machine wakes. A quit or a
+            // shutdown keeps the action showing on its way out, so the update
+            // waiting for it does not start an installer in its place.
+            if after == AfterQueue::Sleep {
+                *manager.ending.lock().unwrap_or_else(|e| e.into_inner()) = Ending::default();
+                manager.emit_outlook();
+            }
         });
         self.ending.lock().unwrap_or_else(|e| e.into_inner()).countdown = Some(countdown);
     }

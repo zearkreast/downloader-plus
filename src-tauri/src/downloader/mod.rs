@@ -434,6 +434,7 @@ async fn download_analyzed(
     on_update(aggregate.processing(DownloadStage::Finalizing, Some(97.0)));
     // A song was written with its own tags above, and a picture is its own file.
     let describe = settings.embed_metadata && metadata.music.is_none() && plan.image.is_none();
+    let mut writing = |percent: Option<f64>| on_update(aggregate.processing(DownloadStage::Finalizing, percent));
     let (produced, subtitle) = embed_extras(
         task_id,
         produced,
@@ -444,6 +445,7 @@ async fn download_analyzed(
         settings,
         &control,
         temp_dir,
+        &mut writing,
     )
     .await?;
 
@@ -598,6 +600,10 @@ async fn run_via_engine(
     let fragmented = plan.primary().is_some_and(|format| providers::engine::is_segmented(&format.protocol));
     let fragments_at_once = fragmented.then(|| engine_dl::fragments_at_once(settings, false));
     let mut sink = |sample: http::ProgressSample| {
+        if sample.finishing {
+            on_update(aggregate.processing(DownloadStage::Merging, sample.percent));
+            return;
+        }
         let mut progress = aggregate.sample(&sample);
         progress.fragments_at_once = fragments_at_once;
         on_update(progress);
@@ -860,6 +866,7 @@ async fn embed_extras(
     settings: &Settings,
     control: &Arc<TaskControl>,
     temp_dir: &Path,
+    on_progress: &mut (dyn FnMut(Option<f64>) + Send),
 ) -> AppResult<(PathBuf, Option<FetchedSubtitle>)> {
     let container = produced
         .extension()
@@ -900,8 +907,15 @@ async fn embed_extras(
             subtitle: inside.map(|subtitle| (subtitle.path.as_path(), subtitle.language.as_str())),
         },
     );
-    let mut quiet = |_: ffmpeg::FfmpegProgress| {};
-    let result = ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut quiet).await;
+    // A stream copy writes about as much as it reads, and with no duration to
+    // go by that is the only measure of a pass that takes a film minutes.
+    let reading = std::fs::metadata(&produced).map(|meta| meta.len()).unwrap_or(0);
+    let mut written = |progress: ffmpeg::FfmpegProgress| {
+        if reading > 0 {
+            on_progress(Some((progress.bytes_written as f64 / reading as f64 * 100.0).clamp(0.0, 99.0).floor()));
+        }
+    };
+    let result = ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut written).await;
     for path in [chapters, cover.map(|(path, _)| path)].into_iter().flatten() {
         let _ = std::fs::remove_file(path);
     }

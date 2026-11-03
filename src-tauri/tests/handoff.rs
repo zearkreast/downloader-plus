@@ -23,8 +23,8 @@ use std::sync::Arc;
 use universal_downloader_lib::downloader::control::TaskControl;
 use universal_downloader_lib::downloader;
 use universal_downloader_lib::model::{
-    CapturedPlaylist, DownloadMode, DownloadProgress, DownloadRequest, QualityPreference,
-    SourceContext, WatermarkPreference,
+    CapturedPlaylist, DownloadMode, DownloadProgress, DownloadRequest, DownloadStage,
+    QualityPreference, SourceContext, WatermarkPreference,
 };
 use universal_downloader_lib::settings::Settings;
 use universal_downloader_lib::tools;
@@ -244,10 +244,25 @@ async fn a_stream_whose_playlists_cannot_be_fetched_again_downloads_from_what_th
     };
     let request = request(at("master.txt?verify=1"), &out_dir, Some(source));
 
-    let mut sink = |_: DownloadProgress| {};
+    let mut stages = Vec::new();
+    let mut sink = |progress: DownloadProgress| stages.push(progress.stage);
     let outcome = downloader::execute("handoff-captured", &request, &settings, Arc::new(TaskControl::new()), &mut sink)
         .await
         .expect("the stream should download from the playlists it was given");
+
+    // The engine's merge is shown as one, and once it has begun the bar never
+    // goes back to the transfer it has moved past.
+    let merging = stages
+        .iter()
+        .position(|stage| *stage == DownloadStage::Merging)
+        .unwrap_or_else(|| panic!("the merge was never shown: {stages:?}"));
+    assert!(
+        stages[merging..]
+            .iter()
+            .all(|stage| matches!(stage, DownloadStage::Merging | DownloadStage::Finalizing | DownloadStage::Done)),
+        "{stages:?}"
+    );
+    assert!(stages.contains(&DownloadStage::Finalizing), "{stages:?}");
 
     eprintln!("{} ({} bytes, {})", outcome.output_path.display(), outcome.file_size, outcome.quality_label);
     assert_eq!(refused.load(Ordering::SeqCst), 0, "some request went out without the Referer");
