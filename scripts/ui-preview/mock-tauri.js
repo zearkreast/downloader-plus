@@ -532,6 +532,28 @@
     return plan(find('bytevc1_1080p_1511769-1'), sound);
   };
 
+  const youtubeList = (url) => ({
+    ...metadataFor(url),
+    mediaKind: 'gallery',
+    title: 'Trail Notes: Every Episode',
+    creator: 'Trail Notes',
+    thumbnailUrl: 'thumb:3',
+    durationSec: null,
+    viewCount: null,
+    likeCount: null,
+    uploadDate: null,
+    rangeFetchable: false,
+    formats: [],
+    listing: true,
+    entryCount: 1240,
+    tracks: Array.from({ length: 24 }, (_, index) => ({
+      position: index + 1,
+      title: `Episode ${index + 1}: the long way round`,
+      artists: 'Trail Notes',
+      durationSec: 540 + index * 37,
+    })),
+  });
+
   const spotifyAlbum = (url) => ({
     ...metadataFor(url),
     platform: 'spotify',
@@ -1006,6 +1028,10 @@
         };
       }
       if (url.includes('open.spotify.com/')) return spotifyAlbum(url);
+      if (url.includes('/playlist?list=')) return youtubeList(url);
+      if (url.includes('watch?v=listed')) {
+        return { ...metadataFor(url), listUrl: 'https://www.youtube.com/playlist?list=PLpreview' };
+      }
       if (url.includes('watch?v=anime')) return animeEpisode(url);
       if (url.includes('tiktok.com/') && url.includes('/video/')) return tiktokVideo(url);
       if (isPhotoPost(url)) return photoPost(url);
@@ -1026,7 +1052,19 @@
     // '37' is not among its streams, and the Video stream menu would show
     // '--' for it.
     summarize_plan: ({ metadata, request }) =>
-      metadata.platform === 'spotify'
+      metadata.listing
+        ? {
+            label: '',
+            qualityLabel: '',
+            container: request.container ?? '',
+            needsMerge: false,
+            needsFfmpeg: false,
+            estimatedBytes: null,
+            videoFormatId: null,
+            audioFormatId: null,
+            stageCount: 1,
+          }
+        : metadata.platform === 'spotify'
         ? {
             label: 'AAC - M4A',
             qualityLabel: 'AAC',

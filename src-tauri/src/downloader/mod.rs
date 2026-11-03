@@ -346,6 +346,10 @@ async fn download_analyzed(
             .unwrap_or_else(|| settings.download_dir.clone()),
     );
     std::fs::create_dir_all(&output_dir)?;
+    let output_dir = match request.collection.as_deref() {
+        Some(name) => collection_dir(&output_dir, name),
+        None => output_dir,
+    };
 
     let final_path = target_path(&output_dir, settings, &metadata, &plan, request.entry.is_some());
     log_debug!(
@@ -857,6 +861,20 @@ async fn fetch_cover(url: &str, stem: &Path, settings: &Settings) -> Option<(Pat
     Some((path, art))
 }
 
+/// The folder an album or playlist gathers in, or `output_dir` itself when its
+/// name leaves nothing a folder can be called or the folder cannot be made.
+fn collection_dir(output_dir: &Path, name: &str) -> PathBuf {
+    let name = filename::sanitize_component(name);
+    if name.is_empty() {
+        return output_dir.to_path_buf();
+    }
+    let dir = output_dir.join(filename::truncate_stem(&name, 80));
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => dir,
+        Err(_) => output_dir.to_path_buf(),
+    }
+}
+
 /// Where a finished download goes.
 ///
 /// A song is named for itself -- who made it, then its name -- and one queued
@@ -870,20 +888,8 @@ fn target_path(
     from_collection: bool,
 ) -> PathBuf {
     if let Some(song) = metadata.music.as_ref().filter(|_| plan.video.is_none()) {
-        let folder = song
-            .collection
-            .as_deref()
-            .filter(|_| from_collection)
-            .map(filename::sanitize_component)
-            .filter(|name| !name.is_empty());
-        let dir = match folder {
-            Some(name) => {
-                let dir = output_dir.join(filename::truncate_stem(&name, 80));
-                match std::fs::create_dir_all(&dir) {
-                    Ok(()) => dir,
-                    Err(_) => output_dir.to_path_buf(),
-                }
-            }
+        let dir = match song.collection.as_deref().filter(|_| from_collection) {
+            Some(name) => collection_dir(output_dir, name),
             None => output_dir.to_path_buf(),
         };
         let artists = song.artist_line();
@@ -1015,6 +1021,20 @@ mod tests {
     use crate::model::FormatKind;
 
     #[test]
+    fn a_list_gathers_in_a_folder_of_its_name() {
+        let root = std::env::temp_dir().join(format!("ud-collection-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+
+        let dir = collection_dir(&root, "Live: 2026 / Part 1?");
+        assert!(dir.is_dir(), "{dir:?}");
+        assert_eq!(dir.parent(), Some(root.as_path()));
+        assert!(!dir.file_name().unwrap().to_string_lossy().contains(':'));
+        assert_eq!(collection_dir(&root, "   "), root, "nothing a folder can be called");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn a_referer_is_the_origin_of_the_page_the_media_came_from() {
         assert_eq!(
             referer_for("https://www.tiktok.com/@someone/video/123?is_from_webapp=1").as_deref(),
@@ -1047,6 +1067,7 @@ mod tests {
             platform: None,
             entry: None,
             audio_language: None,
+            collection: None,
             source,
         }
     }

@@ -36,6 +36,9 @@ export const tr: Record<TranslationKey, string> = {
   'preview.live': 'Canlı',
   'preview.entries': '{n} öğe',
   'preview.songs': '{n} şarkı',
+  'preview.videos': '{n} video',
+  'preview.inList': 'Bu video bir oynatma listesinde',
+  'preview.openList': 'Listeyi aç',
   'preview.startOver': 'Yeni bağlantı',
   'preview.warningGeneric':
     'Bu site tanınmadı; gösterilen, sayfanın kendi öne çıkardığı medya. Aradığın bu olmayabilir.',
@@ -51,6 +54,7 @@ export const tr: Record<TranslationKey, string> = {
   'options.modeImage': 'Görsel',
   'options.qualityBest': 'En iyi kalite',
   'options.qualityAuto': 'Otomatik',
+  'options.upTo': 'En fazla {height}p',
   'options.qualityBestHint': 'Mevcut en yüksek video ve ses, birleştirilmiş',
   'options.audioBest': 'En iyi ses',
   'options.audioLanguage': 'Ses dili',
@@ -77,6 +81,8 @@ export const tr: Record<TranslationKey, string> = {
   'action.downloadItems': '{n} öğeyi indir',
 
   'tracks.title': 'Şarkılar',
+  'tracks.videos': 'Videolar',
+  'tracks.limited': '{total} videonun ilk {shown} tanesi gösteriliyor.',
   'tracks.selectAll': 'Tümünü seç',
   'tracks.selectNone': 'Seçimi kaldır',
 

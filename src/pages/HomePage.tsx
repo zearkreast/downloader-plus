@@ -441,8 +441,31 @@ export function HomePage({
             >
               <MediaPreviewCard metadata={metadata} />
 
+              {metadata.listUrl && !metadata.listing && (
+                <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
+                  <span className="text-[13px] text-fg-muted">{t('preview.inList')}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const list = metadata.listUrl!;
+                      setUrl(list);
+                      startAnalysis(list);
+                    }}
+                  >
+                    {t('preview.openList')}
+                  </Button>
+                </div>
+              )}
+
               {tracks.length > 0 && (
-                <TrackList tracks={tracks} picked={picked} onChange={setPicked} />
+                <TrackList
+                  tracks={tracks}
+                  picked={picked}
+                  onChange={setPicked}
+                  title={metadata.listing ? t('tracks.videos') : undefined}
+                  totalCount={metadata.listing ? metadata.entryCount : null}
+                />
               )}
 
               {/* Closes rather than vanishes when a mode leaves nothing to pick
@@ -485,8 +508,9 @@ export function HomePage({
                   tracks.length > 0 ? picked.size === 0 : pickingItems && pickedCount === 0
                 }
                 // The line describes the first item, which says nothing about
-                // a pick from a post whose items need not be alike.
-                showPlan={!pickingItems}
+                // a pick from a post whose items need not be alike, and a list
+                // has read none of its own.
+                showPlan={!pickingItems && !metadata.listing}
               />
 
               <button

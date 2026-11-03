@@ -22,13 +22,17 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 use crate::model::{
-    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, WatermarkSupport,
+    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, TrackSummary, WatermarkSupport,
 };
 use crate::providers::{self, captured, detect};
 use crate::settings::Settings;
 use crate::{bridge, log_debug, logging, net, paths, process, tools};
 
 pub const PROVIDER_ID: &str = "engine";
+
+/// The most of a playlist or channel that is listed. Past this the list is no
+/// longer something a person picks from.
+const LIST_LIMIT: u32 = 1000;
 
 pub struct EngineProvider;
 
@@ -43,7 +47,22 @@ impl EngineProvider {
         detect::classify(url).is_some()
     }
 
+    /// A channel's front page lists its tabs, not its videos, so its first tab
+    /// is read instead: the videos, where the channel has any.
     pub async fn analyze(
+        &self,
+        url: &str,
+        settings: &Settings,
+        source: Option<&SourceContext>,
+    ) -> AppResult<MediaMetadata> {
+        let metadata = self.read(url, settings, source).await?;
+        match metadata.list_url.as_deref().filter(|_| metadata.listing) {
+            Some(tab) => self.read(tab, settings, source).await,
+            None => Ok(metadata),
+        }
+    }
+
+    async fn read(
         &self,
         url: &str,
         settings: &Settings,
@@ -64,6 +83,12 @@ impl EngineProvider {
         ));
         args.push("--ignore-no-formats-error".into());
         args.push("--no-playlist".into());
+        // Without this every video of a list is read in full before anything
+        // is shown, which on a channel is many minutes. It changes nothing for
+        // one video, or for a post that carries its items whole.
+        args.push("--flat-playlist".into());
+        args.push("--playlist-items".into());
+        args.push(format!("1:{LIST_LIMIT}"));
         args.push("-J".into());
         let captured = source
             .map(|source| captured::prepare(url, source))
@@ -688,7 +713,27 @@ fn first_error_line(stderr: &str) -> String {
 /// be downloaded, which is also the number the interface shows.
 pub fn parse_result(root: &Value, requested_url: &str) -> AppResult<MediaMetadata> {
     if root.get("_type").and_then(Value::as_str) != Some("playlist") {
-        return parse_metadata(root, requested_url);
+        let mut metadata = parse_metadata(root, requested_url)?;
+        metadata.list_url = detect::list_of(requested_url);
+        return Ok(metadata);
+    }
+
+    let entries = root.get("entries").and_then(Value::as_array);
+    let linked = |types: &[&str]| {
+        entries.into_iter().flatten().find(|entry| {
+            entry.get("_type").and_then(Value::as_str).is_some_and(|kind| types.contains(&kind))
+        })
+    };
+    // A list of lists: reading its first tab is the caller's.
+    if let Some(tab) = linked(&["playlist"]).and_then(|tab| tab.get("webpage_url")).and_then(Value::as_str) {
+        return Ok(MediaMetadata {
+            listing: true,
+            list_url: Some(tab.to_string()),
+            ..listed(requested_url, requested_url)
+        });
+    }
+    if linked(&["url", "url_transparent"]).is_some() {
+        return parse_listing(root, requested_url);
     }
 
     let mut items = Vec::new();
@@ -724,6 +769,110 @@ pub fn parse_result(root: &Value, requested_url: &str) -> AppResult<MediaMetadat
         }
     }
     Ok(post)
+}
+
+/// A playlist or channel as the flat listing gives it: links, each with what
+/// the listing happens to say of it. Each is read when its own download starts.
+fn parse_listing(root: &Value, requested_url: &str) -> AppResult<MediaMetadata> {
+    let rows: Vec<MediaMetadata> = root
+        .get("entries")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| listed_row(entry, requested_url))
+        .collect();
+    if rows.is_empty() {
+        return Err(AppError::Unsupported("the source returned no media".into()));
+    }
+
+    let text = |key: &str| root.get(key).and_then(Value::as_str).filter(|value| !value.trim().is_empty());
+    let tracks = rows
+        .iter()
+        .enumerate()
+        .map(|(index, row)| TrackSummary {
+            position: index as u32 + 1,
+            title: row.title.clone(),
+            artists: row.creator.clone().unwrap_or_default(),
+            duration_sec: row.duration_sec,
+        })
+        .collect();
+
+    let canonical = text("webpage_url").unwrap_or(requested_url);
+    Ok(MediaMetadata {
+        media_kind: MediaKind::Gallery,
+        title: text("title").unwrap_or("Untitled").to_string(),
+        creator: ["uploader", "channel"].iter().find_map(|key| text(key)).map(str::to_string),
+        thumbnail_url: pick_thumbnail(root).or_else(|| rows.iter().find_map(|row| row.thumbnail_url.clone())),
+        entry_count: Some(root.get("playlist_count").and_then(Value::as_u64).map_or(rows.len() as u32, |n| n as u32)),
+        listing: true,
+        tracks,
+        entries: rows,
+        ..listed(requested_url, canonical)
+    })
+}
+
+/// One row of a listing, or `None` for a video gone private or deleted, which
+/// a listing shows with no title and an address that is only an id. Some
+/// sources give no titles at all, and there the address is a readable name.
+fn listed_row(entry: &Value, requested_url: &str) -> Option<MediaMetadata> {
+    let text = |key: &str| entry.get(key).and_then(Value::as_str).filter(|value| !value.trim().is_empty());
+    let link = text("url").filter(|url| url.starts_with("http")).or_else(|| text("webpage_url"))?;
+    let title = text("title")
+        .filter(|title| !matches!(*title, "[Private video]" | "[Deleted video]"))
+        .map(str::to_string)
+        .or_else(|| title_in_address(link))?;
+    Some(MediaMetadata {
+        title,
+        creator: ["channel", "uploader"].iter().find_map(|key| text(key)).map(str::to_string),
+        thumbnail_url: pick_thumbnail(entry),
+        duration_sec: entry.get("duration").and_then(Value::as_f64),
+        media_kind: MediaKind::Video,
+        ..listed(requested_url, link)
+    })
+}
+
+/// `/forss/city-ports` as "city ports". An address that keeps its id in the
+/// query says nothing a person could read.
+fn title_in_address(link: &str) -> Option<String> {
+    let parsed = reqwest::Url::parse(link).ok()?;
+    if parsed.query().is_some() {
+        return None;
+    }
+    let slug = parsed.path_segments()?.rev().find(|segment| !segment.is_empty())?;
+    Some(slug.replace(['-', '_'], " "))
+}
+
+/// Metadata with no streams, which is all a list and its rows are.
+fn listed(requested_url: &str, canonical_url: &str) -> MediaMetadata {
+    let platform = detect::detect_platform(requested_url);
+    MediaMetadata {
+        url: canonical_url.to_string(),
+        canonical_url: canonical_url.to_string(),
+        platform,
+        platform_label: platform.label().to_string(),
+        provider_id: PROVIDER_ID.to_string(),
+        media_kind: MediaKind::Gallery,
+        title: String::new(),
+        creator: None,
+        description: None,
+        thumbnail_url: None,
+        duration_sec: None,
+        view_count: None,
+        like_count: None,
+        upload_date: None,
+        is_live: false,
+        formats: Vec::new(),
+        entry_count: None,
+        watermark_support: WatermarkSupport::NotApplicable,
+        range_fetchable: false,
+        warnings: Vec::new(),
+        entries: Vec::new(),
+        tracks: Vec::new(),
+        items: Vec::new(),
+        music: None,
+        listing: false,
+        list_url: None,
+    }
 }
 
 pub fn parse_metadata(node: &Value, requested_url: &str) -> AppResult<MediaMetadata> {
@@ -847,6 +996,8 @@ pub fn parse_metadata(node: &Value, requested_url: &str) -> AppResult<MediaMetad
         tracks: Vec::new(),
         items: Vec::new(),
         music: None,
+        listing: false,
+        list_url: None,
     })
 }
 
@@ -1982,6 +2133,113 @@ mod tests {
             .http_headers
             .iter()
             .any(|(name, value)| name == "Referer" && value == "https://www.instagram.com/"));
+    }
+
+    /// A playlist as the flat listing prints it, removed video included.
+    fn flat_playlist() -> Value {
+        serde_json::json!({
+            "_type": "playlist",
+            "id": "PLBCF2DAC6FFB574DE",
+            "title": "Google Search Stories",
+            "channel": "Google Search Stories",
+            "uploader": "Google Search Stories",
+            "playlist_count": 13,
+            "webpage_url": "https://www.youtube.com/playlist?list=PLBCF2DAC6FFB574DE",
+            "entries": [
+                { "_type": "url", "ie_key": "Youtube", "id": "GvgqDSnpRQM",
+                  "url": "https://www.youtube.com/watch?v=GvgqDSnpRQM",
+                  "title": "Andrew Willis, Skatepark Engineer", "duration": 90,
+                  "channel": "Google Search Stories",
+                  "thumbnails": [{ "url": "https://i.ytimg.com/vi/GvgqDSnpRQM/hq720.jpg", "width": 720 }] },
+                { "_type": "url", "ie_key": "Youtube", "id": "fIc_VEQ7Vo0",
+                  "url": "https://www.youtube.com/watch?v=fIc_VEQ7Vo0", "title": null, "duration": null },
+                { "_type": "url", "ie_key": "Youtube", "id": "V4DDt30Aat4",
+                  "url": "https://www.youtube.com/watch?v=V4DDt30Aat4",
+                  "title": "Mark Lesek: A New/Old Prosthetic", "duration": 159 },
+                { "_type": "url", "ie_key": "Youtube", "id": "x1", "title": "[Private video]",
+                  "url": "https://www.youtube.com/watch?v=x1" },
+            ],
+        })
+    }
+
+    #[test]
+    fn a_playlist_is_listed_as_links_and_read_no_further() {
+        let list = parse_result(&flat_playlist(), "https://www.youtube.com/playlist?list=PLBCF2DAC6FFB574DE").unwrap();
+        assert!(list.listing);
+        assert!(list.formats.is_empty());
+        assert_eq!(list.title, "Google Search Stories");
+        assert_eq!(list.media_kind, MediaKind::Gallery);
+        assert_eq!(list.entry_count, Some(13), "what the source counts, not what is listed");
+        assert_eq!(list.thumbnail_url.as_deref(), Some("https://i.ytimg.com/vi/GvgqDSnpRQM/hq720.jpg"));
+
+        // The two the listing cannot name are gone, and the numbering closes up.
+        let rows: Vec<_> = list.tracks.iter().map(|row| (row.position, row.title.as_str())).collect();
+        assert_eq!(rows, [(1, "Andrew Willis, Skatepark Engineer"), (2, "Mark Lesek: A New/Old Prosthetic")]);
+        assert_eq!(list.tracks[0].artists, "Google Search Stories");
+        assert_eq!(list.tracks[0].duration_sec, Some(90.0));
+        assert_eq!(list.entries[1].canonical_url, "https://www.youtube.com/watch?v=V4DDt30Aat4");
+        assert!(list.items.is_empty());
+    }
+
+    #[test]
+    fn a_listing_with_no_titles_names_its_rows_from_their_addresses() {
+        let set = serde_json::json!({
+            "_type": "playlist",
+            "title": "Soulhack",
+            "uploader": "Forss",
+            "entries": [
+                { "_type": "url_transparent", "ie_key": "Soundcloud", "id": "290",
+                  "url": "https://soundcloud.com/forss/city-ports" },
+            ],
+        });
+        let list = parse_result(&set, "https://soundcloud.com/forss/sets/soulhack").unwrap();
+        assert_eq!(list.tracks[0].title, "city ports");
+        assert_eq!(list.creator.as_deref(), Some("Forss"));
+        assert_eq!(list.canonical_url, "https://soundcloud.com/forss/sets/soulhack");
+        assert_eq!(list.entry_count, Some(1));
+    }
+
+    #[test]
+    fn a_list_with_nothing_left_to_list_says_so() {
+        let empty = serde_json::json!({
+            "_type": "playlist",
+            "entries": [{ "_type": "url", "url": "https://www.youtube.com/watch?v=gone", "title": null }],
+        });
+        let err = parse_result(&empty, "https://www.youtube.com/playlist?list=PLx").unwrap_err();
+        assert_eq!(err.code(), "unsupported");
+    }
+
+    #[test]
+    fn a_channel_front_page_points_at_its_first_tab() {
+        let channel = serde_json::json!({
+            "_type": "playlist",
+            "title": "YouTube",
+            "entries": [
+                { "_type": "playlist", "title": "YouTube - Videos", "webpage_url": "https://www.youtube.com/@YouTube/videos" },
+                { "_type": "playlist", "title": "YouTube - Shorts", "webpage_url": "https://www.youtube.com/@YouTube/shorts" },
+            ],
+        });
+        let found = parse_result(&channel, "https://www.youtube.com/@YouTube").unwrap();
+        assert!(found.listing);
+        assert!(found.tracks.is_empty());
+        assert_eq!(found.list_url.as_deref(), Some("https://www.youtube.com/@YouTube/videos"));
+    }
+
+    #[test]
+    fn a_video_keeps_the_list_its_link_names_and_a_post_stays_a_gallery() {
+        let video = serde_json::json!({
+            "title": "One video",
+            "formats": [{ "format_id": "18", "url": "https://cdn.test/v.mp4", "ext": "mp4",
+                          "vcodec": "avc1", "acodec": "mp4a", "height": 360 }],
+        });
+        let one = parse_result(&video, "https://www.youtube.com/watch?v=a&list=PLabc").unwrap();
+        assert!(!one.listing);
+        assert_eq!(one.list_url.as_deref(), Some("https://www.youtube.com/playlist?list=PLabc"));
+
+        // Items that arrive whole are no listing, flat or not.
+        let post = parse_result(&carousel(), "https://www.instagram.com/p/DQ3zR6-DPGm/").unwrap();
+        assert!(!post.listing);
+        assert_eq!(post.items.len(), 3);
     }
 
     /// A carousel as the engine prints it: a photo, a video, a photo.

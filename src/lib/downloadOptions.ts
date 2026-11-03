@@ -14,6 +14,8 @@ import type { DownloadMode, MediaFormat, MediaMetadata, QualityPreference } from
 
 export type QualityKey = string;
 
+const LIST_HEIGHTS = [2160, 1440, 1080, 720, 480, 360];
+
 export function encodeQuality(quality: QualityPreference): QualityKey {
   switch (quality.type) {
     case 'best':
@@ -36,6 +38,7 @@ export function decodeQuality(key: QualityKey): QualityPreference {
 }
 
 export function availableModes(metadata: MediaMetadata): DownloadMode[] {
+  if (metadata.listing) return ['video', 'audio'];
   const modes: DownloadMode[] = [];
   if (metadata.formats.some((format) => format.hasVideo)) modes.push('video');
   if (metadata.formats.some((format) => format.hasAudio)) modes.push('audio');
@@ -52,6 +55,7 @@ export function qualityOptions(
   }
 
   if (mode === 'audio') {
+    if (metadata.listing) return [{ value: 'best', label: translate('options.audioBest') }];
     const bitrates = [
       ...new Set(
         metadata.formats
@@ -65,6 +69,23 @@ export function qualityOptions(
       ...bitrates.map((kbps) => ({
         value: `a:${kbps}` satisfies QualityKey,
         label: `${kbps} kbps`,
+      })),
+    ];
+  }
+
+  // No item of a list has been read yet, so these are ceilings rather than
+  // renditions: each video takes the best it has up to the one chosen.
+  if (metadata.listing) {
+    return [
+      {
+        value: 'best',
+        label: translate('options.qualityBest'),
+        description: translate('options.qualityBestHint'),
+      },
+      { value: 'auto', label: translate('options.qualityAuto') },
+      ...LIST_HEIGHTS.map((height) => ({
+        value: `h:${height}` satisfies QualityKey,
+        label: translate('options.upTo', { height }),
       })),
     ];
   }

@@ -99,6 +99,13 @@ export interface MediaMetadata {
   tracks: TrackSummary[];
   /** The items of a carousel or gallery, to show and pick from. Empty otherwise. */
   items: GalleryItem[];
+  /**
+   * A playlist or channel, read as a list of links: `formats` is empty, `tracks`
+   * lists it, and the choices made apply to every item.
+   */
+  listing?: boolean;
+  /** The list a link to one video also names. */
+  listUrl?: string | null;
 }
 
 /** One song of an album or playlist. */
@@ -152,6 +159,8 @@ export interface DownloadRequest {
   entry?: number | null;
   /** The sound track's language, where there are several. Null: the original. */
   audioLanguage?: string | null;
+  /** The list it was queued from, which names the folder it lands in. */
+  collection?: string | null;
   /**
    * The page a link was found on, for a link the browser extension handed
    * over. Null for everything else: a link pasted into Home needs no headers.

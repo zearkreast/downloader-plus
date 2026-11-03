@@ -173,6 +173,8 @@ impl Post {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
         }
     }
 

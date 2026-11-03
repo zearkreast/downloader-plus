@@ -170,6 +170,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
  * never opens on an option this particular media cannot satisfy.
  */
 function reconcileOptions(options: DownloadOptions, metadata: MediaMetadata): DownloadOptions {
+  // A list offers nothing of its own yet, and sound or picture both fit it.
+  if (metadata.listing) {
+    return { ...options, mode: options.mode === 'image' ? 'video' : options.mode };
+  }
+
   const next = { ...options };
 
   const hasVideo = metadata.formats.some((format) => format.hasVideo);

@@ -13,6 +13,10 @@ interface TrackListProps {
   /** Positions of the songs that will be downloaded. */
   picked: ReadonlySet<number>;
   onChange: Dispatch<SetStateAction<Set<number>>>;
+  /** The heading: songs unless told otherwise. */
+  title?: string;
+  /** How many the source has, when that is more than are listed. */
+  totalCount?: number | null;
 }
 
 /**
@@ -20,7 +24,7 @@ interface TrackListProps {
  * own button; the list scrolls inside its card so a hundred songs do not push
  * the download button off the screen.
  */
-export function TrackList({ tracks, picked, onChange }: TrackListProps) {
+export function TrackList({ tracks, picked, onChange, title, totalCount }: TrackListProps) {
   const { t } = useTranslation();
   const all = picked.size === tracks.length;
 
@@ -37,7 +41,7 @@ export function TrackList({ tracks, picked, onChange }: TrackListProps) {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between px-4">
-        <h2 className="text-[13px] font-semibold text-fg-muted">{t('tracks.title')}</h2>
+        <h2 className="text-[13px] font-semibold text-fg-muted">{title ?? t('tracks.title')}</h2>
         <button
           type="button"
           onClick={() => onChange(all ? new Set() : new Set(tracks.map((track) => track.position)))}
@@ -96,6 +100,12 @@ export function TrackList({ tracks, picked, onChange }: TrackListProps) {
           );
         })}
       </ListGroup>
+
+      {totalCount != null && totalCount > tracks.length && (
+        <p className="mt-2 px-4 text-[12.5px] text-fg-muted">
+          {t('tracks.limited', { shown: tracks.length, total: totalCount })}
+        </p>
+      )}
     </section>
   );
 }

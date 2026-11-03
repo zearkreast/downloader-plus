@@ -209,6 +209,14 @@ pub struct MediaMetadata {
     /// finished file as its tags.
     #[serde(skip)]
     pub music: Option<MusicTags>,
+    /// A playlist or a channel, read as a list of links. `formats` is empty:
+    /// nothing is known of an item until its own download reads it, so the
+    /// choices made here are made for the whole list.
+    #[serde(default)]
+    pub listing: bool,
+    /// The list a link to one video also names, for the interface to offer.
+    #[serde(default)]
+    pub list_url: Option<String>,
 }
 
 impl MediaMetadata {
@@ -329,6 +337,9 @@ pub struct DownloadRequest {
     /// `None` takes the original.
     #[serde(default)]
     pub audio_language: Option<String>,
+    /// The list it was queued from, which names the folder it lands in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
     /// The page and headers a link was found with, when the browser extension
     /// handed it over. `None` for everything typed or pasted.
     #[serde(default, skip_serializing_if = "Option::is_none")]

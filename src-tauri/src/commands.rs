@@ -16,8 +16,8 @@ use crate::export::ExportManager;
 use crate::range::RangeFetchManager;
 use crate::model::{
     BridgeStatus, CacheStats, ConvertFormatInfo, ConvertJob, ConvertRequest, DiagnosticsSnapshot,
-    DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
-    HistoryRange, MediaMetadata, MediaProbe, PlatformId, RangeFetchRequest, SourceContext,
+    DownloadMode, DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
+    HistoryRange, MediaMetadata, MediaProbe, PlatformId, QualityPreference, RangeFetchRequest, SourceContext,
     TimelineRequest, TimelineState, ToolInstallProgress, ToolKind, ToolUpdateCheck, ToolsState,
 };
 use crate::queue::QueueManager;
@@ -359,11 +359,32 @@ pub struct PlanSummary {
     pub stage_count: u32,
 }
 
+/// All that can be said of a list before any of it has been read. The best of
+/// a video usually comes as two streams, and a container asked for is a
+/// conversion, so FFmpeg is only spared by Auto with the source's own container.
+fn list_summary(request: &DownloadRequest) -> PlanSummary {
+    let merges = request.mode == DownloadMode::Video && request.quality != QualityPreference::Auto;
+    PlanSummary {
+        label: String::new(),
+        quality_label: String::new(),
+        container: request.container.clone().unwrap_or_default(),
+        needs_merge: merges,
+        needs_ffmpeg: merges || request.container.is_some(),
+        estimated_bytes: None,
+        video_format_id: None,
+        audio_format_id: None,
+        stage_count: 1,
+    }
+}
+
 #[tauri::command]
 pub fn summarize_plan(
     metadata: crate::model::MediaMetadata,
     request: DownloadRequest,
 ) -> AppResult<PlanSummary> {
+    if metadata.listing {
+        return Ok(list_summary(&request));
+    }
     let plan = crate::downloader::plan::for_request(&metadata, &request)?;
 
     // The engine merges for itself, so only a native two-stream download or a

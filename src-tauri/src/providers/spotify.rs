@@ -421,6 +421,8 @@ fn pending_song(tags: MusicTags) -> MediaMetadata {
         tracks: Vec::new(),
         items: Vec::new(),
         music: Some(tags),
+        listing: false,
+        list_url: None,
     }
 }
 

@@ -39,6 +39,9 @@ export const en = {
   'preview.live': 'Live',
   'preview.entries': '{n} items',
   'preview.songs': '{n} songs',
+  'preview.videos': '{n} videos',
+  'preview.inList': 'This video is part of a playlist',
+  'preview.openList': 'Open the playlist',
   'preview.startOver': 'New link',
   'preview.warningGeneric':
     'No provider recognised this site, so this is the media the page itself advertises. It may not be the item you meant.',
@@ -54,6 +57,7 @@ export const en = {
   'options.modeImage': 'Image',
   'options.qualityBest': 'Best quality',
   'options.qualityAuto': 'Auto',
+  'options.upTo': 'Up to {height}p',
   'options.qualityBestHint': 'Highest available video and audio, merged',
   'options.audioBest': 'Best audio',
   'options.audioLanguage': 'Audio language',
@@ -81,6 +85,8 @@ export const en = {
   'action.downloadItems': 'Download {n} items',
 
   'tracks.title': 'Songs',
+  'tracks.videos': 'Videos',
+  'tracks.limited': 'Showing the first {shown} of {total}.',
   'tracks.selectAll': 'Select all',
   'tracks.selectNone': 'Deselect all',
 

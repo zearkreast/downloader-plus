@@ -119,6 +119,7 @@ impl Handoff {
             platform: None,
             entry: None,
             audio_language: None,
+            collection: None,
             // Present even when every part of it is empty, as it is on the
             // other side. Its presence is what marks a link as handed over,
             // and that decides how it is analysed and what it is called.

@@ -1,4 +1,4 @@
-import { Eye, Heart, ImageOff, Images, Music, Radio } from 'lucide-react';
+import { Eye, Heart, ImageOff, Images, ListVideo, Music, Radio } from 'lucide-react';
 
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
@@ -66,7 +66,12 @@ export function MediaPreviewCard({ metadata }: { metadata: MediaMetadata }) {
           )
         )}
 
-        {songs > 0 ? (
+        {metadata.listing ? (
+          <span className={cn(CHIP, 'left-2.5 top-2.5')}>
+            <ListVideo size={12} />
+            {t('preview.videos', { n: metadata.entryCount ?? songs })}
+          </span>
+        ) : songs > 0 ? (
           <span className={cn(CHIP, 'left-2.5 top-2.5')}>
             <Music size={12} />
             {t('preview.songs', { n: songs })}

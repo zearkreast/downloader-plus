@@ -886,6 +886,8 @@ mod tests {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
         }
     }
 
@@ -1511,6 +1513,7 @@ mod tests {
             platform: None,
             entry: None,
             audio_language: audio_language.map(str::to_string),
+            collection: None,
             source: None,
         }
     }

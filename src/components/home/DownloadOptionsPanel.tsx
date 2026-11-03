@@ -251,22 +251,25 @@ export function DownloadOptionsPanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onChange({ advanced: !options.advanced })}
-        aria-expanded={options.advanced}
-        className="pressable -ml-1.5 mt-3 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12.5px] font-medium text-fg-muted hover:text-fg"
-      >
-        <Sliders size={13} />
-        {options.advanced ? t('options.advancedHide') : t('options.advanced')}
-        <ChevronDown
-          size={13}
-          className={cn(
-            'transition-transform duration-150 ease-out-quint',
-            options.advanced && 'rotate-180',
-          )}
-        />
-      </button>
+      {/* A list has no streams of its own to pick from. */}
+      {!metadata.listing && (
+        <button
+          type="button"
+          onClick={() => onChange({ advanced: !options.advanced })}
+          aria-expanded={options.advanced}
+          className="pressable -ml-1.5 mt-3 flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12.5px] font-medium text-fg-muted hover:text-fg"
+        >
+          <Sliders size={13} />
+          {options.advanced ? t('options.advancedHide') : t('options.advanced')}
+          <ChevronDown
+            size={13}
+            className={cn(
+              'transition-transform duration-150 ease-out-quint',
+              options.advanced && 'rotate-180',
+            )}
+          />
+        </button>
+      )}
 
       <AnimatePresence initial={false}>
         {options.advanced && (
