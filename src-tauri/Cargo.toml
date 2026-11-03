@@ -76,6 +76,8 @@ windows-sys = { version = "0.59", features = [
     # started: yt-dlp fetching a range of a link runs FFmpeg under itself, and
     # killing the parent alone leaves that grandchild downloading.
     "Win32_System_JobObjects",
+    # Sleeping the computer once the queue has run out, when asked to.
+    "Win32_System_Power",
     "Win32_System_Threading",
 ] }
 # The share sheet (IDataTransferManagerInterop, DataTransferManager and

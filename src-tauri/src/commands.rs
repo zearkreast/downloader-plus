@@ -89,6 +89,7 @@ pub async fn save_settings(
 
     logging::set_debug_enabled(settings.debug_logging);
     downloader::throttle::shared().set(settings.speed_limit_bytes());
+    state.queue.schedule_changed();
 
     // Anything that changes how requests are made invalidates the pooled client.
     if previous.proxy_url != settings.proxy_url
@@ -473,6 +474,22 @@ pub fn retry_download(state: State<'_, AppState>, id: String) {
 #[tauri::command]
 pub fn remove_download(state: State<'_, AppState>, id: String) {
     state.queue.remove(&id);
+}
+
+#[tauri::command]
+pub fn queue_outlook(state: State<'_, AppState>) -> crate::queue::QueueOutlook {
+    state.queue.outlook()
+}
+
+/// Start what the schedule is keeping back, until the queue runs out.
+#[tauri::command]
+pub fn run_outside_schedule(state: State<'_, AppState>) {
+    state.queue.run_outside_schedule();
+}
+
+#[tauri::command]
+pub fn set_after_queue(state: State<'_, AppState>, after: crate::schedule::AfterQueue) {
+    state.queue.set_after(after);
 }
 
 #[tauri::command]

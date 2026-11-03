@@ -235,6 +235,18 @@ export interface Handoff {
  */
 export type HandoffKind = 'page' | 'stream' | 'video' | 'audio' | 'image';
 
+/** What to do when nothing is left to download. Lasts until it is done. */
+export type AfterQueue = 'nothing' | 'quit' | 'sleep' | 'shutdown';
+
+/** What the queue is waiting for and what comes after it. */
+export interface QueueOutlook {
+  /** When the schedule next lets the queue run, while it is keeping it back. */
+  heldUntil: string | null;
+  after: AfterQueue;
+  /** Seconds until `after` happens, once it has begun. */
+  countdown: number | null;
+}
+
 export type DownloadStatus =
   | 'queued'
   | 'preparing'
@@ -655,6 +667,10 @@ export interface Settings {
   embedMetadata: boolean;
   /** The most all downloads together may take, in KB/s. Zero is no limit. */
   speedLimitKb: number;
+  /** Run the queue only between these two times, `HH:MM`. */
+  scheduleEnabled: boolean;
+  scheduleStart: string;
+  scheduleEnd: string;
 
   // Appearance
   theme: ThemePreference;

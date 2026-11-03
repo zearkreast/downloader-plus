@@ -78,6 +78,9 @@
     connectionsPerDownload: 8,
     embedMetadata: true,
     speedLimitKb: 0,
+    scheduleEnabled: false,
+    scheduleStart: '02:00',
+    scheduleEnd: '08:00',
     theme: params.get('theme') ?? 'dark',
     language: params.get('lang') ?? 'tr',
     reduceMotion: false,
@@ -555,6 +558,12 @@
       durationSec: 540 + index * 37,
     })),
   });
+
+  let outlook = {
+    heldUntil: params.has('held') ? '02:00' : null,
+    after: 'nothing',
+    countdown: null,
+  };
 
   const spotifyAlbum = (url) => ({
     ...metadataFor(url),
@@ -1177,6 +1186,21 @@
     remove_download: ({ id }) => {
       tasks = tasks.filter((entry) => entry.id !== id);
       changed();
+    },
+    queue_outlook: () => outlook,
+    run_outside_schedule: () => {
+      outlook = { ...outlook, heldUntil: null };
+      emit('download://outlook', outlook);
+    },
+    // Never reaches a real computer: the countdown here only runs to show the
+    // dialog, and ends in nothing.
+    set_after_queue: ({ after }) => {
+      outlook = { ...outlook, after, countdown: null };
+      emit('download://outlook', outlook);
+      if (after !== 'nothing' && params.has('ending')) {
+        outlook = { ...outlook, countdown: 58 };
+        emit('download://outlook', outlook);
+      }
     },
     pause_all_downloads: () => {
       tasks = tasks.map((entry) =>

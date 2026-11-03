@@ -27,6 +27,7 @@ pub mod process;
 pub mod providers;
 pub mod queue;
 pub mod range;
+pub mod schedule;
 pub mod settings;
 pub mod tools;
 #[cfg(desktop)]
@@ -255,6 +256,9 @@ pub fn run() {
             commands::cancel_download,
             commands::retry_download,
             commands::remove_download,
+            commands::queue_outlook,
+            commands::run_outside_schedule,
+            commands::set_after_queue,
             commands::pause_all_downloads,
             commands::resume_all_downloads,
             commands::clear_finished_downloads,

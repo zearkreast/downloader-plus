@@ -27,7 +27,7 @@ import { IS_MOBILE } from '@/lib/platform';
 import { extractFirstUrl } from '@/lib/url';
 import { AboutPage } from '@/pages/AboutPage';
 import { ConvertPage } from '@/pages/ConvertPage';
-import { DownloadsPage, showDownloadsSegment } from '@/pages/DownloadsPage';
+import { DownloadsPage, QueueEndingDialog, showDownloadsSegment } from '@/pages/DownloadsPage';
 import { EditorPage } from '@/pages/EditorPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { HomePage } from '@/pages/HomePage';
@@ -249,6 +249,7 @@ export function App() {
   const loadQueue = useQueueStore((state) => state.load);
   const replaceQueue = useQueueStore((state) => state.replace);
   const applyProgress = useQueueStore((state) => state.applyProgress);
+  const setQueueOutlook = useQueueStore((state) => state.setOutlook);
 
   const loadConversions = useConvertStore((state) => state.load);
   const replaceConversions = useConvertStore((state) => state.replace);
@@ -472,6 +473,7 @@ export function App() {
     const unlisten: Promise<() => void>[] = [
       ipc.onProgress(applyProgress),
       ipc.onQueueChanged(replaceQueue),
+      ipc.onQueueOutlook(setQueueOutlook),
       ipc.onToolsChanged(applyTools),
       ipc.onToolProgress(setInstallProgress),
       ipc.onSettingsChanged(applyExternalSettings),
@@ -881,7 +883,10 @@ export function App() {
       {IS_MOBILE ? (
         settings.onboardingComplete && !introShown && <UpdatePrompt />
       ) : (
-        <DesktopUpdater />
+        <>
+          <DesktopUpdater />
+          <QueueEndingDialog />
+        </>
       )}
 
       <AnimatePresence>

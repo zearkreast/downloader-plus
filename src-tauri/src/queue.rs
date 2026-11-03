@@ -5,10 +5,13 @@
 //! do the downloading. The task list is behind a plain mutex that is never held
 //! across an await, so a slow download cannot block a UI query.
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
+use chrono::Timelike;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Notify;
 
@@ -19,11 +22,36 @@ use crate::model::{
     DownloadProgress, DownloadRequest, DownloadStage, DownloadStatus, DownloadTask, HistoryEntry,
     ProgressEvent,
 };
+use crate::schedule::{self, AfterQueue};
 use crate::settings::Settings;
 use crate::{downloader, log_error, log_info, util};
 
 pub const EVENT_PROGRESS: &str = "download://progress";
 pub const EVENT_CHANGED: &str = "download://changed";
+pub const EVENT_OUTLOOK: &str = "download://outlook";
+
+/// How often a queue with a schedule looks at the clock. Nothing else tells it
+/// when the window opens or closes.
+const CLOCK_TICK: Duration = Duration::from_secs(20);
+
+/// What the queue is waiting for and what comes after it, for the interface.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueOutlook {
+    /// When the schedule next lets the queue run, while it is keeping it back.
+    pub held_until: Option<String>,
+    pub after: AfterQueue,
+    /// Seconds until `after` happens, once it has begun.
+    pub countdown: Option<u32>,
+}
+
+/// What has been asked for once the queue runs out.
+#[derive(Default)]
+struct Ending {
+    after: AfterQueue,
+    seconds_left: Option<u32>,
+    countdown: Option<tauri::async_runtime::JoinHandle<()>>,
+}
 
 pub struct QueueManager {
     app: AppHandle,
@@ -33,6 +61,12 @@ pub struct QueueManager {
     controls: Mutex<HashMap<String, Arc<TaskControl>>>,
     running: AtomicU32,
     wake: Notify,
+    /// Running tasks the schedule stopped, which go back to waiting rather
+    /// than to paused.
+    held: Mutex<HashSet<String>>,
+    /// The user started the queue outside its hours, until it runs out.
+    outside_hours: AtomicBool,
+    ending: Mutex<Ending>,
 }
 
 impl QueueManager {
@@ -45,6 +79,9 @@ impl QueueManager {
             controls: Mutex::new(HashMap::new()),
             running: AtomicU32::new(0),
             wake: Notify::new(),
+            held: Mutex::new(HashSet::new()),
+            outside_hours: AtomicBool::new(false),
+            ending: Mutex::new(Ending::default()),
         })
     }
 
@@ -83,15 +120,21 @@ impl QueueManager {
 
     /// Restore whatever was in flight when the app last closed. Anything that
     /// was mid-download comes back paused rather than silently resuming: the
-    /// user did not ask for network activity at startup.
+    /// user did not ask for network activity at startup. With a schedule on
+    /// they did, and it goes back to waiting for its hours.
     pub fn restore(self: &Arc<Self>) {
         let Ok(mut restored) = self.db.queue_load() else {
             return;
         };
 
+        let resting = if self.settings().schedule_enabled {
+            DownloadStatus::Queued
+        } else {
+            DownloadStatus::Paused
+        };
         for task in &mut restored {
             if task.status.is_active() || task.status == DownloadStatus::Queued {
-                task.status = DownloadStatus::Paused;
+                task.status = resting;
                 task.progress.speed_bps = 0.0;
                 task.progress.eta_sec = None;
             }
@@ -332,11 +375,20 @@ impl QueueManager {
     pub fn spawn_scheduler(self: &Arc<Self>) {
         let manager = Arc::clone(self);
         tauri::async_runtime::spawn(async move {
+            let mut was_open = None;
             loop {
-                let limit = manager.settings().max_concurrent_downloads;
-                let running = manager.running.load(Ordering::Acquire);
+                let settings = manager.settings();
+                let open = manager.may_run(&settings);
+                if was_open != Some(open) {
+                    was_open = Some(open);
+                    if !open {
+                        manager.hold_running();
+                    }
+                    manager.emit_outlook();
+                }
 
-                if running < limit {
+                let running = manager.running.load(Ordering::Acquire);
+                if open && running < settings.max_concurrent_downloads {
                     if let Some(task) = manager.take_next_queued() {
                         manager.running.fetch_add(1, Ordering::AcqRel);
                         manager.spawn_worker(task);
@@ -345,9 +397,140 @@ impl QueueManager {
                     }
                 }
 
-                manager.wake.notified().await;
+                if settings.schedule_enabled {
+                    tokio::select! {
+                        _ = manager.wake.notified() => {}
+                        _ = tokio::time::sleep(CLOCK_TICK) => {}
+                    }
+                } else {
+                    manager.wake.notified().await;
+                }
             }
         });
+    }
+
+    fn may_run(&self, settings: &Settings) -> bool {
+        let now = chrono::Local::now();
+        let in_hours = settings.schedule_open(now.hour() * 60 + now.minute());
+        // Its hours arriving is the queue's own again.
+        if in_hours {
+            self.outside_hours.store(false, Ordering::Release);
+        }
+        in_hours || self.outside_hours.load(Ordering::Acquire)
+    }
+
+    /// Stop what is running as the schedule closes. Its partial files stay,
+    /// and it carries on when the hours come round again.
+    fn hold_running(&self) {
+        let running: Vec<String> = self.with_tasks(|tasks| {
+            tasks.iter().filter(|task| task.status.is_active()).map(|task| task.id.clone()).collect()
+        });
+        let controls = self.controls.lock().unwrap_or_else(|e| e.into_inner());
+        let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        for id in running {
+            if let Some(control) = controls.get(&id) {
+                control.pause();
+                held.insert(id);
+            }
+        }
+    }
+
+    /// Settings were saved, and the schedule in them may be a new one.
+    pub fn schedule_changed(&self) {
+        self.emit_outlook();
+        self.wake.notify_one();
+    }
+
+    /// Start the queue outside its hours.
+    pub fn run_outside_schedule(&self) {
+        self.outside_hours.store(true, Ordering::Release);
+        self.schedule_changed();
+    }
+
+    pub fn outlook(&self) -> QueueOutlook {
+        let settings = self.settings();
+        let ending = self.ending.lock().unwrap_or_else(|e| e.into_inner());
+        QueueOutlook {
+            held_until: (!self.may_run(&settings)).then_some(settings.schedule_start),
+            after: ending.after,
+            countdown: ending.seconds_left,
+        }
+    }
+
+    fn emit_outlook(&self) {
+        let _ = self.app.emit(EVENT_OUTLOOK, self.outlook());
+    }
+
+    /// Say what to do once the queue runs out, or call it off.
+    pub fn set_after(self: &Arc<Self>, after: AfterQueue) {
+        {
+            let mut ending = self.ending.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(countdown) = ending.countdown.take() {
+                countdown.abort();
+            }
+            ending.seconds_left = None;
+            ending.after = after;
+        }
+        self.emit_outlook();
+    }
+
+    /// Whether anything is left to run, the schedule's waiting tasks included.
+    fn has_work(&self) -> bool {
+        self.running.load(Ordering::Acquire) > 0
+            || self.with_tasks(|tasks| {
+                tasks.iter().any(|task| task.status == DownloadStatus::Queued || task.status.is_active())
+            })
+    }
+
+    /// A worker has finished. If that was the last of the queue, start whatever
+    /// was asked for after it.
+    fn check_ran_out(self: &Arc<Self>) {
+        if self.has_work() {
+            return;
+        }
+        self.outside_hours.store(false, Ordering::Release);
+        self.emit_outlook();
+
+        let after = {
+            let ending = self.ending.lock().unwrap_or_else(|e| e.into_inner());
+            if ending.countdown.is_some() { AfterQueue::Nothing } else { ending.after }
+        };
+        if after == AfterQueue::Nothing {
+            return;
+        }
+
+        let manager = Arc::clone(self);
+        let countdown = tauri::async_runtime::spawn(async move {
+            #[cfg(desktop)]
+            crate::tray::show_main_window(&manager.app);
+            crate::notify::queue_ending(&manager.app, &manager.settings(), after);
+
+            for left in (1..=schedule::COUNTDOWN_SEC).rev() {
+                manager.show_countdown(Some(left));
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                // A new download means the queue had not run out after all.
+                // What was asked for stands, for when it does.
+                if manager.has_work() {
+                    let mut ending = manager.ending.lock().unwrap_or_else(|e| e.into_inner());
+                    ending.countdown = None;
+                    ending.seconds_left = None;
+                    drop(ending);
+                    manager.emit_outlook();
+                    return;
+                }
+            }
+
+            *manager.ending.lock().unwrap_or_else(|e| e.into_inner()) = Ending::default();
+            manager.emit_outlook();
+            log_info!("queue", "the queue ran out; carrying out {after:?}");
+            schedule::perform(&manager.app, after);
+        });
+        self.ending.lock().unwrap_or_else(|e| e.into_inner()).countdown = Some(countdown);
+    }
+
+    fn show_countdown(&self, left: Option<u32>) {
+        self.ending.lock().unwrap_or_else(|e| e.into_inner()).seconds_left = left;
+        self.emit_outlook();
     }
 
     fn take_next_queued(self: &Arc<Self>) -> Option<DownloadTask> {
@@ -368,6 +551,7 @@ impl QueueManager {
             manager.run_task(task).await;
             manager.running.fetch_sub(1, Ordering::AcqRel);
             manager.wake.notify_one();
+            manager.check_ran_out();
         });
     }
 
@@ -521,12 +705,9 @@ impl QueueManager {
     /// flag is what says which.
     fn settle_interruption(self: &Arc<Self>, id: &str, state: ControlState) {
         let paused = state == ControlState::Paused;
+        let held = self.held.lock().unwrap_or_else(|e| e.into_inner()).remove(id);
         self.update_task(id, |task| {
-            task.status = if paused {
-                DownloadStatus::Paused
-            } else {
-                DownloadStatus::Canceled
-            };
+            task.status = interrupted_status(paused, held);
             task.progress.speed_bps = 0.0;
             task.progress.eta_sec = None;
         });
@@ -625,6 +806,16 @@ impl QueueManager {
     }
 }
 
+/// What a stopped task becomes. A pause the schedule made is no pause of the
+/// user's: it goes on waiting for its hours. A cancel beats either.
+fn interrupted_status(paused: bool, held: bool) -> DownloadStatus {
+    match (paused, held) {
+        (true, true) => DownloadStatus::Queued,
+        (true, false) => DownloadStatus::Paused,
+        (false, _) => DownloadStatus::Canceled,
+    }
+}
+
 /// Tasks the user can still reorder: everything not running and not finished.
 fn is_waiting(task: &DownloadTask) -> bool {
     matches!(task.status, DownloadStatus::Queued | DownloadStatus::Paused)
@@ -680,6 +871,14 @@ mod tests {
                 source: None,
             },
         }
+    }
+
+    #[test]
+    fn what_the_schedule_stopped_goes_back_to_waiting() {
+        assert_eq!(interrupted_status(true, true), DownloadStatus::Queued);
+        assert_eq!(interrupted_status(true, false), DownloadStatus::Paused);
+        assert_eq!(interrupted_status(false, true), DownloadStatus::Canceled);
+        assert_eq!(interrupted_status(false, false), DownloadStatus::Canceled);
     }
 
     /// Mirrors `QueueManager::reorder`'s inner logic on a plain vector, so the

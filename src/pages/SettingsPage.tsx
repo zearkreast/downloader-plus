@@ -568,6 +568,39 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
         />
 
         <ToggleRow
+          title={t('settings.schedule')}
+          description={t('settings.scheduleHint')}
+          checked={settings.scheduleEnabled}
+          onChange={(checked) => void update({ scheduleEnabled: checked })}
+        />
+
+        {settings.scheduleEnabled && (
+          <SettingRow
+            title={t('settings.scheduleHours')}
+            stacked={IS_MOBILE}
+            control={
+              <div className={cn('flex items-center gap-2', controlWidth('w-[240px]'))}>
+                <TextInput
+                  type="time"
+                  value={settings.scheduleStart}
+                  onChange={(event) => void update({ scheduleStart: event.target.value })}
+                  aria-label={t('settings.scheduleStart')}
+                />
+                <span className="text-fg-muted" aria-hidden="true">
+                  –
+                </span>
+                <TextInput
+                  type="time"
+                  value={settings.scheduleEnd}
+                  onChange={(event) => void update({ scheduleEnd: event.target.value })}
+                  aria-label={t('settings.scheduleEnd')}
+                />
+              </div>
+            }
+          />
+        )}
+
+        <ToggleRow
           title={t('settings.embedMetadata')}
           description={t('settings.embedMetadataHint')}
           checked={settings.embedMetadata}
