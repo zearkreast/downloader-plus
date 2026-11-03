@@ -122,6 +122,7 @@ impl Aggregator {
             // The current stream's own pieces; the detail window draws them
             // against that stream, not against the whole download.
             segments: sample.segments.clone(),
+            fragments_at_once: None,
         }
     }
 
@@ -144,6 +145,7 @@ impl Aggregator {
             stage_count: self.stage_count,
             resumable: false,
             segments: Vec::new(),
+            fragments_at_once: None,
         }
     }
 }
@@ -584,8 +586,13 @@ async fn run_via_engine(
         .transpose()?
         .flatten();
 
+    // A plain file the engine fetches over one connection; only a stream in
+    // pieces is fetched several pieces at a time.
+    let fragmented = plan.primary().is_some_and(|format| providers::engine::is_segmented(&format.protocol));
+    let fragments_at_once = fragmented.then(|| engine_dl::fragments_at_once(settings, false));
     let mut sink = |sample: http::ProgressSample| {
-        let progress = aggregate.sample(&sample);
+        let mut progress = aggregate.sample(&sample);
+        progress.fragments_at_once = fragments_at_once;
         on_update(progress);
     };
 
