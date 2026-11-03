@@ -1042,12 +1042,15 @@ export function rows(state, reported = [], { userAgent = '' } = {}) {
 // page, so checked like a frame's report.
 const PICK_TAGS = new Set(['video', 'audio', 'image']);
 const PICK_LINKS = 40;
+const PICK_IDS = 20;
+const ID_LIMIT = 200;
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp']);
 
 /**
  * `link` is the link the element sits in, `links` the links around it, the
  * nearest first: each ancestor's, up to the post or card it is part of.
+ * `ids` are the ids around it holding a long number, gathered the same way.
  */
 export function normalisePick(raw, frameId) {
   if (!raw || typeof raw !== 'object' || !PICK_TAGS.has(raw.tag)) return null;
@@ -1066,6 +1069,7 @@ export function normalisePick(raw, frameId) {
     drm: raw.drm === true,
     link: web(raw.link),
     links: Array.isArray(raw.links) ? raw.links.slice(0, PICK_LINKS).map(web).filter(Boolean) : [],
+    ids: Array.isArray(raw.ids) ? raw.ids.slice(0, PICK_IDS).map((id) => str(id, ID_LIMIT)).filter(Boolean) : [],
   };
 }
 
@@ -1101,18 +1105,35 @@ function postAddress(url, site) {
 // where they are its markup: a blog's article links to anything.
 function postOf(pick) {
   const own = siteOf(pick.href);
-  const candidates = [
-    ...(pick.link ? [{ raw: pick.link, near: true }] : []),
-    ...pick.links.map((raw) => ({ raw, near: false })),
-  ];
-  for (const { raw, near } of candidates) {
+  const linked = (raw, near) => {
     const url = parseHttp(raw);
     const site = siteOf(raw);
-    if (!url || !site || protectedService(raw) || unlisted(raw) || !isVideoPage(url, site)) continue;
-    if (!near && (site !== own || !POST_SITES.has(site))) continue;
+    if (!url || !site || protectedService(raw) || unlisted(raw) || !isVideoPage(url, site)) return null;
+    if (!near && (site !== own || !POST_SITES.has(site))) return null;
     return { url: postAddress(url, site), site };
-  }
-  return null;
+  };
+  return (
+    (pick.link && linked(pick.link, true))
+    || playerPost(pick, own)
+    || pick.links.reduce((found, raw) => found ?? linked(raw, false), null)
+  );
+}
+
+const TIKTOK_PLAYER = /^xgwrapper-\d+-(\d{6,25})$/;
+const TIKTOK_PROFILE = /^\/@([\w.-]+)\/?$/;
+
+// TikTok's feeds keep their address (/foryou) and link to no video, but its
+// player is named after the video. TikTok finds a video by that id whatever
+// author the address names: `_` when none is around.
+function playerPost(pick, own) {
+  if (own !== 'TikTok') return null;
+  const id = pick.ids.map((each) => TIKTOK_PLAYER.exec(each)?.[1]).find(Boolean);
+  if (!id) return null;
+  const author = pick.links
+    .map((raw) => parseHttp(raw))
+    .find((url) => url && siteOf(url.href) === 'TikTok' && TIKTOK_PROFILE.test(url.pathname));
+  const name = author ? TIKTOK_PROFILE.exec(author.pathname)[1] : '_';
+  return { url: `https://www.tiktok.com/@${name}/video/${id}`, site: 'TikTok' };
 }
 
 /**

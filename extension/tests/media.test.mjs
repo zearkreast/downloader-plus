@@ -780,6 +780,53 @@ describe('pickedRow', () => {
     assert.deepEqual(row.meta, { label: 'site', site: 'Vimeo', parts: [] });
   });
 
+  // As the For You feed has it: two players, neither linked to its video,
+  // each in a wrapper named after it.
+  describe('a TikTok feed', () => {
+    const FEED = 'https://www.tiktok.com/foryou';
+    const state = { url: FEED, title: 'Sizin için trend olan videoları izleyin | TikTok', items: [] };
+    const frames = [frame({ href: FEED, videos: [{ src: '' }, { src: '' }] })];
+    const around = {
+      href: FEED,
+      links: ['https://www.tiktok.com/@elcinzz', 'https://www.tiktok.com/music/orijinal-ses-7256814377895496453'],
+      ids: ['xgwrapper-0-7659734760415120660'],
+    };
+
+    test('a video is the one its player is named after', () => {
+      const picked = pick({ tag: 'video', src: 'blob:https://www.tiktok.com/da7c', ...around });
+      const { status, row } = pickedRow(state, frames, picked, { userAgent: UA });
+      assert.equal(status, 'ready');
+      assert.equal(row.payload.kind, 'page');
+      assert.equal(row.payload.url, 'https://www.tiktok.com/@elcinzz/video/7659734760415120660');
+      assert.deepEqual(row.meta, { label: 'site', site: 'TikTok', parts: [] });
+    });
+
+    test('so is the blurred cover either side of it', () => {
+      const cover = 'https://p19-common-sign.tiktokcdn.com/tos-alisg-p-0037/ogQg~tplv-tiktokx-origin.image';
+      const picked = pick({ tag: 'image', src: cover, width: 920, height: 736, ...around });
+      const { status, row } = pickedRow(state, frames, picked);
+      assert.equal(status, 'ready');
+      assert.equal(row.payload.url, 'https://www.tiktok.com/@elcinzz/video/7659734760415120660');
+      assert.equal(row.thumbnail, cover);
+    });
+
+    test('with no author around, TikTok is left to find the author from the id', () => {
+      const picked = pick({ tag: 'video', src: '', ...around, links: [] });
+      assert.equal(pickedRow(state, frames, picked).row.payload.url, 'https://www.tiktok.com/@_/video/7659734760415120660');
+    });
+
+    test('the link the element sits in still goes first', () => {
+      const picked = pick({ tag: 'video', src: '', ...around, link: 'https://www.tiktok.com/@other/video/7600000000000000001' });
+      assert.equal(pickedRow(state, frames, picked).row.payload.url, 'https://www.tiktok.com/@other/video/7600000000000000001');
+    });
+
+    test('a wrapper of that name means nothing on another site', () => {
+      const picked = pick({ tag: 'video', href: BLOG, src: 'blob:https://blog.example/9', links: [], ids: around.ids });
+      const { row } = pickedRow({ url: BLOG, items: [] }, [frame({ href: BLOG, videos: [{}, {}] })], picked);
+      assert.equal(row.payload.url, BLOG);
+    });
+  });
+
   test("a player in a known site's feed that nothing ties to a post is not handed over", () => {
     const state = { url: 'https://x.com/home', items: [] };
     const picked = pick({ tag: 'video', href: state.url, src: 'blob:https://x.com/1', links: ['https://x.com/someone'] });
@@ -808,9 +855,13 @@ describe('pickedRow', () => {
         drm: 'yes',
         link: 'blob:https://x',
         links: ['https://a.example/1', 'file:///etc/passwd', ...Array.from({ length: 60 }, (_, i) => `https://a.example/${i}`)],
+        ids: [7, 'x'.repeat(201), ...Array.from({ length: 30 }, (_, i) => `item-${i}000000`)],
       },
       -1,
     );
+    assert.equal(picked.ids.length, 18);
+    assert.ok(picked.ids.every((id) => id.startsWith('item-')));
+    assert.deepEqual(normalisePick({ tag: 'video', ids: 'xgwrapper-0-1234567' }, 0).ids, []);
     assert.equal(picked.frameId, 0);
     assert.equal(picked.src, '');
     assert.equal(picked.width, 0);

@@ -19,9 +19,10 @@
   const MIN_SIDE = 40;
   // Deep enough to get under the clear layers sites lay over pictures and players.
   const STACK_DEPTH = 12;
-  // No more links than the worker keeps (media.js, PICK_LINKS); levels enough
-  // to climb out of a feed's nesting to the post.
+  // No more links nor ids than the worker keeps (media.js, PICK_LINKS and
+  // PICK_IDS); levels enough to climb out of a feed's nesting to the post.
   const LINKS_MAX = 40;
+  const IDS_MAX = 20;
   const LINK_LEVELS = 25;
   const MIN_SENDING_MS = 300;
   const SENT_CLOSE_MS = 2000;
@@ -629,24 +630,31 @@
   }
 
   // Nearest first: the worker takes the first that is a post (media.js, `postOf`).
-  function linksAround(element) {
-    const out = [];
+  // The ids are those holding a long number, as a player named after the post
+  // it plays is.
+  function around(element) {
+    const links = [];
+    const ids = [];
     let at = parentOf(element);
-    for (let level = 0; at && level < LINK_LEVELS && out.length < LINKS_MAX; level += 1) {
+    for (let level = 0; at && level < LINK_LEVELS && links.length < LINKS_MAX; level += 1) {
       for (const anchor of at.querySelectorAll('a[href]')) {
-        if (isWeb(anchor.href) && !out.includes(anchor.href)) out.push(anchor.href);
-        if (out.length >= LINKS_MAX) break;
+        if (isWeb(anchor.href) && !links.includes(anchor.href)) links.push(anchor.href);
+        if (links.length >= LINKS_MAX) break;
+      }
+      for (const named of at.querySelectorAll('[id]')) {
+        if (ids.length >= IDS_MAX) break;
+        if (/\d{6}/.test(named.id) && !ids.includes(named.id)) ids.push(named.id);
       }
       if (at.localName === 'article' || at.getAttribute('role') === 'article') break;
       at = parentOf(at);
     }
-    return out;
+    return { links, ids };
   }
 
   // Checked again by the worker (media.js, `normalisePick`); this only gathers.
   function report(found) {
     const { element, kind } = found;
-    const out = { tag: kind, href: location.href, link: linkOf(element), links: linksAround(element) };
+    const out = { tag: kind, href: location.href, link: linkOf(element), ...around(element) };
     if (kind === 'image') {
       Object.assign(out, found.src ? { src: found.src } : largest(element));
       return out;
