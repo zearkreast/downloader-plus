@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows_10%2F11-ff7a3d?style=flat-square&logo=windows"></a>
-  <a href="#browser-extension"><img alt="Browser extension" src="https://img.shields.io/badge/Browser_extension-2.0-3c3c40?style=flat-square"></a>
+  <a href="#browser-extension"><img alt="Browser extension" src="https://img.shields.io/badge/Browser_extension-2.5.1-3c3c40?style=flat-square"></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-3c3c40?style=flat-square"></a>
 </p>
 
