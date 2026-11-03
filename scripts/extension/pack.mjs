@@ -20,12 +20,10 @@
 // and without the key Chrome derives the id from the folder it was unpacked
 // to, which the host refuses.
 //
-// extension/src holds only what ships. The private half of that key, the
-// tests, the store images and the notes all live a level up, in extension/, so
-// nothing has to be picked out of the folder by name. Whatever is in it is
-// packed -- media.js and fonts/ ship because they are there -- and the list is
-// printed, so a wrong file shows in the output rather than in the listing. A
-// stray key, zip or test file is still left out, in case one is dropped in.
+// extension/src holds only what ships: the private half of that key, the tests,
+// the store images and the notes live a level up. Everything in it is packed and
+// listed, so a wrong file shows in the output; a stray key, zip or test file
+// dropped in by hand is still left out.
 //
 // The zip is written by hand because Node has no archiver and PowerShell's
 // Compress-Archive has been inconsistent about path separators, which is not a
