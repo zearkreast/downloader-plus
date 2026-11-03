@@ -19,7 +19,8 @@
 #     on a side branch would stop that from ever being true again.
 #
 # Run it from the Actions tab: Release -> Run workflow. The secrets it needs,
-# and how to make them, are in docs/RELEASING.md.
+# and how to make them, are in docs/RELEASING.md. The release page is written
+# from .github/release-template.md by scripts/release-notes.mjs.
 
 name: Release
 
@@ -27,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       notes:
-        description: Release notes (optional; replaces the release's text when given)
+        description: What is new, in Turkish (optional; otherwise docs/releases/<version>.md)
         required: false
         type: string
 
@@ -340,11 +341,25 @@ jobs:
             -f sha="$GITHUB_SHA" -F force=true > /dev/null
           echo "latest -> $GITHUB_SHA"
 
-      - name: Release notes
-        if: inputs.notes != ''
+      - name: Title and release page
         env:
-          NOTES: ${{ inputs.notes }}
-        run: gh release edit latest --notes "$NOTES"
+          CHANGES: ${{ inputs.notes }}
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          node scripts/release-notes.mjs > "$RUNNER_TEMP/notes.md"
+          gh release edit latest --title "Universal Media Downloader+ $version" --notes-file "$RUNNER_TEMP/notes.md"
+
+      # A fixed name for this version beside the rolling one. One already
+      # there is left alone: a version is released once.
+      - name: Tag the version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" > /dev/null 2>&1; then
+            echo "v$version already exists; left where it is."
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$version" -f sha="$GITHUB_SHA" > /dev/null
+            echo "v$version -> $GITHUB_SHA"
+          fi
 
       - name: Summary
         run: |

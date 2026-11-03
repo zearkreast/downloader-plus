@@ -35,6 +35,26 @@ install it, and find itself out of date again on the next start.
 For the same reason, Windows and Android are never released one without the
 other. A failed build stops the whole run, and the tag stays where it was.
 
+## The release page
+
+Each run writes the release's title and page. The page is
+`.github/release-template.md`, filled in by `scripts/release-notes.mjs`: the
+version, download buttons, screenshots from `docs/screens/`, install steps
+for each platform, and what is new.
+
+What is new comes from `docs/releases/<version>.md`: a short Turkish list, then
+a line `## English` and the same in English. Write it before running the
+workflow. Text in the run's **notes** box replaces the Turkish part. With
+neither, the page points at the commits.
+
+To see the page before a run:
+
+```bash
+node scripts/release-notes.mjs > notes.md
+```
+
+The run also tags the commit `v<version>`, unless that tag already exists.
+
 ## Secrets
 
 Only the Android build needs any. GitHub provides the token that publishes the
