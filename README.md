@@ -411,7 +411,8 @@ catches up.
 - `src-tauri/tests/segmented.rs` — splitting over real concurrent connections
   against a local server: byte-exact output, the segment map, resume of every
   piece, a host that refuses extra connections, a file that changed between
-  runs, and a split partial continued by one connection.
+  runs, a split partial continued by one connection, and one that lost its
+  record.
 - `src-tauri/tests/pipeline.rs` — `#[ignore]`d online tests that install the
   engine, read live metadata, and download a real file end to end.
 - `src-tauri/tests/photos.rs` — `#[ignore]`d online tests that read photo posts

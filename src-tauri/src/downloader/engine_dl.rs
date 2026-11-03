@@ -255,10 +255,8 @@ async fn attempt(
     Ok(size)
 }
 
-/// How the engine fetches a fragmented stream (HLS, DASH): over as many
-/// connections at once as a download may open, which is the same gain the
-/// native path gets from splitting a file (`segmented`). A section is fetched
-/// by FFmpeg, which takes no such option.
+/// A fragmented stream (HLS, DASH) over as many connections as a download may
+/// open. A section is fetched by FFmpeg, which takes no such option.
 fn transfer_args(settings: &Settings, sectioned: bool) -> Vec<String> {
     let mut args = Vec::new();
     if sectioned {

@@ -10,10 +10,8 @@ interface SegmentBarProps {
 
 /**
  * The whole file as one bar, cut into the pieces its connections fetch, each
- * filled as far as it has got -- the map a download manager draws. A piece a
- * connection is filling now is drawn in the full accent; one that is finished,
- * or waiting for a connection, a step quieter, so the eye finds the ones at
- * work. A hairline divides each piece from the one before it.
+ * filled as far as it has got. A piece being filled is drawn in the full accent
+ * and the others a step quieter, so the eye finds the ones at work.
  *
  * Fills are scaled rather than resized, for the reason `Progress` gives: the
  * map is redrawn twice a second for as long as the window is open.

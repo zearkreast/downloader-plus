@@ -335,6 +335,23 @@ async fn a_single_connection_partial_is_carried_on_by_several() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_full_length_partial_with_no_record_is_not_taken_for_a_finished_file() {
+    let server = start_server(quick());
+    let target = scratch("seg-no-record.bin");
+
+    // A split file that has lost its sidecar: the right length, and nothing
+    // says which of its bytes are real.
+    std::fs::write(http::part_path(&target), vec![0u8; BODY_LEN]).unwrap();
+
+    fetch(&server.url(), &target, 4, TaskControl::shared(), |_| {})
+        .await
+        .expect("download should succeed");
+
+    assert_eq!(std::fs::read(&target).unwrap(), body(), "the holes were kept as data");
+    std::fs::remove_file(&target).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_file_changed_on_the_server_is_fetched_again_rather_than_stitched() {
     let server = start_server(slow());
     let target = scratch("seg-changed.bin");

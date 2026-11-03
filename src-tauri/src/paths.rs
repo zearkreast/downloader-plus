@@ -130,11 +130,7 @@ pub fn sweep_temp(max_age_secs: u64) -> AppResult<u64> {
         if !meta.is_file() {
             continue;
         }
-        // `.part` and its `.meta` sidecar are resume state, not garbage.
-        if matches!(
-            path.extension().and_then(|e| e.to_str()),
-            Some("part") | Some("meta")
-        ) {
+        if is_resume_state(&path) {
             continue;
         }
         let age = meta
@@ -149,4 +145,29 @@ pub fn sweep_temp(max_age_secs: u64) -> AppResult<u64> {
     }
 
     Ok(removed)
+}
+
+/// `.part` and its `.meta` and `.segs` sidecars are resume state, not garbage.
+/// A split `.part` is full length from its first byte, so without its `.segs`
+/// nothing says which of those bytes are real.
+fn is_resume_state(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("part") | Some("meta") | Some("segs")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_sweep_leaves_a_resumable_download_whole() {
+        for name in ["job.v.mp4.part", "job.v.mp4.part.meta", "job.v.mp4.part.segs"] {
+            assert!(is_resume_state(Path::new(name)), "{name}");
+        }
+        for name in ["job.v.mp4", "job.v.mp4.part.segs.tmp"] {
+            assert!(!is_resume_state(Path::new(name)), "{name}");
+        }
+    }
 }

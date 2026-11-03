@@ -31,8 +31,8 @@ function closeDownloadDetails() {
 const MAX_PIECE_ROWS = 64;
 
 /**
- * A download's own window, as a download manager has one: how far it has got
- * and how fast, and the map of its connections and the piece each is filling.
+ * A download's own window: how far it has got and how fast, and the piece each
+ * connection is filling.
  *
  * It reads the task from the queue store, which the backend's progress events
  * keep current, so it moves as the download does. The task it last showed is
@@ -64,12 +64,11 @@ function Details({ task, open }: { task: DownloadTask; open: boolean }) {
   const waiting = status === 'paused' || status === 'queued';
   const finished = status === 'completed' || status === 'failed' || status === 'canceled';
 
-  const pieces: SegmentProgress[] =
-    progress.segments && progress.segments.length > 0
-      ? progress.segments
-      : wholeAsSegments(progress.receivedBytes, progress.totalBytes);
-  const split = (progress.segments?.length ?? 0) > 0;
-  const activeCount = progress.segments?.filter((piece) => piece.active).length ?? 0;
+  // A stopped transfer's last report still names the pieces that were running.
+  const segments = (progress.segments ?? []).map((piece) => ({ ...piece, active: piece.active && running }));
+  const split = segments.length > 0;
+  const pieces: SegmentProgress[] = split ? segments : wholeAsSegments(progress.receivedBytes, progress.totalBytes);
+  const activeCount = segments.filter((piece) => piece.active).length;
 
   const statusText = (() => {
     if (status === 'paused') return t('downloads.paused');
@@ -156,7 +155,6 @@ function Details({ task, open }: { task: DownloadTask; open: boolean }) {
   );
 }
 
-/** Every piece, as the connections table of a download manager lists them. */
 function PieceList({ pieces }: { pieces: SegmentProgress[] }) {
   const { t } = useTranslation();
   const shown = pieces.slice(0, MAX_PIECE_ROWS);

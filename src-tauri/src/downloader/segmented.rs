@@ -2,10 +2,8 @@
 //!
 //! A file whose host honours `Range` and states its size is fetched over
 //! several connections at once, each filling its own segment of one
-//! preallocated `.part` file. This is the technique download managers are
-//! known for, and the reason is the same one [`super::http`] chunks for: many
-//! hosts pace each connection, not each client, so four connections are close
-//! to four times as fast.
+//! preallocated `.part` file. Many hosts pace each connection, not each client,
+//! so four connections are close to four times as fast.
 //!
 //! Segments are split dynamically. When a connection finishes its own segment
 //! it takes the back half of the largest one still in progress, so the last
@@ -379,12 +377,18 @@ pub async fn fetch(
         }
         None => {
             // A split file that no longer matches the server is worthless;
-            // a single-connection partial is a filled prefix and is kept.
+            // a single-connection partial is a filled prefix and is kept. A
+            // full-length one with no record is neither: it may be a split
+            // file that lost its sidecar, and would read as finished.
             let already = if resuming {
                 let _ = std::fs::remove_file(&part_path);
                 0
             } else {
-                std::fs::metadata(&part_path).map(|meta| meta.len()).unwrap_or(0)
+                std::fs::metadata(&part_path)
+                    .map(|meta| meta.len())
+                    .ok()
+                    .filter(|len| *len < total)
+                    .unwrap_or(0)
             };
             initial_layout(total, already, connections)
         }
