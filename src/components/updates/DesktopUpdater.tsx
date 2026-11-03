@@ -95,9 +95,14 @@ export function DesktopUpdater() {
       state.fetch.status !== 'fetching',
   );
 
+  // What was asked for once the queue runs out goes first. The installer
+  // relaunches the app, which is no way to carry out Quit, and a shutdown
+  // would cut it off halfway; the next launch installs instead.
+  const nothingAfter = useQueueStore((state) => state.outlook.after === 'nothing');
+
   // Work in flight on any of these screens is deferred, not lost: the next
   // launch starts with an empty store and installs then.
-  const idle = queueQuiet && convertQuiet && homeQuiet && toolsQuiet && editorQuiet;
+  const idle = queueQuiet && convertQuiet && homeQuiet && toolsQuiet && editorQuiet && nothingAfter;
   const due = phase === 'ready' && !stalled && idle;
 
   // Work that starts while the notice is up takes the turn back.

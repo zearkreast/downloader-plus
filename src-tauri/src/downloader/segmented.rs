@@ -685,6 +685,7 @@ fn emit(
         percent: tracker.percent(Some(total)),
         resumable: true,
         segments,
+        finishing: false,
     });
 }
 

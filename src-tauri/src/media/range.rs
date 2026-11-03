@@ -287,7 +287,11 @@ impl RangeFetchManager {
 
         let manager = Arc::clone(self);
         let planned = job.plan.estimated_bytes;
-        let mut sink = move |sample: ProgressSample| manager.on_progress(&sample, ranged, planned);
+        let mut sink = move |sample: ProgressSample| {
+            if !sample.finishing {
+                manager.on_progress(&sample, ranged, planned);
+            }
+        };
 
         let outcome = engine_dl::run(
             EngineDownload {
@@ -722,6 +726,7 @@ mod tests {
             percent: None,
             resumable: true,
             segments: Vec::new(),
+            finishing: false,
         }
     }
 
