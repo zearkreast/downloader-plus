@@ -1,4 +1,4 @@
-// The browser half of Universal Downloader. It notices the videos and sounds
+// The browser half of Universal Media Downloader+. It notices the videos and sounds
 // the open tabs play, so the popup can list them, and hands the one the user
 // picks to the app.
 // <full>

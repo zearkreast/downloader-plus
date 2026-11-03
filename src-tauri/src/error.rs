@@ -214,8 +214,8 @@ impl AppError {
             ),
             "offline" => ("You're offline", "Connect to Wi-Fi or mobile data and try again."),
             "networkBlocked" => (
-                "Universal Downloader can't get online",
-                "Your phone is connected, but this app can't use the connection. Allow Universal Downloader to use Wi-Fi and mobile data in its settings, check any VPN, firewall or ad blocker, then try again.",
+                "UMD+ can't get online",
+                "Your phone is connected, but this app can't use the connection. Allow UMD+ to use Wi-Fi and mobile data in its settings, check any VPN, firewall or ad blocker, then try again.",
             ),
             "forbidden" => (
                 "We couldn't access this media",
@@ -227,7 +227,7 @@ impl AppError {
             // then served is YouTube's decision and not always a yes.
             "membershipRequired" => (
                 "This video is for channel members",
-                "YouTube only serves it to an account that holds the channel's membership. Connect your browser in Settings and Universal Downloader will offer that sign-in the next time you try this link.",
+                "YouTube only serves it to an account that holds the channel's membership. Connect your browser in Settings and UMD+ will offer that sign-in the next time you try this link.",
             ),
             // Covers audience controls, a private post and TikTok's own login
             // page alike, so it says what TikTok does rather than guessing

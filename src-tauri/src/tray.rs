@@ -48,14 +48,14 @@ struct Labels {
 fn labels(language: &str) -> Labels {
     match language {
         "tr" => Labels {
-            open: "Universal Downloader'ı aç",
+            open: "UMD+'yı aç",
             pause_all: "Tümünü duraklat",
             resume_all: "Tümünü sürdür",
             settings: "Ayarlar",
             quit: "Çıkış",
         },
         _ => Labels {
-            open: "Open Universal Downloader",
+            open: "Open UMD+",
             pause_all: "Pause all",
             resume_all: "Resume all",
             settings: "Settings",
@@ -110,7 +110,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, language: &str) -> AppResult<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .tooltip("Universal Downloader")
+        .tooltip("UMD+")
         .menu(&menu)
         // Left click opens the window; the menu belongs on right click, which is
         // what Windows users expect from a tray icon.
@@ -180,9 +180,9 @@ pub fn update_counts<R: Runtime>(app: &AppHandle<R>, active: u32, queued: u32) {
 
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let tooltip = if active + queued == 0 {
-            "Universal Downloader".to_string()
+            "UMD+".to_string()
         } else {
-            format!("Universal Downloader — {active} active, {queued} queued")
+            format!("UMD+ — {active} active, {queued} queued")
         };
         let _ = tray.set_tooltip(Some(tooltip));
     }

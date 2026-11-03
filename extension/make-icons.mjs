@@ -1,12 +1,9 @@
 // The extension's toolbar icons.
 //
-// The application's own mark, not a relative of it: a six-blade aperture on
-// nothing, in the same proportions scripts/generate_icon.py draws it in. It
-// used to be a hexagon outline with a dot inside, which said "linked" but said
-// it in a shape the product does not use anywhere else, so a user looking at
-// the toolbar had no way to tell which program the button belonged to. Nothing
-// here imitates a browser's or a video site's branding, which is a thing store
-// review does look for in an extension that asks to read cookies.
+// The application's own mark, not a relative of it: an eight-blade aperture
+// with a plus in its opening, on nothing, in the same proportions
+// scripts/generate_icon.py draws it in, so a user looking at the toolbar can tell
+// which program the button belongs to.
 //
 // The PNG encoder is here rather than from a package because the repository has
 // no image library on the JavaScript side and four small icons are not worth
@@ -22,91 +19,106 @@ import { fileURLToPath } from 'node:url';
 const outDir = join(dirname(fileURLToPath(import.meta.url)), 'icons');
 const SIZES = [16, 32, 48, 128];
 
-// Supersampled and box-filtered afterwards; a disc and six diagonal seams drawn
+// Supersampled and box-filtered afterwards; a disc and its diagonal seams drawn
 // by testing pixel centres have visibly ragged edges at 16px otherwise. Eight
 // rather than four because the seams are the whole point of the mark and a
 // coarse grid quantises their width into a stair.
 const SAMPLES = 8;
 
-const BLADES = 6;
-// All three as fractions of the disc's diameter, matching generate_icon.py.
-const MARK_FILL = 0.92;
-const INNER_R = 0.335;
-const SEAM_W = 0.085;
+const BLADES = 8;
+// All as fractions of the disc's diameter, matching generate_icon.py.
+const MARK_FILL = 0.94;
+const INNER_R = 0.3;
+const SEAM_W = 0.058;
+const PLUS_SPAN = 0.3;
+const PLUS_W = 0.1;
 
-const ACCENT_A = [0xff, 0x7a, 0x3d];
-const ACCENT_B = [0xff, 0x90, 0x59];
+const EMBER = [255, 78, 44];
+const AMBER = [255, 168, 56];
 
-// Flat blade facing up, the same rotation the application icon uses.
-const ROTATION = -Math.PI / 2;
+const STEP = (2 * Math.PI) / BLADES;
+// A flat edge of the opening faces up, so the plus sits square inside it.
+const FIRST = -Math.PI / 2 + STEP;
+const LIGHT = (-125 * Math.PI) / 180;
 
-// Inside a regular polygon: on the inner side of all of its edges at once.
-function insidePolygon(x, y, centre, radius, sides, rotation) {
-  const apothem = radius * Math.cos(Math.PI / sides);
-  for (let i = 0; i < sides; i += 1) {
-    const angle = rotation + Math.PI / sides + (i * 2 * Math.PI) / sides;
-    if ((x - centre) * Math.cos(angle) + (y - centre) * Math.sin(angle) > apothem) {
-      return false;
-    }
-  }
-  return true;
+const mix = (t) => EMBER.map((value, i) => value + (AMBER[i] - value) * t);
+const clamp = (t) => Math.max(0, Math.min(1, t));
+
+function toRim(x, y, ux, uy, radius) {
+  const b = x * ux + y * uy;
+  const t = -b + Math.sqrt(b * b - x * x - y * y + radius * radius);
+  return [x + ux * t, y + uy * t];
 }
 
-// Built once per size rather than per sub-sample: the vertices and seam
-// directions do not depend on the point being tested, and at 128px with eight
-// samples the point being tested comes round a million times.
-function apertureSampler(size) {
+// Built once per size rather than per sub-sample: the blades do not depend on
+// the point being tested, and at 128px with eight samples the point being
+// tested comes round a million times.
+function markSampler(size) {
   const centre = size / 2;
   const diameter = size * MARK_FILL;
-  const outer = diameter / 2;
-  const inner = diameter * INNER_R;
-  const reach = (diameter * SEAM_W) / 2;
+  const radius = diameter / 2;
+  const apothem = diameter * INNER_R * Math.cos(STEP / 2);
+  const halfSeam = (diameter * SEAM_W) / 2;
+  const plusHalf = (diameter * PLUS_SPAN) / 2;
+  const plusArm = (diameter * PLUS_W) / 2;
+  const plusCorner = plusArm * 0.42;
 
-  const vertices = [];
-  for (let i = 0; i < BLADES; i += 1) {
-    const angle = ROTATION + (i * 2 * Math.PI) / BLADES;
-    vertices.push([centre + inner * Math.cos(angle), centre + inner * Math.sin(angle)]);
-  }
+  // A blade is what lies between two neighbouring edges of the opening, each
+  // carried on past its corner, once half a seam is kept from both.
+  const blades = Array.from({ length: BLADES }, (_, i) => {
+    const angle = (k) => FIRST + k * STEP;
+    const [n1x, n1y] = [Math.cos(angle(i)), Math.sin(angle(i))];
+    const [n2x, n2y] = [Math.cos(angle(i + 1)), Math.sin(angle(i + 1))];
+    const c1 = apothem - halfSeam;
+    const c2 = apothem + halfSeam;
+    const det = n1x * n2y - n1y * n2x;
+    const tipX = (c1 * n2y - c2 * n1y) / det;
+    const tipY = (n1x * c2 - n2x * c1) / det;
 
-  // Each seam leaves an opening vertex along that edge's direction and carries
-  // on past the rim. The tangential rather than radial direction is what gives
-  // an iris its characteristic swirl.
-  const seams = vertices.map(([x0, y0], i) => {
-    const [x1, y1] = vertices[(i + 1) % BLADES];
-    const length = Math.hypot(x1 - x0, y1 - y0);
-    return [x0, y0, (x1 - x0) / length, (y1 - y0) / length];
+    const near = toRim(tipX, tipY, -n1y, n1x, radius);
+    const far = toRim(tipX, tipY, -n2y, n2x, radius);
+    const middle = Math.atan2(near[1] + far[1], near[0] + far[0]);
+    const dx = radius * Math.cos(middle) - tipX;
+    const dy = radius * Math.sin(middle) - tipY;
+    const lit = 0.5 + 0.5 * Math.cos(middle - LIGHT);
+    return {
+      n1x, n1y, n2x, n2y, c1, c2, tipX, tipY, dx, dy,
+      length: dx * dx + dy * dy,
+      start: mix(lit * 0.35),
+      stop: mix(0.35 + lit * 0.65),
+    };
   });
 
+  const inArm = (a, b) => {
+    if (Math.abs(a) > plusHalf || Math.abs(b) > plusArm) return false;
+    const over = Math.abs(a) - (plusHalf - plusCorner);
+    const side = Math.abs(b) - (plusArm - plusCorner);
+    return over <= 0 || side <= 0 || over * over + side * side <= plusCorner * plusCorner;
+  };
+
   return (x, y) => {
-    const dx = x - centre;
-    const dy = y - centre;
-    if (dx * dx + dy * dy > outer * outer) return null;
-    if (insidePolygon(x, y, centre, inner, BLADES, ROTATION)) return null;
+    const px = x - centre;
+    const py = y - centre;
 
-    for (const [x0, y0, ux, uy] of seams) {
-      const px = x - x0;
-      const py = y - y0;
-      const along = px * ux + py * uy;
-      // Behind the vertex the distance is measured to the vertex itself, which
-      // rounds the seam off at its inner end so a blade does not finish in a
-      // spike the way a squared-off cut would leave it.
-      const across = along < 0 ? Math.hypot(px, py) : Math.abs(px * uy - py * ux);
-      if (across <= reach) return null;
+    if (inArm(px, py) || inArm(py, px)) {
+      return mix(1 - clamp(((px + py) / plusHalf + 2) / 4));
     }
+    if (px * px + py * py > radius * radius) return null;
 
-    const t = (x / size) * 0.65 + (y / size) * 0.35;
-    return [
-      ACCENT_A[0] + (ACCENT_B[0] - ACCENT_A[0]) * t,
-      ACCENT_A[1] + (ACCENT_B[1] - ACCENT_A[1]) * t,
-      ACCENT_A[2] + (ACCENT_B[2] - ACCENT_A[2]) * t,
-    ];
+    for (const blade of blades) {
+      if (px * blade.n1x + py * blade.n1y > blade.c1) continue;
+      if (px * blade.n2x + py * blade.n2y < blade.c2) continue;
+      const t = clamp(((px - blade.tipX) * blade.dx + (py - blade.tipY) * blade.dy) / blade.length);
+      return blade.start.map((value, i) => value + (blade.stop[i] - value) * t);
+    }
+    return null;
   };
 }
 
 function render(size) {
   const pixels = Buffer.alloc(size * size * 4);
   const step = 1 / SAMPLES;
-  const sample = apertureSampler(size);
+  const sample = markSampler(size);
 
   for (let py = 0; py < size; py += 1) {
     for (let px = 0; px < size; px += 1) {

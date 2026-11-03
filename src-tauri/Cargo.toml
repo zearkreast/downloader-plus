@@ -1,8 +1,8 @@
 [package]
 name = "universal-downloader"
-version = "1.0.0"
+version = "2.0.0"
 description = "Fast, private and ad-free media downloading."
-authors = ["Universal Downloader"]
+authors = ["UMD+"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.82"

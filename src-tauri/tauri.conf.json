@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Universal Downloader",
-  "version": "1.0.0",
+  "productName": "Universal Media Downloader+",
+  "version": "2.0.0",
   "identifier": "io.universaldownloader.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Universal Downloader",
+        "title": "Universal Media Downloader+",
         "width": 1240,
         "height": 820,
         "minWidth": 1100,
@@ -48,8 +48,8 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "publisher": "Universal Downloader",
-    "copyright": "Universal Downloader",
+    "publisher": "UMD+",
+    "copyright": "UMD+",
     "category": "Utility",
     "shortDescription": "Fast, private and ad-free media downloading.",
     "longDescription": "Paste a link from any supported platform and download the media at the best available quality. No ads, no tracking, no account.",
@@ -57,6 +57,9 @@
       "resources/licenses.json": "resources/licenses.json"
     },
     "windows": {
+      "wix": {
+        "upgradeCode": "F4C9A361-3719-58FC-8DD3-B073DBCE2D2A"
+      },
       "nsis": {
         "installMode": "currentUser",
         "displayLanguageSelector": true,

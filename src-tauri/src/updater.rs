@@ -26,9 +26,9 @@ const RELEASE_TAG: &str = "latest";
 const API: &str = "https://api.github.com";
 
 #[cfg(any(windows, test))]
-const NSIS_ASSET: &str = "UniversalDownloader_x64-setup.exe";
+const NSIS_ASSET: &str = "UMD-Plus_x64-setup.exe";
 #[cfg(any(windows, test))]
-const MSI_ASSET: &str = "UniversalDownloader_x64.msi";
+const MSI_ASSET: &str = "UMD-Plus_x64.msi";
 
 pub const EVENT_UPDATE_PROGRESS: &str = "update://progress";
 
@@ -267,7 +267,7 @@ fn staged_path(update: &AppUpdate, dir: &Path, asset: &str) -> PathBuf {
         .extension()
         .and_then(|extension| extension.to_str())
         .unwrap_or("bin");
-    dir.join(format!("UniversalDownloader-{short}.{extension}"))
+    dir.join(format!("UMD-Plus-{short}.{extension}"))
 }
 
 /// Fetch the new installer into `dir` and return its path.
@@ -577,11 +577,11 @@ mod tests {
 
         assert_eq!(
             staged_path(&update, dir, NSIS_ASSET),
-            dir.join("UniversalDownloader-05b60a1c2b1b.exe")
+            dir.join("UMD-Plus-05b60a1c2b1b.exe")
         );
         assert_eq!(
             staged_path(&update, dir, MSI_ASSET),
-            dir.join("UniversalDownloader-05b60a1c2b1b.msi")
+            dir.join("UMD-Plus-05b60a1c2b1b.msi")
         );
     }
 

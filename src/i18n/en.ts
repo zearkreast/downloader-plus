@@ -4,7 +4,8 @@
  * catch up. Placeholders use {name} and are substituted by `t()`.
  */
 export const en = {
-  'app.name': 'Universal Downloader',
+  'app.name': 'UMD+',
+  'app.fullName': 'Universal Media Downloader+',
 
   'nav.home': 'Home',
   'nav.downloads': 'Downloads',
@@ -27,7 +28,7 @@ export const en = {
   'input.suggestion': 'Link on the clipboard',
   'input.suggestionDismiss': 'Dismiss suggestion',
   'input.dropHint': 'Drop a link to analyze it',
-  'input.shareHint': 'Tip: share a link to Universal Downloader from any app.',
+  'input.shareHint': 'Tip: share a link to UMD+ from any app.',
 
   'analyze.analyzing': 'Analyzing URL…',
   'analyze.retry': 'Try again',
@@ -333,7 +334,7 @@ export const en = {
   'settings.linkConnected': 'Signed in through {browser}',
   'settings.linkConnectedProfile': 'Signed in through {browser}, profile "{profile}"',
   'settings.linkConnectedHint':
-    'Universal Downloader does not have to be open for this. The browser hands the session to a small helper, which keeps it whether the app is on screen, sitting in the tray, or closed altogether.',
+    'UMD+ does not have to be open for this. The browser hands the session to a small helper, which keeps it whether the app is on screen, sitting in the tray, or closed altogether.',
   'settings.linkNoProfileName': 'The browser did not give this profile a name.',
   'settings.linkAccount': 'Looks like {account}',
   'settings.linkRefreshed': 'Last refreshed {when}',
@@ -448,7 +449,7 @@ export const en = {
   'about.externalTools': 'External tools',
   'about.system': 'System',
 
-  'welcome.title': 'Welcome to Universal Downloader',
+  'welcome.title': 'Welcome to Universal Media Downloader+',
   'welcome.subtitle': 'Fast. Private. Ad-free.',
   'welcome.getStarted': 'Get started',
   'welcome.pointPrivacy': 'Nothing leaves your machine',
@@ -475,9 +476,9 @@ export const en = {
 
   'setup.title': 'One-time setup',
   'setup.body':
-    'Universal Downloader uses two open-source tools to read media details and merge streams. They are downloaded once and run entirely on your machine.',
+    'UMD+ uses two open-source tools to read media details and merge streams. They are downloaded once and run entirely on your machine.',
   'setup.bodyMobile':
-    'Universal Downloader reads media details with yt-dlp, an open-source tool. It is downloaded once, about 3 MB, and runs entirely on your phone. FFmpeg is already built in.',
+    'UMD+ reads media details with yt-dlp, an open-source tool. It is downloaded once, about 3 MB, and runs entirely on your phone. FFmpeg is already built in.',
   'setup.installNow': 'Install now',
   'setup.ffmpegOptional':
     'FFmpeg is optional, but without it separate video and audio streams cannot be merged.',
@@ -607,7 +608,7 @@ export const en = {
 
   'update.title': 'An update is available',
   'update.body':
-    'A newer version of Universal Downloader has been released. Your downloads, history and settings stay as they are.',
+    'A newer version of UMD+ has been released. Your downloads, history and settings stay as they are.',
   'update.size': 'Size',
   'update.later': 'Later',
   'update.install': 'Update',
@@ -617,7 +618,7 @@ export const en = {
   'update.installerOpened': "The installer has opened. If it didn't appear, press Update again.",
   'update.failed': 'The update could not be downloaded. Check your connection and try again.',
   'update.permission':
-    'Android needs your permission to install the update. Allow "Install unknown apps" for Universal Downloader, then press Try again.',
+    'Android needs your permission to install the update. Allow "Install unknown apps" for UMD+, then press Try again.',
   'update.check': 'Check for updates',
   'update.checkFailed': 'Could not check for updates',
   'update.build': 'Build {commit}',
@@ -637,16 +638,16 @@ export const en = {
   'error.network.message': 'Check your connection and try again.',
   'error.offline.title': "You're offline",
   'error.offline.message': 'Connect to Wi-Fi or mobile data and try again.',
-  'error.networkBlocked.title': "Universal Downloader can't get online",
+  'error.networkBlocked.title': "UMD+ can't get online",
   'error.networkBlocked.message':
-    "Your phone is connected, but this app can't use the connection. Allow Universal Downloader to use Wi-Fi and mobile data in its settings, check any VPN, firewall or ad blocker, then try again.",
+    "Your phone is connected, but this app can't use the connection. Allow UMD+ to use Wi-Fi and mobile data in its settings, check any VPN, firewall or ad blocker, then try again.",
   'error.networkBlocked.action': 'Open app settings',
   'error.forbidden.title': "We couldn't access this media",
   'error.forbidden.message':
     'The source may require login or may not currently support public downloads.',
   'error.membershipRequired.title': 'This video is for channel members',
   'error.membershipRequired.message':
-    "YouTube only serves it to an account that holds the channel's membership. Connect your browser in Settings and Universal Downloader will offer that sign-in the next time you try this link.",
+    "YouTube only serves it to an account that holds the channel's membership. Connect your browser in Settings and UMD+ will offer that sign-in the next time you try this link.",
   'error.membershipRequired.messageMobile':
     "YouTube only serves it to an account that holds the channel's membership. The phone can't use that sign-in; the desktop app can download it.",
   'error.tiktokSignIn.title': 'This post needs a TikTok sign-in',
