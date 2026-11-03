@@ -2,14 +2,14 @@ import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 
-import { DesktopUpdater } from '@/components/DesktopUpdater';
-import { UpdatePrompt } from '@/components/UpdatePrompt';
-import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { IntroBoundary } from '@/components/intro/IntroBoundary';
+import { WelcomeScreen } from '@/components/intro/WelcomeScreen';
 import { Background } from '@/components/layout/Background';
 import { BottomNav, PHONE_TABS } from '@/components/layout/BottomNav';
 import { NAV_ORDER, Sidebar, type Route } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import { DesktopUpdater } from '@/components/updates/DesktopUpdater';
+import { UpdatePrompt } from '@/components/updates/UpdatePrompt';
 import type { UrlInputHandle } from '@/components/home/UrlInput';
 import type { HomeRequest } from '@/pages/HomePage';
 import { openLayers, onLayersChange } from '@/hooks/useBackLayer';

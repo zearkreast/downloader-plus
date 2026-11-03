@@ -20,7 +20,7 @@
 #
 # Run it from the Actions tab: Release -> Run workflow. The secrets it needs,
 # and how to make them, are in docs/RELEASING.md. The release page is written
-# from .github/release-template.md by scripts/release-notes.mjs.
+# from .github/release-template.md by scripts/release/notes.mjs.
 
 name: Release
 
@@ -78,7 +78,7 @@ jobs:
       - name: Interface tests
         run: npm run test:web
       - name: Extension tests
-        run: node --test scripts/extension/
+        run: npm run test:extension
 
   windows:
     name: Windows (x64)
@@ -316,8 +316,8 @@ jobs:
 
       - name: Pack the browser extension
         run: |
-          node scripts/pack-extension.mjs --full
-          node scripts/pack-extension.mjs --firefox
+          node scripts/extension/pack.mjs --full
+          node scripts/extension/pack.mjs --firefox
           mv extension-full.zip extension-firefox.zip release/
 
       - name: Checksums
@@ -350,7 +350,7 @@ jobs:
           CHANGES: ${{ inputs.notes }}
         run: |
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          node scripts/release-notes.mjs > "$RUNNER_TEMP/notes.md"
+          node scripts/release/notes.mjs > "$RUNNER_TEMP/notes.md"
           gh release edit latest --title "Universal Media Downloader+ $version" --notes-file "$RUNNER_TEMP/notes.md"
 
       # A fixed name for this version beside the rolling one. One already

@@ -142,7 +142,7 @@ if (option('video', false)) {
   if (!sheet) {
     for (const file of written.sort()) console.log(file);
   } else {
-    // Tiled with Pillow, which scripts/generate_icon.py already needs: the
+    // Tiled with Pillow, which scripts/generate/icon.py already needs: the
     // FFmpeg that Remotion carries is built without the tiling filters. Handed
     // the folder rather than its files: a sheet of every other frame names
     // more of them than a Windows command line holds.

@@ -8,23 +8,24 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::converter::ConvertManager;
+use crate::media::converter::ConvertManager;
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
-use crate::editor_media::TimelineManager;
-use crate::export::ExportManager;
-use crate::range::RangeFetchManager;
+use crate::media::editor_media::TimelineManager;
+use crate::media::export::ExportManager;
+use crate::media::range::RangeFetchManager;
 use crate::model::{
     BridgeStatus, CacheStats, ConvertFormatInfo, ConvertJob, ConvertRequest, DiagnosticsSnapshot,
     DownloadMode, DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
     HistoryRange, KnownLink, MediaMetadata, MediaProbe, PlatformId, QualityPreference, RangeFetchRequest, SourceContext,
     TimelineRequest, TimelineState, ToolInstallProgress, ToolKind, ToolUpdateCheck, ToolsState,
 };
-use crate::queue::QueueManager;
+use crate::downloader::queue::QueueManager;
 use crate::settings::Settings;
+use crate::media::{converter, editor_media, export};
 use crate::{
-    bridge, cache, converter, downloader, editor_media, export, filename, log_warn, logging, net,
-    paths, providers, tools, updater, util,
+    bridge, cache, downloader, filename, log_warn, logging, net, paths, providers, tools, updater,
+    util,
 };
 
 pub const EVENT_TOOL_PROGRESS: &str = "tools://progress";
@@ -523,7 +524,7 @@ pub fn forget_host_limits() {
 }
 
 #[tauri::command]
-pub fn queue_outlook(state: State<'_, AppState>) -> crate::queue::QueueOutlook {
+pub fn queue_outlook(state: State<'_, AppState>) -> crate::downloader::queue::QueueOutlook {
     state.queue.outlook()
 }
 
@@ -534,7 +535,7 @@ pub fn run_outside_schedule(state: State<'_, AppState>) {
 }
 
 #[tauri::command]
-pub fn set_after_queue(state: State<'_, AppState>, after: crate::schedule::AfterQueue) {
+pub fn set_after_queue(state: State<'_, AppState>, after: crate::downloader::schedule::AfterQueue) {
     state.queue.set_after(after);
 }
 

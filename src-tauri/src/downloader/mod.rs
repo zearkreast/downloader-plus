@@ -8,12 +8,18 @@
 //! Stream URLs are resolved here rather than reused from the analyze step: they
 //! are signed and expire, so a download that was queued an hour ago still has
 //! to ask for fresh ones.
+//!
+//! The queue that runs downloads in turn, retries them and keeps them across
+//! restarts is [`queue`], and the hours it keeps and what it does when it runs
+//! out are [`schedule`].
 
 pub mod control;
 pub mod engine_dl;
 pub mod host_limits;
 pub mod http;
 pub mod plan;
+pub mod queue;
+pub mod schedule;
 pub mod segmented;
 pub mod speed;
 pub mod subtitles;
@@ -28,7 +34,8 @@ use crate::model::{
     MusicTags, PlatformId, SourceContext,
 };
 use crate::settings::Settings;
-use crate::{ffmpeg, filename, log_debug, log_info, paths, providers};
+use crate::media::ffmpeg;
+use crate::{filename, log_debug, log_info, paths, providers};
 
 use control::TaskControl;
 use plan::DownloadPlan;

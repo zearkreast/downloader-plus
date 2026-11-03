@@ -15,11 +15,15 @@
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk --split-per-abi --target aarch64 armv7 x86_64",
     "test:web": "vitest run",
+    "test:extension": "node --test extension/tests/",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:python": "python -m unittest discover -s src-tauri/tests/python",
     "test:online": "cargo test --manifest-path src-tauri/Cargo.toml --test pipeline --test photos -- --ignored --test-threads=1 --nocapture",
     "test:all": "npm run build && npm run test:web && npm run test:rust && npm run test:python",
-    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "ui:preview": "vite --config scripts/dev/ui-preview/vite.config.mjs",
+    "extension:pack": "node scripts/extension/pack.mjs && node scripts/extension/pack.mjs --full && node scripts/extension/pack.mjs --firefox",
+    "release:notes": "node scripts/release/notes.mjs"
   },
   "dependencies": {
     "@remotion/player": "4.0.527",

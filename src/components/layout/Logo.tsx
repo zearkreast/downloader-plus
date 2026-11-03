@@ -5,9 +5,9 @@
  * plus holds still: `spinning` is the app's loading mark (see `.logo-ring` in
  * globals.css), and `ringClassName` lets a caller turn it some other way.
  *
- * Same geometry as the generated app icon (`scripts/generate_icon.py`), worked
+ * Same geometry as the generated app icon (`scripts/generate/icon.py`), worked
  * out here as vectors so it stays crisp at any size. The two are one shape
- * written twice, as is `extension/make-icons.mjs`, so a change to one has to be
+ * written twice, as is `scripts/extension/make-icons.mjs`, so a change to one has to be
  * made to all three.
  */
 

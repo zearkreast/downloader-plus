@@ -34,7 +34,9 @@ use tokio::sync::watch;
 
 use crate::commands::AppState;
 use crate::error::{AppError, AppResult};
-use crate::{converter, export, log_info, log_warn, paths, queue, range};
+use crate::downloader::queue;
+use crate::media::{converter, export, range};
+use crate::{log_info, log_warn, paths};
 
 const PLUGIN_PACKAGE: &str = "io.universaldownloader.app";
 const PLUGIN_CLASS: &str = "BridgePlugin";

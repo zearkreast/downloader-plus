@@ -246,7 +246,7 @@ pub(super) fn drop_lapsed() {
 /// This is the other-site session's `session_tried`. It is lent on the first
 /// attempt rather than after a refusal, so the engine has no second run to
 /// mark; but the queue repeats a download that failed with an access error on
-/// its own (`queue.rs`), and every repeat would lend the same jar again --
+/// its own (`downloader/queue.rs`), and every repeat would lend the same jar again --
 /// spending the account, a few seconds apart, on a post the site has just
 /// turned it away from. A refusal is remembered here for the life of the
 /// process, against that one jar: the repeats run without it, and the next
