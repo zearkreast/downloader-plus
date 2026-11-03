@@ -173,6 +173,10 @@ impl Post {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
+            subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 

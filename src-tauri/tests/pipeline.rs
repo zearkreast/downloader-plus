@@ -140,6 +140,8 @@ async fn downloads_a_direct_file_and_writes_it_whole() {
             target: &target,
             low_resource: false,
             connections: 8,
+            throttle: None,
+            host_accepts: None,
         },
         TaskControl::shared(),
         &mut sink,
@@ -203,6 +205,8 @@ async fn recovers_from_an_interruption_against_a_live_host() {
                 target: &target,
                 low_resource: false,
                 connections: 1,
+                throttle: None,
+                host_accepts: None,
             },
             Arc::clone(&control),
             &mut sink,
@@ -233,6 +237,8 @@ async fn recovers_from_an_interruption_against_a_live_host() {
             target: &target,
             low_resource: false,
             connections: 1,
+            throttle: None,
+            host_accepts: None,
         },
         TaskControl::shared(),
         &mut sink,
@@ -364,6 +370,9 @@ async fn downloads_a_spotify_song_as_that_song() {
         platform: None,
         entry: Some(2),
         audio_language: None,
+        collection: None,
+        subtitle_language: None,
+        embed_subtitles: false,
         source: None,
     };
     providers::remember_analysis(&request.url, &settings, &album);
@@ -390,6 +399,105 @@ async fn downloads_a_spotify_song_as_that_song() {
     assert_eq!(tags["artist"], "The Weeknd");
     assert_eq!(tags["track"], "2");
     assert!(report["streams"].as_array().unwrap().iter().any(|s| s["disposition"]["attached_pic"] == 1), "no cover");
+
+    std::fs::remove_dir_all(&output).unwrap();
+}
+
+/// A real playlist and a real channel, read as lists. Neither may take longer
+/// than a look at one video would: reading every video in full is what this
+/// exists to avoid.
+#[tokio::test]
+#[ignore = "contacts YouTube through the engine"]
+async fn a_playlist_and_a_channel_open_as_lists_of_their_own_addresses() {
+    let settings = settings();
+    ensure_engine(&settings).await;
+
+    let started = std::time::Instant::now();
+    let list = providers::analyze("https://www.youtube.com/playlist?list=PLBCF2DAC6FFB574DE", &settings)
+        .await
+        .expect("the playlist should be readable");
+    eprintln!("{} rows of {:?} in {:?}", list.tracks.len(), list.entry_count, started.elapsed());
+    assert!(list.listing);
+    assert!(list.formats.is_empty());
+    assert!(list.tracks.len() > 5);
+    assert!(started.elapsed() < std::time::Duration::from_secs(30));
+    assert!(list.entries.iter().all(|row| row.canonical_url.contains("watch?v=")));
+
+    let started = std::time::Instant::now();
+    let channel = providers::analyze("https://www.youtube.com/@YouTube", &settings)
+        .await
+        .expect("the channel should be readable");
+    eprintln!("{}: {} rows of {:?} in {:?}", channel.title, channel.tracks.len(), channel.entry_count, started.elapsed());
+    assert!(channel.listing);
+    assert!(channel.canonical_url.ends_with("/videos"), "{}", channel.canonical_url);
+    assert!(channel.tracks.len() > 20);
+}
+
+/// The first video on YouTube, which has chapters and subtitles. Its file is
+/// asked of FFprobe rather than of the arguments that made it.
+#[tokio::test]
+#[ignore = "contacts YouTube and downloads a short video twice"]
+async fn a_video_arrives_with_its_subtitles_chapters_tags_and_cover() {
+    use universal_downloader_lib::downloader;
+    use universal_downloader_lib::model::DownloadRequest;
+
+    let settings = settings();
+    ensure_engine(&settings).await;
+    assert!(settings.embed_metadata);
+
+    let url = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
+    let output = std::env::temp_dir().join(format!("ud-extras-{}", std::process::id()));
+    std::fs::create_dir_all(&output).unwrap();
+    let request = |embed_subtitles: bool| DownloadRequest {
+        url: url.into(),
+        mode: DownloadMode::Video,
+        quality: QualityPreference::Best,
+        video_format_id: None,
+        audio_format_id: None,
+        container: Some("mp4".into()),
+        watermark: WatermarkPreference::Any,
+        output_dir: Some(output.to_string_lossy().into_owned()),
+        title: None,
+        thumbnail_url: None,
+        platform: None,
+        entry: None,
+        audio_language: None,
+        collection: Some("A list".into()),
+        subtitle_language: Some("en".into()),
+        embed_subtitles,
+        source: None,
+    };
+
+    let mut sink = |_progress| {};
+    let inside = downloader::execute("extrasinside", &request(true), &settings, Arc::new(TaskControl::new()), &mut sink)
+        .await
+        .expect("the video should download");
+    eprintln!("wrote {}", inside.output_path.display());
+    assert_eq!(inside.output_path.parent().unwrap(), output.join("A list"));
+
+    let ffprobe = tools::ffmpeg_path().unwrap().with_file_name(if cfg!(windows) { "ffprobe.exe" } else { "ffprobe" });
+    let probe = std::process::Command::new(&ffprobe)
+        .args(["-v", "error", "-show_chapters", "-show_entries", "format_tags:stream=codec_type,codec_name:stream_disposition=attached_pic:stream_tags=language", "-of", "json"])
+        .arg(&inside.output_path)
+        .output()
+        .unwrap();
+    let report: serde_json::Value = serde_json::from_slice(&probe.stdout).unwrap();
+    eprintln!("{report}");
+    assert_eq!(report["format"]["tags"]["title"], "Me at the zoo");
+    assert_eq!(report["format"]["tags"]["artist"], "jawed");
+    assert_eq!(report["format"]["tags"]["comment"], url);
+    assert_eq!(report["chapters"].as_array().unwrap().len(), 3);
+    let streams = report["streams"].as_array().unwrap();
+    assert!(streams.iter().any(|s| s["disposition"]["attached_pic"] == 1), "no cover");
+    assert!(streams.iter().any(|s| s["codec_type"] == "subtitle" && s["tags"]["language"] == "eng"), "no subtitles");
+
+    let beside = downloader::execute("extrasbeside", &request(false), &settings, Arc::new(TaskControl::new()), &mut sink)
+        .await
+        .expect("the video should download again");
+    eprintln!("wrote {}", beside.output_path.display());
+    let stem = beside.output_path.file_stem().unwrap().to_string_lossy().into_owned();
+    let subtitle = beside.output_path.with_file_name(format!("{stem}.en.srt"));
+    assert!(subtitle.is_file(), "no {}", subtitle.display());
 
     std::fs::remove_dir_all(&output).unwrap();
 }
@@ -506,6 +614,9 @@ async fn a_tiktok_video_whose_best_picture_is_silent_downloads_with_its_sound() 
             platform: None,
             entry: None,
             audio_language: None,
+            collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         };
         let mut last_received = 0u64;

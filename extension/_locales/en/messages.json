@@ -8,6 +8,11 @@
     "description": "Extension description, at most 132 characters. Must not promise what any site will allow."
   },
 
+  "menuSendLink": { "message": "Download this link with UMD+" },
+  "menuSendMedia": { "message": "Download this with UMD+" },
+  "menuSendPage": { "message": "Send this page to UMD+" },
+  "commandSendPage": { "message": "Send this page to UMD+" },
+
   "popupTitle": {
     "message": "On this page",
     "description": "Heading of the popup, above the list of videos the current tab plays."

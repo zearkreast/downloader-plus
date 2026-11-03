@@ -16,8 +16,8 @@ use crate::export::ExportManager;
 use crate::range::RangeFetchManager;
 use crate::model::{
     BridgeStatus, CacheStats, ConvertFormatInfo, ConvertJob, ConvertRequest, DiagnosticsSnapshot,
-    DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
-    HistoryRange, MediaMetadata, MediaProbe, PlatformId, RangeFetchRequest, SourceContext,
+    DownloadMode, DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
+    HistoryRange, KnownLink, MediaMetadata, MediaProbe, PlatformId, QualityPreference, RangeFetchRequest, SourceContext,
     TimelineRequest, TimelineState, ToolInstallProgress, ToolKind, ToolUpdateCheck, ToolsState,
 };
 use crate::queue::QueueManager;
@@ -88,6 +88,8 @@ pub async fn save_settings(
     state.db.save_settings(&settings)?;
 
     logging::set_debug_enabled(settings.debug_logging);
+    downloader::throttle::shared().set(settings.speed_limit_bytes());
+    state.queue.schedule_changed();
 
     // Anything that changes how requests are made invalidates the pooled client.
     if previous.proxy_url != settings.proxy_url
@@ -359,11 +361,32 @@ pub struct PlanSummary {
     pub stage_count: u32,
 }
 
+/// All that can be said of a list before any of it has been read. The best of
+/// a video usually comes as two streams, and a container asked for is a
+/// conversion, so FFmpeg is only spared by Auto with the source's own container.
+fn list_summary(request: &DownloadRequest) -> PlanSummary {
+    let merges = request.mode == DownloadMode::Video && request.quality != QualityPreference::Auto;
+    PlanSummary {
+        label: String::new(),
+        quality_label: String::new(),
+        container: request.container.clone().unwrap_or_default(),
+        needs_merge: merges,
+        needs_ffmpeg: merges || request.container.is_some(),
+        estimated_bytes: None,
+        video_format_id: None,
+        audio_format_id: None,
+        stage_count: 1,
+    }
+}
+
 #[tauri::command]
 pub fn summarize_plan(
     metadata: crate::model::MediaMetadata,
     request: DownloadRequest,
 ) -> AppResult<PlanSummary> {
+    if metadata.listing {
+        return Ok(list_summary(&request));
+    }
     let plan = crate::downloader::plan::for_request(&metadata, &request)?;
 
     // The engine merges for itself, so only a native two-stream download or a
@@ -394,6 +417,41 @@ pub fn list_downloads(state: State<'_, AppState>) -> Vec<DownloadTask> {
 #[tauri::command]
 pub fn enqueue_download(state: State<'_, AppState>, request: DownloadRequest) -> DownloadTask {
     state.queue.enqueue(request)
+}
+
+/// Which of `urls` the app already has: finished, with the file still there,
+/// or in the queue right now. Asked as a link is shown, so the screen can say
+/// so before anyone presses Download a second time.
+#[tauri::command]
+pub fn find_downloaded(state: State<'_, AppState>, urls: Vec<String>) -> AppResult<Vec<KnownLink>> {
+    let mut known: Vec<KnownLink> = state
+        .db
+        .history_files(&urls)?
+        .into_iter()
+        .map(|(url, file_path, downloaded_at)| KnownLink {
+            url,
+            queued: false,
+            file_path: Some(file_path),
+            downloaded_at: Some(downloaded_at),
+        })
+        .collect();
+
+    for task in state.queue.list() {
+        if task.status == crate::model::DownloadStatus::Queued || task.status.is_active() {
+            if let Some(url) = urls.iter().find(|url| **url == task.url || **url == task.request.url) {
+                match known.iter_mut().find(|link| link.url == *url) {
+                    Some(link) => link.queued = true,
+                    None => known.push(KnownLink {
+                        url: url.clone(),
+                        queued: true,
+                        file_path: None,
+                        downloaded_at: None,
+                    }),
+                }
+            }
+        }
+    }
+    Ok(known)
 }
 
 /// Queue every item of a carousel, gallery or album as its own task.
@@ -451,6 +509,33 @@ pub fn retry_download(state: State<'_, AppState>, id: String) {
 #[tauri::command]
 pub fn remove_download(state: State<'_, AppState>, id: String) {
     state.queue.remove(&id);
+}
+
+/// How many hosts are being held to fewer connections than the setting.
+#[tauri::command]
+pub fn host_limit_count() -> u32 {
+    downloader::host_limits::count()
+}
+
+#[tauri::command]
+pub fn forget_host_limits() {
+    downloader::host_limits::forget_all();
+}
+
+#[tauri::command]
+pub fn queue_outlook(state: State<'_, AppState>) -> crate::queue::QueueOutlook {
+    state.queue.outlook()
+}
+
+/// Start what the schedule is keeping back, until the queue runs out.
+#[tauri::command]
+pub fn run_outside_schedule(state: State<'_, AppState>) {
+    state.queue.run_outside_schedule();
+}
+
+#[tauri::command]
+pub fn set_after_queue(state: State<'_, AppState>, after: crate::schedule::AfterQueue) {
+    state.queue.set_after(after);
 }
 
 #[tauri::command]

@@ -11,10 +11,13 @@
 
 pub mod control;
 pub mod engine_dl;
+pub mod host_limits;
 pub mod http;
 pub mod plan;
 pub mod segmented;
 pub mod speed;
+pub mod subtitles;
+pub mod throttle;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -346,6 +349,10 @@ async fn download_analyzed(
             .unwrap_or_else(|| settings.download_dir.clone()),
     );
     std::fs::create_dir_all(&output_dir)?;
+    let output_dir = match request.collection.as_deref() {
+        Some(name) => collection_dir(&output_dir, name),
+        None => output_dir,
+    };
 
     let final_path = target_path(&output_dir, settings, &metadata, &plan, request.entry.is_some());
     log_debug!(
@@ -408,9 +415,35 @@ async fn download_analyzed(
         _ => produced,
     };
 
+    let subtitle = match request.subtitle_language.as_deref().filter(|_| plan.video.is_some()) {
+        Some(wanted) => {
+            on_update(aggregate.processing(DownloadStage::Finalizing, Some(96.0)));
+            fetch_subtitle(task_id, &metadata, wanted, &headers, settings, temp_dir).await
+        }
+        None => None,
+    };
+    on_update(aggregate.processing(DownloadStage::Finalizing, Some(97.0)));
+    // A song was written with its own tags above, and a picture is its own file.
+    let describe = settings.embed_metadata && metadata.music.is_none() && plan.image.is_none();
+    let (produced, subtitle) = embed_extras(
+        task_id,
+        produced,
+        describe.then_some(&metadata),
+        subtitle,
+        request.embed_subtitles,
+        plan.video.is_some(),
+        settings,
+        &control,
+        temp_dir,
+    )
+    .await?;
+
     // Move into place last, so the user's folder never holds a partial file.
     on_update(aggregate.processing(DownloadStage::Finalizing, Some(99.0)));
     let final_path = finalize(&produced, &final_path)?;
+    if let Some(subtitle) = subtitle {
+        subtitles::keep_beside(&final_path, &subtitle.path, &subtitle.language);
+    }
     let file_size = std::fs::metadata(&final_path).map(|m| m.len()).unwrap_or(0);
 
     let mut done = aggregate.processing(DownloadStage::Done, Some(100.0));
@@ -745,6 +778,7 @@ async fn fetch_format(
         let progress = aggregate.sample(&sample);
         on_update(progress);
     };
+    let host_accepts = |worked: u32| host_limits::note(url, worked);
 
     http::fetch(
         client,
@@ -753,12 +787,160 @@ async fn fetch_format(
             headers: &headers,
             target,
             low_resource: settings.low_resource_mode,
-            connections: settings.connections_per_download,
+            connections: host_limits::allowed(url, settings.connections_per_download),
+            throttle: Some(throttle::shared()),
+            host_accepts: Some(&host_accepts),
         },
         Arc::clone(control),
         &mut sink,
     )
     .await
+}
+
+struct FetchedSubtitle {
+    path: PathBuf,
+    language: String,
+}
+
+/// The subtitles asked for, when this video has them.
+async fn fetch_subtitle(
+    task_id: &str,
+    metadata: &MediaMetadata,
+    wanted: &str,
+    headers: &[(String, String)],
+    settings: &Settings,
+    temp_dir: &Path,
+) -> Option<FetchedSubtitle> {
+    let track = subtitles::pick(&metadata.subtitles, wanted)?;
+    let stem = temp_dir.join(format!("{task_id}.subtitle"));
+    let path = subtitles::fetch(
+        subtitles::FetchTarget {
+            page: metadata.stream_page(),
+            language: &track.language,
+            headers,
+            stem: &stem,
+        },
+        settings,
+    )
+    .await?;
+    Some(FetchedSubtitle {
+        path,
+        language: track.language.clone(),
+    })
+}
+
+/// Write a file's tags, cover and chapters and, when asked, its subtitles into
+/// it, or hand the subtitles back to go beside it: where the container takes
+/// none, where there is no FFmpeg, and where the attempt fails.
+///
+/// All in one pass, since each is a whole copy of the file. None of it is worth
+/// failing over: anything short of a cancel keeps the file as it is.
+#[allow(clippy::too_many_arguments)]
+async fn embed_extras(
+    task_id: &str,
+    produced: PathBuf,
+    describe: Option<&MediaMetadata>,
+    subtitle: Option<FetchedSubtitle>,
+    embed_subtitle: bool,
+    has_picture: bool,
+    settings: &Settings,
+    control: &Arc<TaskControl>,
+    temp_dir: &Path,
+) -> AppResult<(PathBuf, Option<FetchedSubtitle>)> {
+    let container = produced
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let inside = subtitle
+        .as_ref()
+        .filter(|_| embed_subtitle && ffmpeg::subtitle_codec(&container).is_some());
+    if crate::tools::ffmpeg_path().is_none() || (describe.is_none() && inside.is_none()) {
+        return Ok((produced, subtitle));
+    }
+
+    let tags = describe.map(file_tags).unwrap_or_default();
+    let chapters = describe
+        .filter(|metadata| !metadata.file_tags.chapters.is_empty())
+        .and_then(|metadata| {
+            let path = temp_dir.join(format!("{task_id}.chapters"));
+            std::fs::write(&path, ffmpeg::chapter_file(&metadata.file_tags.chapters)).ok()?;
+            Some(path)
+        });
+    let cover = match describe.and_then(|metadata| metadata.thumbnail_url.as_deref()) {
+        Some(url) if ffmpeg::holds_cover(&container) => {
+            fetch_cover(url, &temp_dir.join(format!("{task_id}.cover")), settings).await
+        }
+        _ => None,
+    };
+
+    let output = ffmpeg::intermediate_path(temp_dir, task_id, "x", &container);
+    let args = ffmpeg::embed_args(
+        &produced,
+        &output,
+        &ffmpeg::Embedding {
+            has_picture,
+            tags: &tags,
+            chapters: chapters.as_deref(),
+            cover: cover.as_ref().map(|(path, art)| (path.as_path(), *art)),
+            subtitle: inside.map(|subtitle| (subtitle.path.as_path(), subtitle.language.as_str())),
+        },
+    );
+    let mut quiet = |_: ffmpeg::FfmpegProgress| {};
+    let result = ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut quiet).await;
+    for path in [chapters, cover.map(|(path, _)| path)].into_iter().flatten() {
+        let _ = std::fs::remove_file(path);
+    }
+
+    match result {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&produced);
+            match (inside.is_some(), subtitle) {
+                (true, Some(subtitle)) => {
+                    let _ = std::fs::remove_file(&subtitle.path);
+                    Ok((output, None))
+                }
+                (_, subtitle) => Ok((output, subtitle)),
+            }
+        }
+        Err(AppError::Canceled) => {
+            let _ = std::fs::remove_file(&output);
+            Err(AppError::Canceled)
+        }
+        Err(err) => {
+            log_info!("downloader", "task {task_id}: nothing could be written into the file: {err}");
+            let _ = std::fs::remove_file(&output);
+            Ok((produced, subtitle))
+        }
+    }
+}
+
+/// The tags a download is written with. The address goes in as the comment, so
+/// a file can always be traced to where it came from.
+fn file_tags(metadata: &MediaMetadata) -> Vec<(&'static str, String)> {
+    let credits = &metadata.file_tags;
+    let mut tags = vec![
+        ("title", credits.track.clone().unwrap_or_else(|| metadata.title.clone())),
+        ("comment", metadata.canonical_url.clone()),
+    ];
+    if let Some(artist) = credits.artist.as_ref().or(metadata.creator.as_ref()) {
+        tags.push(("artist", artist.clone()));
+    }
+    if let Some(album) = &credits.album {
+        tags.push(("album", album.clone()));
+    }
+    if let Some(description) = &metadata.description {
+        tags.push(("description", description.clone()));
+    }
+    if let Some(day) = metadata.upload_date.as_deref().and_then(dashed_date) {
+        tags.push(("date", day));
+    }
+    tags
+}
+
+/// `20260103` as `2026-01-03`.
+fn dashed_date(raw: &str) -> Option<String> {
+    (raw.len() == 8 && raw.is_ascii()).then(|| format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]))
 }
 
 /// Write a song's tags and cover into the file that was downloaded for it.
@@ -857,6 +1039,20 @@ async fn fetch_cover(url: &str, stem: &Path, settings: &Settings) -> Option<(Pat
     Some((path, art))
 }
 
+/// The folder an album or playlist gathers in, or `output_dir` itself when its
+/// name leaves nothing a folder can be called or the folder cannot be made.
+fn collection_dir(output_dir: &Path, name: &str) -> PathBuf {
+    let name = filename::sanitize_component(name);
+    if name.is_empty() {
+        return output_dir.to_path_buf();
+    }
+    let dir = output_dir.join(filename::truncate_stem(&name, 80));
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => dir,
+        Err(_) => output_dir.to_path_buf(),
+    }
+}
+
 /// Where a finished download goes.
 ///
 /// A song is named for itself -- who made it, then its name -- and one queued
@@ -870,20 +1066,8 @@ fn target_path(
     from_collection: bool,
 ) -> PathBuf {
     if let Some(song) = metadata.music.as_ref().filter(|_| plan.video.is_none()) {
-        let folder = song
-            .collection
-            .as_deref()
-            .filter(|_| from_collection)
-            .map(filename::sanitize_component)
-            .filter(|name| !name.is_empty());
-        let dir = match folder {
-            Some(name) => {
-                let dir = output_dir.join(filename::truncate_stem(&name, 80));
-                match std::fs::create_dir_all(&dir) {
-                    Ok(()) => dir,
-                    Err(_) => output_dir.to_path_buf(),
-                }
-            }
+        let dir = match song.collection.as_deref().filter(|_| from_collection) {
+            Some(name) => collection_dir(output_dir, name),
             None => output_dir.to_path_buf(),
         };
         let artists = song.artist_line();
@@ -931,9 +1115,7 @@ fn target_path(
     let date = metadata
         .upload_date
         .as_deref()
-        .and_then(|raw| {
-            (raw.len() == 8).then(|| format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]))
-        })
+        .and_then(dashed_date)
         .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d").to_string());
 
     filename::build_output_path(
@@ -1015,6 +1197,45 @@ mod tests {
     use crate::model::FormatKind;
 
     #[test]
+    fn a_files_tags_prefer_the_credits_over_the_upload() {
+        let mut metadata = providers::tests_support::blank();
+        metadata.title = "Song (Official Video)".into();
+        metadata.creator = Some("Label".into());
+        metadata.upload_date = Some("20260103".into());
+        metadata.description = Some("About it".into());
+
+        let tags = file_tags(&metadata);
+        assert!(tags.contains(&("title", "Song (Official Video)".to_string())));
+        assert!(tags.contains(&("artist", "Label".to_string())));
+        assert!(tags.contains(&("date", "2026-01-03".to_string())));
+        assert!(tags.contains(&("description", "About it".to_string())));
+        assert!(tags.contains(&("comment", "https://example.test/x".to_string())));
+
+        metadata.file_tags.track = Some("Song".into());
+        metadata.file_tags.artist = Some("Singer".into());
+        metadata.file_tags.album = Some("Album".into());
+        let tags = file_tags(&metadata);
+        assert!(tags.contains(&("title", "Song".to_string())));
+        assert!(tags.contains(&("artist", "Singer".to_string())));
+        assert!(tags.contains(&("album", "Album".to_string())));
+        assert!(!tags.contains(&("artist", "Label".to_string())));
+    }
+
+    #[test]
+    fn a_list_gathers_in_a_folder_of_its_name() {
+        let root = std::env::temp_dir().join(format!("ud-collection-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+
+        let dir = collection_dir(&root, "Live: 2026 / Part 1?");
+        assert!(dir.is_dir(), "{dir:?}");
+        assert_eq!(dir.parent(), Some(root.as_path()));
+        assert!(!dir.file_name().unwrap().to_string_lossy().contains(':'));
+        assert_eq!(collection_dir(&root, "   "), root, "nothing a folder can be called");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
     fn a_referer_is_the_origin_of_the_page_the_media_came_from() {
         assert_eq!(
             referer_for("https://www.tiktok.com/@someone/video/123?is_from_webapp=1").as_deref(),
@@ -1047,6 +1268,9 @@ mod tests {
             platform: None,
             entry: None,
             audio_language: None,
+            collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source,
         }
     }

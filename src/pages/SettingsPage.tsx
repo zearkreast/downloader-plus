@@ -30,11 +30,11 @@ import { Slider } from '@/components/ui/Slider';
 import { TextInput } from '@/components/ui/TextInput';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useMomentary } from '@/hooks/useMomentary';
-import { LANGUAGES, useTranslation } from '@/i18n';
+import { LANGUAGES, translate, useTranslation } from '@/i18n';
 import type { TranslationKey } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { decodeQuality, encodeQuality } from '@/lib/downloadOptions';
-import { formatBytes, truncateMiddle } from '@/lib/format';
+import { formatBytes, formatSpeed, truncateMiddle } from '@/lib/format';
 import { SPRING, T } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import * as ipc from '@/services/ipc';
@@ -552,6 +552,68 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
           }
         />
 
+        <HostLimitsRow />
+
+        <SettingRow
+          title={t('settings.speedLimit')}
+          description={t('settings.speedLimitHint')}
+          stacked={IS_MOBILE}
+          control={
+            <div className={controlWidth('w-[200px]')}>
+              <Dropdown
+                value={String(settings.speedLimitKb)}
+                options={speedLimitOptions(settings.speedLimitKb)}
+                onChange={(value) => void update({ speedLimitKb: Number(value) })}
+              />
+            </div>
+          }
+        />
+
+        <ToggleRow
+          title={t('settings.schedule')}
+          description={t('settings.scheduleHint')}
+          checked={settings.scheduleEnabled}
+          onChange={(checked) => void update({ scheduleEnabled: checked })}
+        />
+
+        {settings.scheduleEnabled && (
+          <SettingRow
+            title={t('settings.scheduleHours')}
+            stacked={IS_MOBILE}
+            control={
+              <div className={cn('flex items-center gap-2', controlWidth('w-[240px]'))}>
+                <TextInput
+                  type="time"
+                  value={settings.scheduleStart}
+                  onChange={(event) => {
+                    // A time being typed reads as empty until it is whole.
+                    if (event.target.value) void update({ scheduleStart: event.target.value });
+                  }}
+                  aria-label={t('settings.scheduleStart')}
+                />
+                <span className="text-fg-muted" aria-hidden="true">
+                  –
+                </span>
+                <TextInput
+                  type="time"
+                  value={settings.scheduleEnd}
+                  onChange={(event) => {
+                    if (event.target.value) void update({ scheduleEnd: event.target.value });
+                  }}
+                  aria-label={t('settings.scheduleEnd')}
+                />
+              </div>
+            }
+          />
+        )}
+
+        <ToggleRow
+          title={t('settings.embedMetadata')}
+          description={t('settings.embedMetadataHint')}
+          checked={settings.embedMetadata}
+          onChange={(checked) => void update({ embedMetadata: checked })}
+        />
+
         <SettingRow
           title={t('settings.autoRetry')}
           description={t('settings.autoRetryHint')}
@@ -590,6 +652,46 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
       </SettingGroup>
     </>
   );
+}
+
+/** Shown only once a host has turned connections away, and until that is reset. */
+function HostLimitsRow() {
+  const { t } = useTranslation();
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    ipc.hostLimitCount().then(setCount).catch(() => {});
+  }, []);
+  if (count === 0) return null;
+
+  return (
+    <SettingRow
+      title={t('settings.hostLimits')}
+      description={t('settings.hostLimitsHint', { n: count })}
+      control={
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setCount(0);
+            void ipc.forgetHostLimits();
+          }}
+        >
+          {t('settings.hostLimitsReset')}
+        </Button>
+      }
+    />
+  );
+}
+
+const SPEED_LIMITS_KB = [256, 512, 1024, 2048, 5120, 10240, 20480, 51200, 102400];
+
+/** The limits on offer, plus the current one if it was set some other way. */
+function speedLimitOptions(current: number) {
+  const limits = [...new Set([...SPEED_LIMITS_KB, current])].filter((kb) => kb > 0).sort((a, b) => a - b);
+  return [
+    { value: '0', label: translate('settings.speedLimitOff') },
+    ...limits.map((kb) => ({ value: String(kb), label: formatSpeed(kb * 1024) })),
+  ];
 }
 
 function AppearanceSection({ settings, update }: { settings: Settings; update: UpdateFn }) {

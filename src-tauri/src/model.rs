@@ -209,6 +209,37 @@ pub struct MediaMetadata {
     /// finished file as its tags.
     #[serde(skip)]
     pub music: Option<MusicTags>,
+    /// A playlist or a channel, read as a list of links. `formats` is empty:
+    /// nothing is known of an item until its own download reads it, so the
+    /// choices made here are made for the whole list.
+    #[serde(default)]
+    pub listing: bool,
+    /// The list a link to one video also names, for the interface to offer.
+    #[serde(default)]
+    pub list_url: Option<String>,
+    /// The subtitles it offers.
+    #[serde(default)]
+    pub subtitles: Vec<SubtitleTrack>,
+    /// What the source says of it for the finished file to carry.
+    #[serde(skip)]
+    pub file_tags: FileTags,
+}
+
+/// A recording's credits and chapters, as the source gives them.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FileTags {
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    /// The song's own name, where the title is that of the upload.
+    pub track: Option<String>,
+    pub chapters: Vec<Chapter>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chapter {
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub title: String,
 }
 
 impl MediaMetadata {
@@ -223,6 +254,17 @@ impl MediaMetadata {
     }
 }
 
+/// One language of subtitles a video offers.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitleTrack {
+    /// The source's own code, which is how the engine is asked for it.
+    pub language: String,
+    pub name: Option<String>,
+    /// Speech recognition or machine translation rather than a person.
+    pub automatic: bool,
+}
+
 /// One song of an album or playlist, as the interface lists it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -232,6 +274,21 @@ pub struct TrackSummary {
     pub title: String,
     pub artists: String,
     pub duration_sec: Option<f64>,
+    /// Its own address, for an item that has one.
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+/// A link the app has met before. See `commands::find_downloaded`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownLink {
+    pub url: String,
+    /// Waiting or running right now, rather than finished.
+    pub queued: bool,
+    /// The finished file, which is still there.
+    pub file_path: Option<String>,
+    pub downloaded_at: Option<i64>,
 }
 
 /// One item of a carousel or gallery, as the interface shows it to be picked
@@ -329,6 +386,17 @@ pub struct DownloadRequest {
     /// `None` takes the original.
     #[serde(default)]
     pub audio_language: Option<String>,
+    /// The list it was queued from, which names the folder it lands in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection: Option<String>,
+    /// The subtitles to fetch with a video. `None` fetches none. A language a
+    /// video does not have is passed over, which is how one choice can cover a
+    /// whole list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle_language: Option<String>,
+    /// Write them into the video rather than beside it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub embed_subtitles: bool,
     /// The page and headers a link was found with, when the browser extension
     /// handed it over. `None` for everything typed or pasted.
     #[serde(default, skip_serializing_if = "Option::is_none")]

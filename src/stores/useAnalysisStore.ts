@@ -26,6 +26,10 @@ export interface DownloadOptions {
   advanced: boolean;
   /** The sound track's language, where there are several. Null: the original. */
   audioLanguage: string | null;
+  /** The subtitles to fetch with it. Null: none. */
+  subtitleLanguage: string | null;
+  /** Write them into the video rather than beside it. */
+  embedSubtitles: boolean;
 }
 
 interface AnalysisState {
@@ -69,6 +73,8 @@ const DEFAULT_OPTIONS: DownloadOptions = {
   outputDir: null,
   advanced: false,
   audioLanguage: null,
+  subtitleLanguage: null,
+  embedSubtitles: false,
 };
 
 /**
@@ -170,6 +176,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
  * never opens on an option this particular media cannot satisfy.
  */
 function reconcileOptions(options: DownloadOptions, metadata: MediaMetadata): DownloadOptions {
+  // A list offers nothing of its own yet, and sound or picture both fit it.
+  if (metadata.listing) {
+    return { ...options, mode: options.mode === 'image' ? 'video' : options.mode };
+  }
+
   const next = { ...options };
 
   const hasVideo = metadata.formats.some((format) => format.hasVideo);

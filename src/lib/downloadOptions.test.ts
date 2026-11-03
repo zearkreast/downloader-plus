@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { MediaFormat, MediaMetadata } from '@/types';
 
-import { audioStreamOptions, videoStreamOptions } from './downloadOptions';
+import {
+  audioStreamOptions,
+  availableModes,
+  qualityOptions,
+  subtitleOptions,
+  videoStreamOptions,
+} from './downloadOptions';
 
 function stream(id: string, overrides: Partial<MediaFormat>): MediaFormat {
   return {
@@ -188,5 +194,56 @@ describe('videoStreamOptions', () => {
       media([{ ...h264('hls-fr'), language: 'fr' }, { ...h264('hls-de'), language: 'de' }]),
     );
     expect(values(options)).toEqual(['hls-fr', 'hls-de']);
+  });
+});
+
+describe('a list of links', () => {
+  const list = { listing: true, formats: [] } as unknown as MediaMetadata;
+
+  it('offers picture or sound, though nothing of it has been read', () => {
+    expect(availableModes(list)).toEqual(['video', 'audio']);
+  });
+
+  it('offers ceilings, since each video has qualities of its own', () => {
+    const values = qualityOptions(list, 'video').map((option) => option.value);
+    expect(values).toEqual(['best', 'auto', 'h:2160', 'h:1440', 'h:1080', 'h:720', 'h:480', 'h:360']);
+    expect(qualityOptions(list, 'audio').map((option) => option.value)).toEqual(['best']);
+  });
+});
+
+describe('subtitleOptions', () => {
+  const offering = (subtitles: MediaMetadata['subtitles']) =>
+    ({ formats: [], subtitles }) as unknown as MediaMetadata;
+
+  it('offers nothing for a video that has none', () => {
+    expect(subtitleOptions(offering([]))).toEqual([]);
+    expect(subtitleOptions(offering(undefined))).toEqual([]);
+  });
+
+  it('starts with none and lists what people wrote', () => {
+    const values = subtitleOptions(
+      offering([
+        { language: 'de', name: 'Deutsch', automatic: false },
+        { language: 'tr', name: 'Türkçe', automatic: false },
+      ]),
+    ).map((option) => option.value);
+    expect(values).toEqual(['', 'de', 'tr']);
+  });
+
+  it('leaves out machine translations into languages nobody here reads', () => {
+    const values = subtitleOptions(
+      offering([
+        { language: 'en-orig', name: null, automatic: true },
+        { language: 'am', name: null, automatic: true },
+        { language: 'zu', name: null, automatic: true },
+      ]),
+    ).map((option) => option.value);
+    expect(values).toEqual(['', 'en-orig']);
+  });
+
+  it('offers a list the common languages', () => {
+    const options = subtitleOptions({ listing: true, formats: [] } as unknown as MediaMetadata);
+    expect(options[0]?.value).toBe('');
+    expect(options.map((option) => option.value)).toContain('tr');
   });
 });

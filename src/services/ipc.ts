@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 import type {
+  AfterQueue,
   AppErrorInfo,
   AppUpdate,
   BridgeStatus,
@@ -21,6 +22,8 @@ import type {
   MediaMetadata,
   MediaProbe,
   PlatformId,
+  KnownLink,
+  QueueOutlook,
   Settings,
   SourceContext,
   ToolInstallProgress,
@@ -148,6 +151,11 @@ export const cancelDownload = (id: string) => invoke<void>('cancel_download', { 
 export const retryDownload = (id: string) => invoke<void>('retry_download', { id });
 export const removeDownload = (id: string) => invoke<void>('remove_download', { id });
 export const pauseAllDownloads = () => invoke<void>('pause_all_downloads');
+export const hostLimitCount = () => invoke<number>('host_limit_count');
+export const forgetHostLimits = () => invoke<void>('forget_host_limits');
+export const queueOutlook = () => invoke<QueueOutlook>('queue_outlook');
+export const runOutsideSchedule = () => invoke<void>('run_outside_schedule');
+export const setAfterQueue = (after: AfterQueue) => invoke<void>('set_after_queue', { after });
 export const resumeAllDownloads = () => invoke<void>('resume_all_downloads');
 export const clearFinishedDownloads = () => invoke<void>('clear_finished_downloads');
 export const reorderDownload = (id: string, delta: number) =>
@@ -250,6 +258,7 @@ export const sweepTempFiles = () => invoke<number>('sweep_temp_files');
 export const openFile = (path: string) => invoke<void>('open_file', { path });
 /** Selects it in its folder; a phone opens its Downloads view instead. */
 export const revealFile = (path: string) => invoke<void>('reveal_file', { path });
+export const findDownloaded = (urls: string[]) => invoke<KnownLink[]>('find_downloaded', { urls });
 /** The system's share sheet: Windows' own, or Android's chooser. */
 export const shareFile = (path: string) => invoke<void>('share_file', { path });
 /** The desktop's logs folder, with the current log selected in it. */
@@ -297,6 +306,7 @@ export const getBuildCommit = () => invoke<string>('get_build_commit');
 export const EVENTS = {
   progress: 'download://progress',
   queueChanged: 'download://changed',
+  queueOutlook: 'download://outlook',
   toolProgress: 'tools://progress',
   toolsChanged: 'tools://changed',
   settingsChanged: 'settings://changed',
@@ -325,6 +335,10 @@ export function onProgress(handler: (event: ProgressEvent) => void): Promise<Unl
 
 export function onQueueChanged(handler: (tasks: DownloadTask[]) => void): Promise<UnlistenFn> {
   return listen<DownloadTask[]>(EVENTS.queueChanged, (event) => handler(event.payload));
+}
+
+export function onQueueOutlook(handler: (outlook: QueueOutlook) => void): Promise<UnlistenFn> {
+  return listen<QueueOutlook>(EVENTS.queueOutlook, (event) => handler(event.payload));
 }
 
 export function onToolProgress(

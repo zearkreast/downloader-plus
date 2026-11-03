@@ -39,6 +39,7 @@ import {
   MAX_ITEMS,
   classify,
   cleanTitle,
+  contextPayload,
   dedupeKey,
   headerMap,
   isHttpUrl,
@@ -1382,6 +1383,43 @@ async function pickOn(tabId, url) {
   return { status: held.status, row: held.row };
 }
 
+// The right-click menu and the keyboard, for what needs no list to pick from.
+const MENU_ITEMS = [
+  { id: 'send-link', title: 'menuSendLink', contexts: ['link'] },
+  { id: 'send-media', title: 'menuSendMedia', contexts: ['video', 'audio', 'image'] },
+  { id: 'send-page', title: 'menuSendPage', contexts: ['page'] },
+];
+
+const SEND_RESULT_MS = 3000;
+
+function buildMenu() {
+  chrome.contextMenus.removeAll(() => {
+    for (const { id, title, contexts } of MENU_ITEMS) {
+      chrome.contextMenus.create({ id, title: t(title), contexts });
+    }
+  });
+}
+
+// There is no row to mark, so the toolbar badge says how it went, and then
+// goes back to the count.
+async function showSendResult(tabId, word) {
+  if (!Number.isInteger(tabId) || tabId < 0) return;
+  await chrome.action.setBadgeText({ tabId, text: word }).catch(() => {});
+  setTimeout(async () => {
+    const record = await readTab(tabId);
+    showCount(tabId, record, record ? undefined : 0);
+  }, SEND_RESULT_MS);
+}
+
+async function sendFromBrowser(payload, tab) {
+  if (!payload || unlisted(payload.url) || protectedService(payload.url)) {
+    await showSendResult(tab?.id, '!');
+    return;
+  }
+  const reply = await download({ payload, tabId: tab?.id });
+  await showSendResult(tab?.id, problemOf(reply?.result ?? null) ? '!' : '✓');
+}
+
 // The popup's × on a pick.
 async function forgetPick(message) {
   const tabId = message.tabId;
@@ -1519,7 +1557,19 @@ chrome.tabs.onRemoved.addListener((tabId) => dropTab(tabId));
 // window position; what was recorded for the hidden one is not what is shown.
 chrome.tabs.onReplaced.addListener((_added, removed) => dropTab(removed));
 
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  void sendFromBrowser(contextPayload(info, tab), tab);
+});
+
+// Firefox can leave the tab out, and it is the one in front.
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  if (command !== 'send-page') return;
+  const [active] = tab ? [tab] : await chrome.tabs.query({ active: true, currentWindow: true });
+  void sendFromBrowser(contextPayload({ menuItemId: command }, active), active);
+});
+
 chrome.runtime.onInstalled.addListener((details) => {
+  buildMenu();
   // <full>
   ensureAlarm();
   // </full>

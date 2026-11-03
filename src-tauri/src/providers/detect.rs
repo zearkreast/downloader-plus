@@ -102,6 +102,24 @@ pub fn is_stream_address(url: &str) -> bool {
     path.ends_with(".m3u8") || path.ends_with(".mpd") || path.contains("/manifests/")
 }
 
+/// The list a link to one YouTube video also names, as that list's own address.
+///
+/// A video opened from a playlist keeps it in its `list` parameter. A mix is
+/// made up for one viewer, and Watch Later and Liked exist only signed in, so
+/// none of those is a list anyone else can open.
+pub fn list_of(url: &str) -> Option<String> {
+    if detect_platform(url) != PlatformId::Youtube {
+        return None;
+    }
+    let parsed = reqwest::Url::parse(url.trim()).ok()?;
+    let (_, id) = parsed.query_pairs().find(|(name, _)| name == "list")?;
+    let usable = !id.is_empty()
+        && id.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+        && !id.starts_with("RD")
+        && !matches!(id.as_ref(), "WL" | "LL");
+    usable.then(|| format!("https://www.youtube.com/playlist?list={id}"))
+}
+
 pub struct UrlInfo {
     pub host: String,
     pub path: String,
@@ -220,6 +238,20 @@ pub fn detect_platform(raw: &str) -> PlatformId {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_video_opened_from_a_playlist_names_it_and_a_personal_list_does_not_count() {
+        let list = "https://www.youtube.com/playlist?list=PLBCF2DAC6FFB574DE";
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc&list=PLBCF2DAC6FFB574DE").as_deref(), Some(list));
+        assert_eq!(list_of("https://youtu.be/abc?list=PLBCF2DAC6FFB574DE&t=4").as_deref(), Some(list));
+
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc"), None);
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc&list=RDabc"), None, "a mix");
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc&list=WL"), None);
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc&list=LL"), None);
+        assert_eq!(list_of("https://www.youtube.com/watch?v=abc&list=PL%26x"), None);
+        assert_eq!(list_of("https://vimeo.com/1?list=PLabc"), None);
+    }
 
     #[test]
     fn protected_services_are_named_and_nothing_else_is() {

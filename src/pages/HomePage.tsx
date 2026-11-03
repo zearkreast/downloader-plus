@@ -26,6 +26,7 @@ import {
   pickedOf,
   pickedPositions,
 } from '@/lib/gallerySelection';
+import { formatDay } from '@/lib/format';
 import { COLLAPSE, FADE, RISE, T, rise } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import { normalizeUrl } from '@/lib/url';
@@ -33,7 +34,7 @@ import type { SettingsSection } from '@/pages/SettingsPage';
 import * as ipc from '@/services/ipc';
 import { useAnalysisStore } from '@/stores/useAnalysisStore';
 import { useToolsStore } from '@/stores/useToolsStore';
-import type { AppErrorInfo, DownloadRequest, Settings } from '@/types';
+import type { AppErrorInfo, DownloadRequest, KnownLink, Settings } from '@/types';
 
 /** The result arrives as one object: the preview and its options together. */
 const READY = rise(10);
@@ -52,7 +53,7 @@ export function HomePage({
   onOpenSettings,
   inputRef,
 }: HomePageProps) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const url = useAnalysisStore((state) => state.url);
   const phase = useAnalysisStore((state) => state.phase);
@@ -89,6 +90,40 @@ export function HomePage({
     const listed = metadata?.tracks.length ? metadata.tracks : (metadata?.items ?? []);
     setPicked(new Set(listed.map((entry) => entry.position)));
   }, [metadata]);
+
+  // What the app already has of this. Not a wall: downloading again is a
+  // reasonable thing to want, so it only says so, and leaves a list's copies
+  // unticked rather than out of reach.
+  const [known, setKnown] = useState<KnownLink[]>([]);
+  useEffect(() => {
+    setKnown([]);
+    if (!metadata) return;
+    const urls = metadata.listing
+      ? metadata.tracks.flatMap((track) => track.url ?? [])
+      : [...new Set([metadata.canonicalUrl, metadata.url])];
+    let active = true;
+    ipc
+      .findDownloaded(urls)
+      .then((found) => {
+        if (!active) return;
+        setKnown(found);
+        if (metadata.listing) {
+          const had = new Set(found.map((link) => link.url));
+          setPicked((current) => {
+            const next = new Set(current);
+            for (const track of metadata.tracks) {
+              if (track.url && had.has(track.url)) next.delete(track.position);
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [metadata]);
+  const alreadyHave = metadata?.listing ? undefined : known[0];
   const isGallery = tracks.length === 0 && items.length > 1;
   // What this mode can take from it -- see `pickableItems`.
   const pickable = pickableItems(items, options.mode);
@@ -241,6 +276,8 @@ export function HomePage({
       thumbnailUrl: metadata.thumbnailUrl,
       platform: metadata.platform,
       audioLanguage: options.audioLanguage,
+      subtitleLanguage: options.subtitleLanguage,
+      embedSubtitles: options.subtitleLanguage != null && options.embedSubtitles,
       // A link from the browser extension is fetched the way its page fetched
       // it, as its analysis was.
       source: handoff?.source ?? null,
@@ -441,8 +478,53 @@ export function HomePage({
             >
               <MediaPreviewCard metadata={metadata} />
 
+              {metadata.listUrl && !metadata.listing && (
+                <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
+                  <span className="text-[13px] text-fg-muted">{t('preview.inList')}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const list = metadata.listUrl!;
+                      setUrl(list);
+                      startAnalysis(list);
+                    }}
+                  >
+                    {t('preview.openList')}
+                  </Button>
+                </div>
+              )}
+
               {tracks.length > 0 && (
-                <TrackList tracks={tracks} picked={picked} onChange={setPicked} />
+                <TrackList
+                  tracks={tracks}
+                  picked={picked}
+                  onChange={setPicked}
+                  title={metadata.listing ? t('tracks.videos') : undefined}
+                  totalCount={metadata.listing ? metadata.entryCount : null}
+                  known={known}
+                />
+              )}
+
+              {alreadyHave && (
+                <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
+                  <span className="text-[13px] text-fg-muted">
+                    {alreadyHave.queued
+                      ? t('preview.alreadyQueued')
+                      : t('preview.alreadyDownloaded', {
+                          date: formatDay(alreadyHave.downloadedAt ?? 0, language),
+                        })}
+                  </span>
+                  {alreadyHave.filePath && !alreadyHave.queued && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void ipc.revealFile(alreadyHave.filePath!)}
+                    >
+                      {t('downloads.showInFolder')}
+                    </Button>
+                  )}
+                </div>
               )}
 
               {/* Closes rather than vanishes when a mode leaves nothing to pick
@@ -485,8 +567,9 @@ export function HomePage({
                   tracks.length > 0 ? picked.size === 0 : pickingItems && pickedCount === 0
                 }
                 // The line describes the first item, which says nothing about
-                // a pick from a post whose items need not be alike.
-                showPlan={!pickingItems}
+                // a pick from a post whose items need not be alike, and a list
+                // has read none of its own.
+                showPlan={!pickingItems && !metadata.listing}
               />
 
               <button

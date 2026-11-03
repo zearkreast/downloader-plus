@@ -6,13 +6,19 @@ import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/format';
 import { IS_MOBILE } from '@/lib/platform';
-import type { TrackSummary } from '@/types';
+import type { KnownLink, TrackSummary } from '@/types';
 
 interface TrackListProps {
   tracks: TrackSummary[];
   /** Positions of the songs that will be downloaded. */
   picked: ReadonlySet<number>;
   onChange: Dispatch<SetStateAction<Set<number>>>;
+  /** The heading: songs unless told otherwise. */
+  title?: string;
+  /** How many the source has, when that is more than are listed. */
+  totalCount?: number | null;
+  /** What the app already has of these, to mark in the list. */
+  known?: readonly KnownLink[];
 }
 
 /**
@@ -20,8 +26,9 @@ interface TrackListProps {
  * own button; the list scrolls inside its card so a hundred songs do not push
  * the download button off the screen.
  */
-export function TrackList({ tracks, picked, onChange }: TrackListProps) {
+export function TrackList({ tracks, picked, onChange, title, totalCount, known = [] }: TrackListProps) {
   const { t } = useTranslation();
+  const have = new Set(known.map((link) => link.url));
   const all = picked.size === tracks.length;
 
   // From the latest choice rather than the one this render saw, so two quick
@@ -37,7 +44,7 @@ export function TrackList({ tracks, picked, onChange }: TrackListProps) {
   return (
     <section>
       <div className="mb-2 flex items-center justify-between px-4">
-        <h2 className="text-[13px] font-semibold text-fg-muted">{t('tracks.title')}</h2>
+        <h2 className="text-[13px] font-semibold text-fg-muted">{title ?? t('tracks.title')}</h2>
         <button
           type="button"
           onClick={() => onChange(all ? new Set() : new Set(tracks.map((track) => track.position)))}
@@ -87,6 +94,10 @@ export function TrackList({ tracks, picked, onChange }: TrackListProps) {
                 )}
               </span>
 
+              {track.url && have.has(track.url) && (
+                <span className="shrink-0 text-[12.5px] text-fg-faint">{t('tracks.downloaded')}</span>
+              )}
+
               {track.durationSec != null && (
                 <span className="tabular shrink-0 text-[12.5px] text-fg-faint">
                   {formatDuration(track.durationSec)}
@@ -96,6 +107,12 @@ export function TrackList({ tracks, picked, onChange }: TrackListProps) {
           );
         })}
       </ListGroup>
+
+      {totalCount != null && totalCount > tracks.length && (
+        <p className="mt-2 px-4 text-[12.5px] text-fg-muted">
+          {t('tracks.limited', { shown: tracks.length, total: totalCount })}
+        </p>
+      )}
     </section>
   );
 }

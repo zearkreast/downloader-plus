@@ -14,6 +14,8 @@ import type { DownloadMode, MediaFormat, MediaMetadata, QualityPreference } from
 
 export type QualityKey = string;
 
+const LIST_HEIGHTS = [2160, 1440, 1080, 720, 480, 360];
+
 export function encodeQuality(quality: QualityPreference): QualityKey {
   switch (quality.type) {
     case 'best':
@@ -36,6 +38,7 @@ export function decodeQuality(key: QualityKey): QualityPreference {
 }
 
 export function availableModes(metadata: MediaMetadata): DownloadMode[] {
+  if (metadata.listing) return ['video', 'audio'];
   const modes: DownloadMode[] = [];
   if (metadata.formats.some((format) => format.hasVideo)) modes.push('video');
   if (metadata.formats.some((format) => format.hasAudio)) modes.push('audio');
@@ -52,6 +55,7 @@ export function qualityOptions(
   }
 
   if (mode === 'audio') {
+    if (metadata.listing) return [{ value: 'best', label: translate('options.audioBest') }];
     const bitrates = [
       ...new Set(
         metadata.formats
@@ -65,6 +69,23 @@ export function qualityOptions(
       ...bitrates.map((kbps) => ({
         value: `a:${kbps}` satisfies QualityKey,
         label: `${kbps} kbps`,
+      })),
+    ];
+  }
+
+  // No item of a list has been read yet, so these are ceilings rather than
+  // renditions: each video takes the best it has up to the one chosen.
+  if (metadata.listing) {
+    return [
+      {
+        value: 'best',
+        label: translate('options.qualityBest'),
+        description: translate('options.qualityBestHint'),
+      },
+      { value: 'auto', label: translate('options.qualityAuto') },
+      ...LIST_HEIGHTS.map((height) => ({
+        value: `h:${height}` satisfies QualityKey,
+        label: translate('options.upTo', { height }),
       })),
     ];
   }
@@ -163,6 +184,56 @@ export function audioLanguageOptions(metadata: MediaMetadata): DropdownOption<st
     options.push({ value: code, label: name(code) });
   }
   return options;
+}
+
+/** What a list is offered, since none of its videos has been read yet. */
+const LIST_SUBTITLES = ['tr', 'en', 'de', 'fr', 'es', 'it', 'pt', 'ru', 'ar', 'ja', 'ko'];
+
+/**
+ * The subtitles to pick from, starting with none. Machine captions come in
+ * every language a site can translate into, so only the two worth having are
+ * offered: the one the video speaks, which the source marks `-orig`, and the
+ * language of this app.
+ */
+export function subtitleOptions(metadata: MediaMetadata): DropdownOption<string>[] {
+  const names = displayNames();
+  const nameOf = (code: string) => {
+    let shown: string | undefined;
+    try {
+      shown = names?.of(code);
+    } catch {
+      // A code `Intl` will not take, such as `en-orig`: the language in front of it may do.
+      shown = code.includes('-') ? names?.of(code.split('-')[0]!) : undefined;
+    }
+    const text = shown ?? code;
+    return text.charAt(0).toLocaleUpperCase(getLanguage()) + text.slice(1);
+  };
+
+  const none = { value: '', label: translate('options.none') };
+  if (metadata.listing) {
+    return [none, ...LIST_SUBTITLES.map((code) => ({ value: code, label: nameOf(code) }))];
+  }
+
+  const tracks = metadata.subtitles ?? [];
+  if (tracks.length === 0) return [];
+  const worthOffering = (language: string) =>
+    language.endsWith('-orig') || language.split('-')[0] === getLanguage();
+  const byName = (a: string, b: string) => a.localeCompare(b, getLanguage());
+
+  const people = tracks
+    .filter((track) => !track.automatic)
+    .map((track) => ({ value: track.language, label: track.name ?? nameOf(track.language) }))
+    .sort((a, b) => byName(a.label, b.label));
+  const machines = tracks
+    .filter((track) => track.automatic && worthOffering(track.language))
+    .map((track) => ({
+      value: track.language,
+      label: translate('options.subtitleAuto', { name: nameOf(track.language) }),
+    }))
+    .sort((a, b) => byName(a.label, b.label));
+
+  const offered = [...people, ...machines];
+  return offered.length > 0 ? [none, ...offered] : [];
 }
 
 function displayNames(): Intl.DisplayNames | null {

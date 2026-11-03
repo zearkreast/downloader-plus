@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
-import { Download, Pause, Play } from 'lucide-react';
+import { Clock, Download, Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
 
@@ -7,9 +7,11 @@ import { DownloadCard } from '@/components/downloads/DownloadCard';
 import { DownloadDetailDialog, openDownloadDetails } from '@/components/downloads/DownloadDetailDialog';
 import { HistoryList } from '@/components/history/HistoryList';
 import { Button } from '@/components/ui/Button';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { ListGroup } from '@/components/ui/ListGroup';
+import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Segmented } from '@/components/ui/Segmented';
 import { useTranslation } from '@/i18n';
@@ -22,7 +24,7 @@ import {
   selectInFlightCount,
   useQueueStore,
 } from '@/stores/useQueueStore';
-import type { DownloadTask } from '@/types';
+import type { AfterQueue, DownloadTask } from '@/types';
 
 /**
  * Defined once, outside the component. The rows are memoised, and handlers
@@ -141,6 +143,87 @@ function PhoneDownloads({ onGoHome }: { onGoHome: () => void }) {
   );
 }
 
+// -- the queue's hours and what comes after it ---------------------------------
+
+const AFTER_LABELS = {
+  nothing: 'downloads.afterNothing',
+  quit: 'downloads.afterQuit',
+  sleep: 'downloads.afterSleep',
+  shutdown: 'downloads.afterShutdown',
+} as const;
+
+/**
+ * Says when the schedule is keeping the queue back, and offers what to do once
+ * it has run out. Only with something in flight: choosing an ending for a queue
+ * with nothing in it would have nothing to end.
+ */
+function QueueBar({ tasks }: { tasks: DownloadTask[] }) {
+  const { t } = useTranslation();
+  const outlook = useQueueStore((state) => state.outlook);
+  const inFlight = selectInFlightCount(tasks) > 0;
+  const held = outlook.heldUntil != null && tasks.some((task) => task.status === 'queued');
+  // A phone has only the first of the two to show.
+  if (!inFlight || (IS_MOBILE && !held)) return null;
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
+      {held && (
+        <p className="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-fg-muted">
+          <Clock size={14} className="shrink-0" />
+          {t('downloads.heldUntil', { time: outlook.heldUntil! })}
+        </p>
+      )}
+      {held && (
+        <Button size="sm" variant="ghost" onClick={() => void ipc.runOutsideSchedule()}>
+          {t('downloads.startNow')}
+        </Button>
+      )}
+      {/* A phone cannot be turned off from an app, and quitting one means nothing. */}
+      {!IS_MOBILE && (
+        <div className="ml-auto w-[230px]">
+          <Dropdown
+            aria-label={t('downloads.after')}
+            value={outlook.after}
+            options={(Object.keys(AFTER_LABELS) as AfterQueue[]).map((after) => ({
+              value: after,
+              label: t(AFTER_LABELS[after]),
+            }))}
+            onChange={(after) => void ipc.setAfterQueue(after)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The last chance to stop what was asked for after the queue. */
+export function QueueEndingDialog() {
+  const { t } = useTranslation();
+  const outlook = useQueueStore((state) => state.outlook);
+  const after = outlook.after === 'nothing' ? null : outlook.after;
+  const stop = () => void ipc.setAfterQueue('nothing');
+
+  return (
+    <Modal
+      open={outlook.countdown != null && after != null}
+      onClose={stop}
+      title={t('downloads.endingTitle')}
+      description={after ? t(ENDING_LINES[after], { n: outlook.countdown ?? 0 }) : undefined}
+      footer={
+        <Button variant="primary" onClick={stop}>
+          {t('downloads.endingStop')}
+        </Button>
+      }
+    />
+  );
+}
+
+const ENDING_LINES = {
+  quit: 'downloads.endingQuit',
+  sleep: 'downloads.endingSleep',
+  shutdown: 'downloads.endingShutdown',
+} as const;
+
 // -- the downloads themselves ---------------------------------------------------
 
 /**
@@ -207,6 +290,8 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
         // above them.
         className={IS_MOBILE ? 'pt-0' : undefined}
       />
+
+      <QueueBar tasks={tasks} />
 
       {rows.length === 0 ? (
         <EmptyState

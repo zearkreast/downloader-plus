@@ -10,6 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 use universal_downloader_lib::downloader::control::TaskControl;
+use universal_downloader_lib::downloader::throttle::Throttle;
 use universal_downloader_lib::downloader::{http, segmented};
 use universal_downloader_lib::net;
 use universal_downloader_lib::settings::Settings;
@@ -167,6 +168,35 @@ async fn fetch<F>(
     target: &std::path::Path,
     connections: u32,
     control: Arc<TaskControl>,
+    sink: F,
+) -> Result<u64, universal_downloader_lib::error::AppError>
+where
+    F: FnMut(http::ProgressSample) + Send,
+{
+    fetch_limited(url, target, connections, None, control, sink).await
+}
+
+async fn fetch_limited<F>(
+    url: &str,
+    target: &std::path::Path,
+    connections: u32,
+    throttle: Option<&Throttle>,
+    control: Arc<TaskControl>,
+    sink: F,
+) -> Result<u64, universal_downloader_lib::error::AppError>
+where
+    F: FnMut(http::ProgressSample) + Send,
+{
+    fetch_noting(url, target, connections, throttle, None, control, sink).await
+}
+
+async fn fetch_noting<F>(
+    url: &str,
+    target: &std::path::Path,
+    connections: u32,
+    throttle: Option<&Throttle>,
+    host_accepts: Option<&(dyn Fn(u32) + Send + Sync)>,
+    control: Arc<TaskControl>,
     mut sink: F,
 ) -> Result<u64, universal_downloader_lib::error::AppError>
 where
@@ -181,6 +211,8 @@ where
             target,
             low_resource: false,
             connections,
+            throttle,
+            host_accepts,
         },
         control,
         &mut sink,
@@ -297,6 +329,43 @@ async fn an_interrupted_split_download_resumes_where_each_piece_stopped() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_limit_holds_across_every_connection_of_a_download() {
+    let server = start_server(quick());
+    let target = scratch("limited.bin");
+    let size = body().len() as u64;
+
+    // Two seconds' worth of file, whatever the connections do between them.
+    let throttle = Throttle::new(size / 2);
+    let started = std::time::Instant::now();
+    let written = fetch_limited(&server.url(), &target, 4, Some(&throttle), TaskControl::shared(), |_| {})
+        .await
+        .unwrap();
+    let took = started.elapsed();
+
+    assert_eq!(written, size);
+    assert_eq!(std::fs::read(&target).unwrap(), body());
+    assert!(took >= Duration::from_millis(1800), "finished in {took:?}");
+    let _ = std::fs::remove_file(&target);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_pause_gets_through_a_limit() {
+    let server = start_server(quick());
+    let target = scratch("limited-paused.bin");
+    let size = body().len() as u64;
+
+    let throttle = Throttle::new(size / 60);
+    let control = TaskControl::shared();
+    cancel_after(&control, Duration::from_millis(400));
+    let started = std::time::Instant::now();
+    let result = fetch_limited(&server.url(), &target, 4, Some(&throttle), control, |_| {}).await;
+
+    assert!(result.is_err());
+    assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
+    http::discard_partial(&target);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_host_that_refuses_extra_connections_still_gets_the_file_finished() {
     let server = start_server(Config {
         cap: Some(2),
@@ -310,6 +379,39 @@ async fn a_host_that_refuses_extra_connections_still_gets_the_file_finished() {
 
     assert_eq!(written as usize, BODY_LEN);
     assert_eq!(std::fs::read(&target).unwrap(), body());
+    std::fs::remove_file(&target).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_host_that_turned_connections_away_is_told_on_and_one_that_did_not_is_not() {
+    let noted = Arc::new(Mutex::new(Vec::new()));
+    let note = {
+        let noted = Arc::clone(&noted);
+        move |worked: u32| noted.lock().unwrap().push(worked)
+    };
+
+    let server = start_server(Config {
+        cap: Some(2),
+        delay: Duration::from_millis(30),
+    });
+    let target = scratch("seg-noted.bin");
+    fetch_noting(&server.url(), &target, 8, None, Some(&note), TaskControl::shared(), |_| {})
+        .await
+        .expect("the connections that were let in should finish the job");
+    assert_eq!(std::fs::read(&target).unwrap(), body());
+
+    let told = noted.lock().unwrap().clone();
+    assert_eq!(told.len(), 1, "{told:?}");
+    assert!((2..8).contains(&told[0]), "{told:?}");
+    std::fs::remove_file(&target).unwrap();
+
+    noted.lock().unwrap().clear();
+    let open = start_server(quick());
+    let target = scratch("seg-not-noted.bin");
+    fetch_noting(&open.url(), &target, 4, None, Some(&note), TaskControl::shared(), |_| {})
+        .await
+        .unwrap();
+    assert!(noted.lock().unwrap().is_empty());
     std::fs::remove_file(&target).unwrap();
 }
 

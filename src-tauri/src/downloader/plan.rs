@@ -886,6 +886,10 @@ mod tests {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
+            subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 
@@ -1511,6 +1515,9 @@ mod tests {
             platform: None,
             entry: None,
             audio_language: audio_language.map(str::to_string),
+            collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         }
     }

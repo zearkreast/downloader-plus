@@ -430,7 +430,7 @@ pub fn gallery_requests(
             });
         }
     }
-    if metadata.entries.is_empty() || (metadata.entries.len() < 2 && positions.is_none()) {
+    if !metadata.listing && (metadata.entries.is_empty() || (metadata.entries.len() < 2 && positions.is_none())) {
         return Ok(vec![request.clone()]);
     }
     Ok(metadata
@@ -440,9 +440,16 @@ pub fn gallery_requests(
         .filter(|(index, _)| positions.is_none_or(|picked| picked.contains(&(*index as u32 + 1))))
         .map(|(index, entry)| {
             let mut item = request.clone();
-            item.entry = Some(index as u32 + 1);
             item.title = Some(entry.title.clone());
             item.thumbnail_url = entry.thumbnail_url.clone().or_else(|| request.thumbnail_url.clone());
+            // An item of a list has an address of its own, and goes by that: a
+            // position would name another video the day the list grew by one.
+            if metadata.listing {
+                item.url = entry.canonical_url.clone();
+                item.collection = Some(metadata.title.clone());
+                return item;
+            }
+            item.entry = Some(index as u32 + 1);
             // Streams picked by hand belong to the item they were picked on.
             if index > 0 {
                 item.video_format_id = None;
@@ -544,6 +551,10 @@ pub(crate) mod tests_support {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
+            subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 }
@@ -596,6 +607,10 @@ mod tests {
             tracks: Vec::new(),
             items: Vec::new(),
             music: None,
+            listing: false,
+            list_url: None,
+            subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 
@@ -647,6 +662,9 @@ mod tests {
             platform: None,
             entry: None,
             audio_language: None,
+            collection: None,
+            subtitle_language: None,
+            embed_subtitles: false,
             source: None,
         }
     }
@@ -726,6 +744,40 @@ mod tests {
         assert_eq!(requests[1].entry, Some(3));
         assert_eq!(requests[1].video_format_id, None);
         assert_eq!(requests[1].audio_format_id, None);
+    }
+
+    /// What the engine makes of a playlist: three links and nothing else.
+    fn listed_links() -> MediaMetadata {
+        let row = |id: &str| MediaMetadata {
+            title: format!("Video {id}"),
+            thumbnail_url: Some(format!("https://cdn.test/{id}.jpg")),
+            ..metadata(&format!("https://example.test/v/{id}"), &format!("https://example.test/v/{id}"))
+        };
+        MediaMetadata {
+            title: "My list".into(),
+            listing: true,
+            entries: vec![row("a"), row("b"), row("c")],
+            ..metadata("https://example.test/list", "https://example.test/list")
+        }
+    }
+
+    #[test]
+    fn an_item_of_a_list_is_queued_by_its_own_address_under_the_lists_name() {
+        let requests = gallery_requests(&listed_links(), &asked(), Some(&[1, 3])).unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[1].url, "https://example.test/v/c");
+        assert_eq!(requests[1].entry, None, "a position would go stale with the list");
+        assert_eq!(requests[1].title.as_deref(), Some("Video c"));
+        assert_eq!(requests[1].collection.as_deref(), Some("My list"));
+        assert_eq!(requests[1].thumbnail_url.as_deref(), Some("https://cdn.test/c.jpg"));
+
+        // A list of one is still a list: it is the video that downloads.
+        let one = MediaMetadata {
+            entries: listed_links().entries.into_iter().take(1).collect(),
+            ..listed_links()
+        };
+        assert_eq!(gallery_requests(&one, &asked(), None).unwrap()[0].url, "https://example.test/v/a");
+        assert!(gallery_requests(&listed_links(), &asked(), Some(&[4])).is_err());
     }
 
     #[test]

@@ -76,6 +76,11 @@
     autoRetryCount: 2,
     filenameTemplate: '{creator} - {title}',
     connectionsPerDownload: 8,
+    embedMetadata: true,
+    speedLimitKb: 0,
+    scheduleEnabled: false,
+    scheduleStart: '02:00',
+    scheduleEnd: '08:00',
     theme: params.get('theme') ?? 'dark',
     language: params.get('lang') ?? 'tr',
     reduceMotion: false,
@@ -530,6 +535,35 @@
     if (asked.quality.type === 'auto' || ceiling === 720) return plan(sound, null);
     if (ceiling != null && ceiling < 720) return plan(find('bytevc1_540p_499667-1'), sound);
     return plan(find('bytevc1_1080p_1511769-1'), sound);
+  };
+
+  const youtubeList = (url) => ({
+    ...metadataFor(url),
+    mediaKind: 'gallery',
+    title: 'Trail Notes: Every Episode',
+    creator: 'Trail Notes',
+    thumbnailUrl: 'thumb:3',
+    durationSec: null,
+    viewCount: null,
+    likeCount: null,
+    uploadDate: null,
+    rangeFetchable: false,
+    formats: [],
+    listing: true,
+    entryCount: 1240,
+    tracks: Array.from({ length: 24 }, (_, index) => ({
+      position: index + 1,
+      title: `Episode ${index + 1}: the long way round`,
+      artists: 'Trail Notes',
+      durationSec: 540 + index * 37,
+      url: `https://www.youtube.com/watch?v=episode${index + 1}`,
+    })),
+  });
+
+  let outlook = {
+    heldUntil: params.has('held') ? '02:00' : null,
+    after: 'nothing',
+    countdown: null,
   };
 
   const spotifyAlbum = (url) => ({
@@ -1006,6 +1040,10 @@
         };
       }
       if (url.includes('open.spotify.com/')) return spotifyAlbum(url);
+      if (url.includes('/playlist?list=')) return youtubeList(url);
+      if (url.includes('watch?v=listed')) {
+        return { ...metadataFor(url), listUrl: 'https://www.youtube.com/playlist?list=PLpreview' };
+      }
       if (url.includes('watch?v=anime')) return animeEpisode(url);
       if (url.includes('tiktok.com/') && url.includes('/video/')) return tiktokVideo(url);
       if (isPhotoPost(url)) return photoPost(url);
@@ -1026,7 +1064,19 @@
     // '37' is not among its streams, and the Video stream menu would show
     // '--' for it.
     summarize_plan: ({ metadata, request }) =>
-      metadata.platform === 'spotify'
+      metadata.listing
+        ? {
+            label: '',
+            qualityLabel: '',
+            container: request.container ?? '',
+            needsMerge: false,
+            needsFfmpeg: false,
+            estimatedBytes: null,
+            videoFormatId: null,
+            audioFormatId: null,
+            stageCount: 1,
+          }
+        : metadata.platform === 'spotify'
         ? {
             label: 'AAC - M4A',
             qualityLabel: 'AAC',
@@ -1137,6 +1187,32 @@
     remove_download: ({ id }) => {
       tasks = tasks.filter((entry) => entry.id !== id);
       changed();
+    },
+    find_downloaded: ({ urls }) =>
+      params.has('known')
+        ? urls.slice(0, 2).map((url) => ({
+            url,
+            queued: false,
+            filePath: 'C:\\Users\\melik\\Downloads\\Daha önce.mp4',
+            downloadedAt: Date.now() - 3 * 86_400_000,
+          }))
+        : [],
+    host_limit_count: () => (params.has('hosts') ? 3 : 0),
+    forget_host_limits: () => null,
+    queue_outlook: () => outlook,
+    run_outside_schedule: () => {
+      outlook = { ...outlook, heldUntil: null };
+      emit('download://outlook', outlook);
+    },
+    // Never reaches a real computer: the countdown here only runs to show the
+    // dialog, and ends in nothing.
+    set_after_queue: ({ after }) => {
+      outlook = { ...outlook, after, countdown: null };
+      emit('download://outlook', outlook);
+      if (after !== 'nothing' && params.has('ending')) {
+        outlook = { ...outlook, countdown: 58 };
+        emit('download://outlook', outlook);
+      }
     },
     pause_all_downloads: () => {
       tasks = tasks.map((entry) =>

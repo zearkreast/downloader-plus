@@ -69,6 +69,7 @@ function fakeChrome({ sessions, answer }) {
   const session = new Map();
   const sent = [];
   const told = [];
+  const menu = [];
   const chrome = {
     runtime: {
       id: 'test',
@@ -98,13 +99,19 @@ function fakeChrome({ sessions, answer }) {
       },
     },
     scripting: { executeScript: async () => [] },
+    contextMenus: {
+      removeAll: (done) => done(),
+      create: (item) => menu.push(item),
+      onClicked: event('onContextClicked'),
+    },
+    commands: { onCommand: event('onCommand') },
     action: { setBadgeBackgroundColor: async () => {}, setBadgeTextColor: async () => {}, setBadgeText: async () => {} },
   };
   if (sessions) {
     chrome.alarms = { create: () => {}, onAlarm: event('onAlarm') };
     chrome.cookies = { getAll: async () => [], onChanged: event('onChanged') };
   }
-  return { chrome, listeners, local, session, sent, told };
+  return { chrome, listeners, local, session, sent, told, menu };
 }
 
 /** A message from the extension's own popup: the answer, or `unanswered`. */
@@ -283,6 +290,28 @@ describe('the Chrome Web Store build', () => {
     await settle();
     assert.deepEqual(fake.sent.map((request) => request.type), ['forget']);
     assert.ok(!fake.local.has('link') && !fake.local.has('tiktokOn'));
+
+    // A right click sends what it points at, except what this build leaves out.
+    assert.deepEqual(fake.menu.map((item) => item.id), ['send-link', 'send-media', 'send-page']);
+    const tab = { id: 7, url: 'https://blog.example/post/7', title: 'Post' };
+    fake.sent.length = 0;
+    fake.listeners.onContextClicked[0]({ menuItemId: 'send-link', linkUrl: 'https://vimeo.com/1' }, tab);
+    await settle();
+    assert.deepEqual(fake.sent.map((request) => [request.type, request.url]), [['download', 'https://vimeo.com/1']]);
+
+    fake.sent.length = 0;
+    fake.listeners.onContextClicked[0]({ menuItemId: 'send-link', linkUrl: 'https://www.youtube.com/watch?v=1' }, tab);
+    fake.listeners.onContextClicked[0]({ menuItemId: 'send-link', linkUrl: 'https://www.netflix.com/title/1' }, tab);
+    await settle();
+    assert.deepEqual(fake.sent, []);
+
+    await fake.listeners.onCommand[0]('send-page', tab);
+    await settle();
+    assert.deepEqual(fake.sent.map((request) => request.url), [tab.url]);
+    fake.sent.length = 0;
+    await fake.listeners.onCommand[0]('something-else', tab);
+    await settle();
+    assert.deepEqual(fake.sent, []);
   });
 
   test("its page picker sends what the worker chose, and only for the pick's own token", async () => {

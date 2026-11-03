@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{DownloadMode, QualityPreference};
-use crate::paths;
+use crate::{paths, schedule};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +74,21 @@ pub struct Settings {
     /// before this existed still loads.
     #[serde(default = "default_connections")]
     pub connections_per_download: u32,
+    /// Write tags, a cover and chapters into a finished file.
+    #[serde(default = "default_true")]
+    pub embed_metadata: bool,
+    /// The most all downloads together may take, in kilobytes a second. Zero
+    /// is no limit.
+    #[serde(default)]
+    pub speed_limit_kb: u32,
+    /// Run the queue only between `schedule_start` and `schedule_end`, both
+    /// `HH:MM` on this computer's clock.
+    #[serde(default)]
+    pub schedule_enabled: bool,
+    #[serde(default = "default_schedule_start")]
+    pub schedule_start: String,
+    #[serde(default = "default_schedule_end")]
+    pub schedule_end: String,
 
     // Appearance
     pub theme: ThemePreference,
@@ -138,6 +153,11 @@ impl Default for Settings {
             auto_retry_count: 2,
             filename_template: DEFAULT_FILENAME_TEMPLATE.to_string(),
             connections_per_download: default_connections(),
+            embed_metadata: default_true(),
+            speed_limit_kb: 0,
+            schedule_enabled: false,
+            schedule_start: default_schedule_start(),
+            schedule_end: default_schedule_end(),
 
             // A phone opens in the phone's own theme, so a light phone's first
             // run is not a dark film. The desktop keeps the dark it has had.
@@ -175,6 +195,19 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub fn speed_limit_bytes(&self) -> u64 {
+        u64::from(self.speed_limit_kb) * 1024
+    }
+
+    /// Whether the schedule lets the queue run at `now`, in minutes past
+    /// midnight.
+    pub fn schedule_open(&self, now: u32) -> bool {
+        match (schedule::minute_of(&self.schedule_start), schedule::minute_of(&self.schedule_end)) {
+            (Some(start), Some(end)) if self.schedule_enabled => schedule::in_window(now, start, end),
+            _ => true,
+        }
+    }
+
     /// Clamp anything that could destabilise the app if a stale or hand-edited
     /// config carried an out-of-range value.
     pub fn sanitize(&mut self) {
@@ -185,6 +218,13 @@ impl Settings {
         self.connections_per_download = self
             .connections_per_download
             .clamp(1, crate::downloader::segmented::MAX_CONNECTIONS);
+
+        if schedule::minute_of(&self.schedule_start).is_none() {
+            self.schedule_start = default_schedule_start();
+        }
+        if schedule::minute_of(&self.schedule_end).is_none() {
+            self.schedule_end = default_schedule_end();
+        }
 
         if self.filename_template.trim().is_empty() {
             self.filename_template = DEFAULT_FILENAME_TEMPLATE.to_string();
@@ -223,6 +263,18 @@ fn default_connections() -> u32 {
     8
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_schedule_start() -> String {
+    "02:00".to_string()
+}
+
+fn default_schedule_end() -> String {
+    "08:00".to_string()
+}
+
 fn normalize_optional(value: &mut Option<String>) {
     if let Some(inner) = value {
         if inner.trim().is_empty() {
@@ -230,5 +282,44 @@ fn normalize_optional(value: &mut Option<String>) {
         } else {
             *inner = inner.trim().to_string();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_schedule_that_is_off_or_broken_stops_nothing() {
+        let mut settings = Settings {
+            schedule_start: "02:00".into(),
+            schedule_end: "08:00".into(),
+            ..Settings::default()
+        };
+        assert!(settings.schedule_open(12 * 60), "off");
+
+        settings.schedule_enabled = true;
+        assert!(!settings.schedule_open(12 * 60));
+        assert!(settings.schedule_open(3 * 60));
+
+        settings.schedule_start = "soon".into();
+        assert!(settings.schedule_open(12 * 60), "not to be read, so not to be obeyed");
+        settings.sanitize();
+        assert_eq!(settings.schedule_start, "02:00");
+        assert!(!settings.schedule_open(12 * 60));
+    }
+
+    #[test]
+    fn settings_saved_before_the_schedule_still_load() {
+        let mut written = serde_json::to_value(Settings::default()).unwrap();
+        let object = written.as_object_mut().unwrap();
+        for key in ["scheduleEnabled", "scheduleStart", "scheduleEnd", "speedLimitKb", "embedMetadata"] {
+            assert!(object.remove(key).is_some(), "{key}");
+        }
+        let read: Settings = serde_json::from_value(written).unwrap();
+        assert!(!read.schedule_enabled);
+        assert_eq!(read.schedule_start, "02:00");
+        assert!(read.embed_metadata);
+        assert_eq!(read.speed_limit_kb, 0);
     }
 }

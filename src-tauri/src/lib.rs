@@ -27,6 +27,7 @@ pub mod process;
 pub mod providers;
 pub mod queue;
 pub mod range;
+pub mod schedule;
 pub mod settings;
 pub mod tools;
 #[cfg(desktop)]
@@ -96,6 +97,7 @@ pub fn run() {
             let database = Arc::new(Database::open(&paths::database_path()?)?);
             let loaded = database.load_settings().unwrap_or_default();
             logging::set_debug_enabled(loaded.debug_logging);
+            downloader::throttle::shared().set(loaded.speed_limit_bytes());
             log_info!("app", "starting version {}", app.package_info().version);
 
             let settings = Arc::new(Mutex::new(loaded.clone()));
@@ -247,6 +249,7 @@ pub fn run() {
             commands::get_thumbnail,
             commands::summarize_plan,
             commands::list_downloads,
+            commands::find_downloaded,
             commands::enqueue_download,
             commands::enqueue_gallery,
             commands::pause_download,
@@ -254,6 +257,11 @@ pub fn run() {
             commands::cancel_download,
             commands::retry_download,
             commands::remove_download,
+            commands::host_limit_count,
+            commands::forget_host_limits,
+            commands::queue_outlook,
+            commands::run_outside_schedule,
+            commands::set_after_queue,
             commands::pause_all_downloads,
             commands::resume_all_downloads,
             commands::clear_finished_downloads,

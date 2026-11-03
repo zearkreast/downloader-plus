@@ -7,6 +7,7 @@ use tauri::AppHandle;
 use tauri_plugin_notification::NotificationExt;
 
 use crate::model::{AppErrorInfo, HistoryEntry};
+use crate::schedule::AfterQueue;
 use crate::settings::Settings;
 
 fn file_name(path: &str) -> String {
@@ -26,6 +27,25 @@ pub fn download_complete(app: &AppHandle, settings: &Settings, entry: &HistoryEn
         .builder()
         .title("Download complete")
         .body(file_name(&entry.file_path))
+        .show();
+}
+
+/// The queue has run out and the computer or the app is about to follow.
+pub fn queue_ending(app: &AppHandle, settings: &Settings, after: AfterQueue) {
+    if !settings.notifications_enabled {
+        return;
+    }
+    let body = match after {
+        AfterQueue::Nothing => return,
+        AfterQueue::Quit => "UMD+ closes in a minute.",
+        AfterQueue::Sleep => "This computer goes to sleep in a minute.",
+        AfterQueue::Shutdown => "This computer shuts down in a minute.",
+    };
+    let _ = app
+        .notification()
+        .builder()
+        .title("Downloads finished")
+        .body(body)
         .show();
 }
 

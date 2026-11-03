@@ -99,6 +99,23 @@ export interface MediaMetadata {
   tracks: TrackSummary[];
   /** The items of a carousel or gallery, to show and pick from. Empty otherwise. */
   items: GalleryItem[];
+  /**
+   * A playlist or channel, read as a list of links: `formats` is empty, `tracks`
+   * lists it, and the choices made apply to every item.
+   */
+  listing?: boolean;
+  /** The list a link to one video also names. */
+  listUrl?: string | null;
+  /** The subtitles it offers. */
+  subtitles?: SubtitleTrack[];
+}
+
+/** One language of subtitles a video offers. */
+export interface SubtitleTrack {
+  language: string;
+  name: string | null;
+  /** Speech recognition or machine translation rather than a person. */
+  automatic: boolean;
 }
 
 /** One song of an album or playlist. */
@@ -108,6 +125,18 @@ export interface TrackSummary {
   title: string;
   artists: string;
   durationSec: number | null;
+  /** Its own address, for an item that has one. */
+  url?: string | null;
+}
+
+/** A link the app has met before. */
+export interface KnownLink {
+  url: string;
+  /** Waiting or running right now, rather than finished. */
+  queued: boolean;
+  /** The finished file, which is still there. */
+  filePath: string | null;
+  downloadedAt: number | null;
 }
 
 /** One item of a carousel or gallery, for the grid it is picked from. */
@@ -152,6 +181,12 @@ export interface DownloadRequest {
   entry?: number | null;
   /** The sound track's language, where there are several. Null: the original. */
   audioLanguage?: string | null;
+  /** The list it was queued from, which names the folder it lands in. */
+  collection?: string | null;
+  /** The subtitles to fetch with a video. Null: none. */
+  subtitleLanguage?: string | null;
+  /** Write them into the video rather than beside it. */
+  embedSubtitles?: boolean;
   /**
    * The page a link was found on, for a link the browser extension handed
    * over. Null for everything else: a link pasted into Home needs no headers.
@@ -211,6 +246,18 @@ export interface Handoff {
  * picture the user picked on the page.
  */
 export type HandoffKind = 'page' | 'stream' | 'video' | 'audio' | 'image';
+
+/** What to do when nothing is left to download. Lasts until it is done. */
+export type AfterQueue = 'nothing' | 'quit' | 'sleep' | 'shutdown';
+
+/** What the queue is waiting for and what comes after it. */
+export interface QueueOutlook {
+  /** When the schedule next lets the queue run, while it is keeping it back. */
+  heldUntil: string | null;
+  after: AfterQueue;
+  /** Seconds until `after` happens, once it has begun. */
+  countdown: number | null;
+}
 
 export type DownloadStatus =
   | 'queued'
@@ -628,6 +675,14 @@ export interface Settings {
   filenameTemplate: string;
   /** Connections one download may open on a host that allows splitting. */
   connectionsPerDownload: number;
+  /** Write tags, a cover and chapters into a finished file. */
+  embedMetadata: boolean;
+  /** The most all downloads together may take, in KB/s. Zero is no limit. */
+  speedLimitKb: number;
+  /** Run the queue only between these two times, `HH:MM`. */
+  scheduleEnabled: boolean;
+  scheduleStart: string;
+  scheduleEnd: string;
 
   // Appearance
   theme: ThemePreference;

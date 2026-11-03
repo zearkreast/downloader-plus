@@ -119,6 +119,19 @@ pick Universal Downloader.
   its connections fetch, each filled as far as it has got, the list of pieces
   and which are downloading now, the speed, the time left and whether it can
   be resumed. Press a download that is still running, waiting or paused.
+- **Downloads whole playlists and channels.** A list opens in seconds, however
+  long, because it is read as a list of links. Tick what you want; each video
+  is read when its own turn comes and lands in a folder named after the list.
+  One already downloaded is marked and left unticked.
+- **Fetches subtitles** in the language chosen, beside the video or inside it.
+- **Writes the file's details into it**: title, creator, date, chapters and,
+  where the format allows, a cover. Settings can turn this off.
+- **Keeps to a speed limit and to hours.** The limit is shared by every
+  connection of every download. Scheduled hours hold the queue back and pick
+  up where they stopped, and when the queue runs out the app can close, or the
+  computer can sleep or shut down, after a minute that can be called off.
+- **Learns what a host accepts.** One that turns connections away is asked for
+  only as many as it served, for a month.
 - **Pauses, resumes and retries** without losing progress. Partial files live
   outside your Downloads folder until they are complete.
 - **Queues** as many links as you like, with a configurable number running at
@@ -140,7 +153,8 @@ pick Universal Downloader.
   Connector extension for Chrome and Firefox lists what a tab is playing and
   hands one to the app, which opens it on Home. Its picker lets the user click
   the video, sound or picture they mean on the page itself, as an eyedropper
-  picks a colour. See [`extension/README.md`](extension/README.md).
+  picks a colour. Right-click a link, a video or a page to send it directly, or
+  press Alt+Shift+S. See [`extension/README.md`](extension/README.md).
 - **Downloads streams a link alone can't open** (Windows). Where a player's
   playlists take a one-use token, the extension keeps what the player received
   and the app downloads from that. See [Download from a page](#download-from-a-page).
@@ -482,6 +496,8 @@ Android, in the app's private storage):
 
 ```
 library.db     settings, history and the durable queue (SQLite, WAL)
+host-limits.json
+               hosts that turned connections away, and how many they took
 tools/         managed copies of yt-dlp and ffmpeg
 cache/         thumbnails, bounded by the configured cache limit
 temp/          in-flight downloads; a finished file is moved out

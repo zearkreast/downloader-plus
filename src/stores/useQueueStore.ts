@@ -1,26 +1,30 @@
 import { create } from 'zustand';
 
 import * as ipc from '@/services/ipc';
-import type { DownloadTask } from '@/types';
+import type { DownloadTask, QueueOutlook } from '@/types';
 
 interface QueueState {
   tasks: DownloadTask[];
   loaded: boolean;
+  outlook: QueueOutlook;
   load: () => Promise<void>;
   replace: (tasks: DownloadTask[]) => void;
+  setOutlook: (outlook: QueueOutlook) => void;
   applyProgress: (event: ipc.ProgressEvent) => void;
 }
 
 export const useQueueStore = create<QueueState>((set) => ({
   tasks: [],
   loaded: false,
+  outlook: { heldUntil: null, after: 'nothing', countdown: null },
 
   load: async () => {
-    const tasks = await ipc.listDownloads();
-    set({ tasks, loaded: true });
+    const [tasks, outlook] = await Promise.all([ipc.listDownloads(), ipc.queueOutlook()]);
+    set({ tasks, outlook, loaded: true });
   },
 
   replace: (tasks) => set({ tasks, loaded: true }),
+  setOutlook: (outlook) => set({ outlook }),
 
   /**
    * Progress arrives several times a second per task. Only the affected row is
