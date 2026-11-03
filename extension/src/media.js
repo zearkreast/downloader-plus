@@ -701,6 +701,17 @@ export function contextPayload(info, tab) {
   return pageUrl ? toPayload({ ...around, url: pageUrl, kind: 'page', title: tab?.title }) : null;
 }
 
+/**
+ * What sending a whole page means, from the popup's list for it: the row the
+ * popup would put first. A page whose player fetched its own stream cannot be
+ * read again from its address, so that stream is what goes; a known site's
+ * video page lists only itself; a protected player is passed over. `null`
+ * when nothing is left, and the page's own address goes instead.
+ */
+export function pageChoice(list) {
+  return (Array.isArray(list) ? list : []).find((row) => !row.protected && row.payload)?.payload ?? null;
+}
+
 function num(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 }

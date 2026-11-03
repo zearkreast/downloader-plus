@@ -523,6 +523,10 @@ pub struct DownloadProgress {
     /// into the stream of the current stage, not into the finished file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub segments: Vec<SegmentProgress>,
+    /// How many pieces of a fragmented stream (HLS, DASH) the engine fetches
+    /// at once. `None` for anything else, whose connections `segments` shows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fragments_at_once: Option<u32>,
 }
 
 /// One piece of a split transfer: `[start, end)` of the stream, of which the
@@ -550,6 +554,7 @@ impl Default for DownloadProgress {
             stage_count: 1,
             resumable: false,
             segments: Vec::new(),
+            fragments_at_once: None,
         }
     }
 }

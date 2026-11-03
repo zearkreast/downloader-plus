@@ -299,6 +299,8 @@ export interface DownloadProgress {
    * are into the current stage's stream.
    */
   segments?: SegmentProgress[];
+  /** How many pieces of a fragmented stream (HLS, DASH) the engine fetches at once. */
+  fragmentsAtOnce?: number | null;
 }
 
 /** One piece of a split transfer: `[start, end)`, the first `received` bytes on disk. */

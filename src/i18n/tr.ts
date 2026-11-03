@@ -144,6 +144,7 @@ export const tr: Record<TranslationKey, string> = {
   'details.connections': 'Bağlantılar',
   'details.connectionsSplit': '{pieces} parçanın {active} tanesi şu an iniyor',
   'details.connectionsSingle': 'Tek bağlantı',
+  'details.connectionsFragments': 'Parçalı yayın, aynı anda {n} parça',
   'details.pieces': 'Parçalar',
   'details.pieceActive': 'İniyor',
   'details.pieceDone': 'Tamam',

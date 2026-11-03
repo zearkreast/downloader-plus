@@ -212,7 +212,8 @@ The permissions map onto it:
   tab and reading the element clicked.
 - `nativeMessaging` -- the only channel out. No remote endpoint, no analytics.
 - `contextMenus` -- the right-click items that send a link, the media under the
-  pointer or the page. The address goes to the app when one is pressed, and
+  pointer or the page; for the page, the video its player is playing when
+  there is one, as the popup would list it first. The address goes to the app when one is pressed, and
   nothing is read before that. Alt+Shift+S sends the page the same way, and
   Alt+Shift+D opens the popup; the browser's shortcuts page can change both.
 - `cookies` -- youtube.com and tiktok.com, each only while its switch is on;

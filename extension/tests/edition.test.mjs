@@ -305,9 +305,25 @@ describe('the Chrome Web Store build', () => {
     await settle();
     assert.deepEqual(fake.sent, []);
 
+    // A page with nothing playing goes as itself.
+    fake.chrome.tabs.get = async () => tab;
     await fake.listeners.onCommand[0]('send-page', tab);
     await settle();
     assert.deepEqual(fake.sent.map((request) => request.url), [tab.url]);
+
+    // One whose player fetched a stream sends that stream.
+    fake.sent.length = 0;
+    const playing = 'https://cdn.example/hls/master.m3u8';
+    fake.session.set('tab:7', {
+      url: tab.url,
+      title: tab.title,
+      sawMedia: true,
+      items: [{ id: 'a1', url: playing, kind: 'hls', frameId: 0, initiator: 'https://blog.example', isXhr: true, contentType: '', size: null, seenOn: tab.url, at: 1 }],
+    });
+    fake.listeners.onContextClicked[0]({ menuItemId: 'send-page', pageUrl: tab.url }, tab);
+    await settle();
+    await settle();
+    assert.deepEqual(fake.sent.map((request) => [request.url, request.kind]), [[playing, 'stream']]);
     fake.sent.length = 0;
     await fake.listeners.onCommand[0]('something-else', tab);
     await settle();

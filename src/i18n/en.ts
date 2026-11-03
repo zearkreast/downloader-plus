@@ -153,6 +153,7 @@ export const en = {
   'details.connections': 'Connections',
   'details.connectionsSplit': '{active} of {pieces} pieces downloading now',
   'details.connectionsSingle': 'One connection',
+  'details.connectionsFragments': 'A stream in pieces, {n} at a time',
   'details.pieces': 'Pieces',
   'details.pieceActive': 'Downloading',
   'details.pieceDone': 'Done',
