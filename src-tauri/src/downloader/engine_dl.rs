@@ -271,11 +271,21 @@ fn transfer_args(settings: &Settings, sectioned: bool) -> Vec<String> {
         args.push(format!("{}K", share.max(1)));
         return args;
     }
-    if settings.connections_per_download > 1 && !settings.low_resource_mode {
+    let at_once = fragments_at_once(settings, sectioned);
+    if at_once > 1 {
         args.push("--concurrent-fragments".into());
-        args.push(settings.connections_per_download.to_string());
+        args.push(at_once.to_string());
     }
     args
+}
+
+/// How many pieces of a fragmented stream a run fetches at once, as
+/// `transfer_args` asks for them.
+pub fn fragments_at_once(settings: &Settings, sectioned: bool) -> u32 {
+    if sectioned || settings.speed_limit_kb > 0 || settings.low_resource_mode {
+        return 1;
+    }
+    settings.connections_per_download.max(1)
 }
 
 /// Everything after the shared arguments: what to fetch, how much of it, and
@@ -670,9 +680,17 @@ mod tests {
         };
         assert_eq!(transfer_args(&settings, false), ["--concurrent-fragments", "8"]);
 
-        let limited = Settings { speed_limit_kb: 3000, ..settings };
+        let limited = Settings { speed_limit_kb: 3000, ..settings.clone() };
         assert_eq!(transfer_args(&limited, false), ["--limit-rate", "1000K"]);
         assert!(transfer_args(&limited, true).is_empty(), "FFmpeg takes neither option");
+
+        // What the detail window is told is what the engine was asked for.
+        assert_eq!(fragments_at_once(&settings, false), 8);
+        assert_eq!(fragments_at_once(&limited, false), 1);
+        assert_eq!(fragments_at_once(&settings, true), 1);
+        let light = Settings { low_resource_mode: true, ..settings.clone() };
+        assert_eq!(fragments_at_once(&light, false), 1);
+        assert!(transfer_args(&light, false).is_empty());
     }
 
     fn options(section: Option<KeptRange>, force_keyframes: bool) -> EngineDownload<'static> {

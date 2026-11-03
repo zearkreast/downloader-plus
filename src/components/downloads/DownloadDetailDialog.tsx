@@ -87,9 +87,13 @@ function Details({ task, open }: { task: DownloadTask; open: boolean }) {
   const percent =
     progress.percent != null ? `${Math.min(100, Math.max(0, progress.percent)).toFixed(1)}%` : null;
 
+  // A stream in pieces is fetched by the engine, which reports no map of them.
+  const fragments = progress.fragmentsAtOnce ?? 0;
   const connectionsText = split
     ? t('details.connectionsSplit', { active: activeCount, pieces: pieces.length })
-    : t('details.connectionsSingle');
+    : fragments > 1
+      ? t('details.connectionsFragments', { n: fragments })
+      : t('details.connectionsSingle');
 
   return (
     <Modal
