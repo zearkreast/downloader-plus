@@ -231,16 +231,16 @@ const CONCERT_DETAILS = {
 
 const COPY = {
   en: {
-    videos: ['Every video on the page, one button away', 'See what you will get, press Get, and the video opens in Universal Downloader, where you choose the quality.'],
+    videos: ['Every video on the page, one button away', 'See what you will get, press Get, and the video opens in UMD+, where you choose the quality.'],
     sites: ['Works on the sites you already use', 'Vimeo, X, Dailymotion and more open straight in the app.'],
-    privacy: ['Nothing leaves your computer', 'No server, no analytics, no account. The extension talks only to Universal Downloader on this computer.'],
-    tile: ['Universal Downloader', 'Connector'],
+    privacy: ['Nothing leaves your computer', 'No server, no analytics, no account. The extension talks only to UMD+ on this computer.'],
+    tile: ['UMD+', 'Connector'],
   },
   tr: {
-    videos: ['Sayfadaki her video, bir düğme uzağınızda', "Kaç p, hangi biçim, ne kadar yer tutacağı önceden görünür. İndir'e basın; video Universal Downloader'da açılır, kaliteyi orada seçersiniz."],
+    videos: ['Sayfadaki her video, bir düğme uzağınızda', "Kaç p, hangi biçim, ne kadar yer tutacağı önceden görünür. İndir'e basın; video UMD+'da açılır, kaliteyi orada seçersiniz."],
     sites: ['Zaten kullandığınız sitelerde çalışır', 'Vimeo, X, Dailymotion ve daha fazlası doğrudan uygulamada açılır.'],
-    privacy: ['Hiçbir şey bilgisayarınızdan çıkmaz', 'Sunucu yok, analitik yok, hesap yok. Eklenti yalnızca bu bilgisayardaki Universal Downloader ile konuşur.'],
-    tile: ['Universal Downloader', 'Connector'],
+    privacy: ['Hiçbir şey bilgisayarınızdan çıkmaz', 'Sunucu yok, analitik yok, hesap yok. Eklenti yalnızca bu bilgisayardaki UMD+ ile konuşur.'],
+    tile: ['UMD+', 'Connector'],
   },
 };
 
@@ -359,7 +359,7 @@ window.chrome = {
   iframe { width: 340px; height: 420px; border: 0; display: block; background: ${LOOK.popup}; }
 </style></head><body>
 <div>
-  <div class="brand">Universal Downloader</div>
+  <div class="brand">UMD+</div>
   <h1>${frame.copy[0]}</h1>
   <p>${frame.copy[1]}</p>
 </div>

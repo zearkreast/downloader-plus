@@ -26,19 +26,20 @@ const SIZES: Record<ButtonSize, string> = IS_MOBILE
   : {
       sm: 'h-8 px-3 text-[12.5px] gap-1.5 rounded-[8px]',
       md: 'h-9 px-4 text-[13px] gap-2 rounded-[var(--radius-control)]',
-      lg: 'h-11 px-6 text-[14px] gap-2 rounded-[12px]',
+      lg: 'h-12 px-6 text-[14.5px] gap-2 rounded-[13px]',
     };
 
-const ACCENT = 'bg-accent text-accent-fg hover:bg-accent-hover';
+// The mark's gradient, lit along its top edge (see `.brand-fill`).
+const ACCENT = 'brand-fill';
 
-// Told apart by fill alone; none of them carries a border or a shadow.
+// The quiet ones are told apart by fill alone; only the accent carries light.
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: ACCENT,
   secondary: 'bg-fill text-fg hover:bg-fill-hover active:bg-fill-active',
   ghost: 'text-fg-muted hover:bg-fill hover:text-fg active:bg-fill-hover',
   danger: 'bg-error-soft text-error hover:brightness-95 dark:hover:brightness-110',
-  // The one call to action on a screen. Its size is what sets it apart; the
-  // fill is the same accent as any other primary button.
+  // The one call to action on a screen: the same fill as any primary button,
+  // set apart by its size and a heavier word.
   cta: ACCENT,
 };
 
@@ -65,7 +66,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={isDisabled}
       aria-busy={loading || undefined}
       className={cn(
-        'pressable relative inline-flex select-none items-center justify-center font-medium',
+        'pressable relative inline-flex select-none items-center justify-center',
+        variant === 'cta' ? 'font-semibold tracking-[-0.005em]' : 'font-medium',
         'disabled:pointer-events-none disabled:opacity-45',
         SIZES[size],
         VARIANTS[variant],

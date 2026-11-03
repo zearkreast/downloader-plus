@@ -71,11 +71,26 @@ export function Segmented<T extends string>({
                 <motion.span
                   layoutId={layoutId}
                   transition={SPRING.glide}
-                  className="absolute inset-0 rounded-[8px] bg-surface shadow-soft dark:bg-fill-active"
+                  className={cn(
+                    'absolute inset-0 rounded-[8px] bg-surface',
+                    'shadow-[0_1px_2px_rgb(40_20_10/0.1),0_2px_8px_-2px_rgb(40_20_10/0.1)]',
+                    'dark:bg-surface-active dark:shadow-[inset_0_1px_0_rgb(255_240_228/0.06),0_1px_3px_rgb(0_0_0/0.45)]',
+                  )}
                 />
               )}
               <span className="relative z-10 flex items-center gap-1.5">
-                {option.icon}
+                {/* The chosen side's icon takes the accent, as a selected
+                    place does in the sidebar. */}
+                {option.icon && (
+                  <span
+                    className={cn(
+                      'flex transition-colors duration-150 ease-out-quint',
+                      selected && 'text-accent',
+                    )}
+                  >
+                    {option.icon}
+                  </span>
+                )}
                 {option.label}
               </span>
             </button>

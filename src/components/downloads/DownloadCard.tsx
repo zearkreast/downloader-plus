@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Activity, FolderOpen, Pause, Play, RotateCw, Share, X } from 'lucide-react';
+import { Activity, ArrowUpToLine, FolderOpen, Pause, Play, RotateCw, Share, X } from 'lucide-react';
 import { memo, useState } from 'react';
 
 import { IconButton } from '@/components/ui/IconButton';
@@ -25,6 +25,8 @@ interface DownloadCardProps {
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
+  /** Move a waiting download to the front of the queue. */
+  onNext?: (id: string) => void;
   /** Open the download's detail window. A row still to finish opens it when pressed. */
   onDetails?: (id: string) => void;
 }
@@ -51,6 +53,7 @@ export const DownloadCard = memo(function DownloadCard({
   onCancel,
   onRetry,
   onRemove,
+  onNext,
   onDetails,
 }: DownloadCardProps) {
   const { t } = useTranslation();
@@ -81,8 +84,8 @@ export const DownloadCard = memo(function DownloadCard({
       <div
         className={cn(
           'flex h-11 w-[72px] shrink-0 items-center justify-center overflow-hidden',
-          'rounded-[var(--radius-thumb)] bg-surface-sunken',
-          isAbandoned && 'opacity-60',
+          'rounded-[var(--radius-thumb)] bg-surface-sunken ring-1 ring-inset ring-[var(--border)]',
+          isAbandoned && 'opacity-60 grayscale',
         )}
       >
         {src ? (
@@ -108,6 +111,7 @@ export const DownloadCard = memo(function DownloadCard({
             <Progress
               value={progress.percent == null ? null : percent}
               label={task.title}
+              tone="live"
               className="mt-1.5"
             />
             <span className={cn(LINE, 'mt-1')}>
@@ -142,8 +146,13 @@ export const DownloadCard = memo(function DownloadCard({
 
         {status === 'queued' && <span className={cn(LINE, 'mt-0.5')}>{t('downloads.queued')}</span>}
 
+        {/* Held where it stopped: the bar stays, in the quiet fill, so the row
+            does not jump when it is paused and resumed. */}
+        {status === 'paused' && progress.percent != null && (
+          <Progress value={percent} tone="muted" label={task.title} className="mt-1.5" />
+        )}
         {status === 'paused' && (
-          <span className={cn(LINE, 'mt-0.5')}>
+          <span className={cn(LINE, progress.percent != null ? 'mt-1' : 'mt-0.5')}>
             <span>{t('downloads.paused')}</span>
             {progress.percent != null && <span>{percent.toFixed(0)}%</span>}
             {progress.receivedBytes > 0 && (
@@ -272,7 +281,21 @@ export const DownloadCard = memo(function DownloadCard({
               onClick={details}
             />
           )}
-          {isActive && (
+          {/* A download waiting for a free slot can be sent to the front of
+              the line, so it is the next to start. A pointer's alone: a phone
+              row has room for two buttons beside a title that can be read. */}
+          {status === 'queued' && onNext && !IS_MOBILE && (
+            <IconButton
+              icon={<ArrowUpToLine size={15} />}
+              label={t('downloads.next')}
+              size={ACTION_SIZE}
+              onClick={() => onNext(task.id)}
+            />
+          )}
+          {/* Waiting is not paused: one that is waiting is held with Pause,
+              like one that is running. Resume used to stand on a waiting row,
+              where the queue had nothing to resume and the press did nothing. */}
+          {(isActive || status === 'queued') && (
             <IconButton
               icon={<Pause size={15} />}
               label={t('downloads.pause')}
@@ -280,7 +303,7 @@ export const DownloadCard = memo(function DownloadCard({
               onClick={() => onPause(task.id)}
             />
           )}
-          {(status === 'paused' || status === 'queued') && (
+          {status === 'paused' && (
             <IconButton
               icon={<Play size={15} />}
               label={t('downloads.resume')}

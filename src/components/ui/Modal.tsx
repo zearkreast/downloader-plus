@@ -143,7 +143,7 @@ export function Modal({
             exit={{ opacity: 0, transition: T.spatialOut }}
             transition={T.spatial}
             onClick={onClose}
-            className="absolute inset-0 bg-scrim"
+            className="absolute inset-0 bg-scrim backdrop-blur-[3px]"
           />
           <motion.div
             ref={panelRef}

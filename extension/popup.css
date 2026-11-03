@@ -116,7 +116,16 @@ h1 {
   background: var(--surface);
   border: 1px solid var(--card-edge);
   border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow);
   overflow: hidden;
+}
+
+/* The mark beside the heading, as it stands beside the name in the app. */
+.mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -1px;
 }
 
 .list {
@@ -390,12 +399,14 @@ h1 {
   padding: 0 12px;
   border: 0;
   border-radius: 8px;
-  background: var(--accent);
+  background-color: var(--accent);
+  background-image: var(--accent-gradient);
   color: var(--accent-fg);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 6px 16px -10px var(--accent-glow);
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition-property: transform, background-color, color, opacity;
+  transition-property: transform, filter, color, opacity, box-shadow;
   transition-duration: var(--t-micro);
   transition-timing-function: var(--ease-out);
 }
@@ -403,7 +414,7 @@ h1 {
 /* A button that cannot be pressed -- disabled, sending, sent -- does not
    answer the pointer either. */
 .get:hover:not(:disabled) {
-  background: var(--accent-hover);
+  filter: brightness(1.06) saturate(1.04);
 }
 
 .get:active:not(:disabled) {
@@ -511,7 +522,8 @@ h1 {
 }
 
 .switch[aria-checked="true"] {
-  background: var(--accent);
+  background-color: var(--accent);
+  background-image: var(--accent-gradient);
 }
 
 .switch:disabled {

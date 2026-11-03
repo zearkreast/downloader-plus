@@ -33,7 +33,7 @@ import { useMomentary } from '@/hooks/useMomentary';
 import { LANGUAGES, translate, useTranslation } from '@/i18n';
 import type { TranslationKey } from '@/i18n';
 import { cn } from '@/lib/cn';
-import { decodeQuality, encodeQuality } from '@/lib/downloadOptions';
+import { containersFor, decodeQuality, encodeQuality, fitContainer } from '@/lib/downloadOptions';
 import { formatBytes, formatSpeed, truncateMiddle } from '@/lib/format';
 import { SPRING, T } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
@@ -44,6 +44,7 @@ import type {
   CacheStats,
   DownloadMode,
   HotkeyAction,
+  QualityPreference,
   LanguageCode,
   Settings,
   ThemePreference,
@@ -109,6 +110,22 @@ const DEFAULT_HOTKEYS: Record<HotkeyAction, string> = {
   openHistory: 'Ctrl+Shift+H',
   openSettings: 'Ctrl+,',
 };
+
+/**
+ * A default quality that belongs to the default type: a height means nothing
+ * for audio, nor a bitrate for video, and Auto -- the best picture that needs
+ * no merge -- is a video choice.
+ */
+function fitDefaultQuality(quality: QualityPreference, mode: DownloadMode): QualityPreference {
+  if (mode === 'audio' && (quality.type === 'maxHeight' || quality.type === 'auto')) {
+    return { type: 'best' };
+  }
+  if (mode === 'video' && quality.type === 'audioBitrate') return { type: 'best' };
+  return quality;
+}
+
+const VIDEO_HEIGHTS = [2160, 1440, 1080, 720, 480, 360];
+const AUDIO_BITRATES = [320, 256, 192, 128];
 
 /** A control's width beside its label on the desktop; a phone gives it the row. */
 function controlWidth(desktop: string): string {
@@ -325,7 +342,9 @@ export function SettingsPage({ settings, section: openSection, onSectionChange }
                     layoutId="settings-active"
                     transition={SPRING.glide}
                     className="absolute inset-0 rounded-[8px] bg-fill-active"
-                  />
+                  >
+                    <span className="brand-track absolute left-0 top-1/2 h-3.5 w-[3px] -translate-y-1/2 rounded-r-full" />
+                  </motion.span>
                 )}
                 <span className="relative z-10 truncate">{t(candidate.label)}</span>
               </button>
@@ -469,7 +488,17 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
                   { value: 'video', label: t('options.modeVideo') },
                   { value: 'audio', label: t('options.modeAudio') },
                 ]}
-                onChange={(mode) => void update({ defaultMode: mode as DownloadMode })}
+                // The quality and the container are chosen for a kind of file,
+                // so they follow the type: an MP4 container or a 1080p ceiling
+                // kept for audio used to be applied to every song.
+                onChange={(value) => {
+                  const mode = value as DownloadMode;
+                  void update({
+                    defaultMode: mode,
+                    defaultQuality: fitDefaultQuality(settings.defaultQuality, mode),
+                    defaultContainer: fitContainer(settings.defaultContainer, mode),
+                  });
+                }}
                 size="sm"
               />
             </div>
@@ -482,17 +511,19 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
           control={
             <div className={controlWidth('w-[200px]')}>
               <Dropdown
-                value={encodeQuality(settings.defaultQuality)}
-                options={[
-                  { value: 'best', label: t('options.qualityBest') },
-                  { value: 'auto', label: t('options.qualityAuto') },
-                  { value: 'h:2160', label: '2160p' },
-                  { value: 'h:1440', label: '1440p' },
-                  { value: 'h:1080', label: '1080p' },
-                  { value: 'h:720', label: '720p' },
-                  { value: 'h:480', label: '480p' },
-                  { value: 'h:360', label: '360p' },
-                ]}
+                value={encodeQuality(fitDefaultQuality(settings.defaultQuality, settings.defaultMode))}
+                options={
+                  settings.defaultMode === 'audio'
+                    ? [
+                        { value: 'best', label: t('options.audioBest') },
+                        ...AUDIO_BITRATES.map((kbps) => ({ value: `a:${kbps}`, label: `${kbps} kbps` })),
+                      ]
+                    : [
+                        { value: 'best', label: t('options.qualityBest') },
+                        { value: 'auto', label: t('options.qualityAuto') },
+                        ...VIDEO_HEIGHTS.map((height) => ({ value: `h:${height}`, label: `${height}p` })),
+                      ]
+                }
                 onChange={(key) => void update({ defaultQuality: decodeQuality(key) })}
               />
             </div>
@@ -505,12 +536,13 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
           control={
             <div className={controlWidth('w-[200px]')}>
               <Dropdown
-                value={settings.defaultContainer ?? ''}
+                value={fitContainer(settings.defaultContainer, settings.defaultMode) ?? ''}
                 options={[
                   { value: '', label: t('settings.containerKeep') },
-                  { value: 'mp4', label: 'MP4' },
-                  { value: 'mkv', label: 'MKV' },
-                  { value: 'webm', label: 'WEBM' },
+                  ...containersFor(settings.defaultMode).map((container) => ({
+                    value: container,
+                    label: container.toUpperCase(),
+                  })),
                 ]}
                 onChange={(value) => void update({ defaultContainer: value || null })}
               />
@@ -537,7 +569,13 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
 
         <SettingRow
           title={t('settings.connections')}
-          description={t('settings.connectionsHint')}
+          description={
+            // Low resource mode holds every download to two, whatever this
+            // says; the row says so rather than show a number that is not used.
+            settings.lowResourceMode
+              ? `${t('settings.connectionsHint')} ${t('settings.connectionsCapped')}`
+              : t('settings.connectionsHint')
+          }
           stacked={IS_MOBILE}
           control={
             <div className={controlWidth('w-[180px]')}>
@@ -853,9 +891,18 @@ function ShortcutsSection({ settings, update }: { settings: Settings; update: Up
   const { t } = useTranslation();
   const actions = Object.keys(DEFAULT_HOTKEYS) as HotkeyAction[];
 
+  // Another action holding the combination, by name. The action being
+  // recorded is left out: pressing its own keys again is not a clash with
+  // itself. Compared as the shortcut is matched, so "ctrl+d" and "Ctrl+D"
+  // are the same keys.
   const findConflict = useCallback(
-    (accelerator: string) => {
-      const clash = actions.find((action) => settings.hotkeys[action] === accelerator);
+    (accelerator: string, own: HotkeyAction) => {
+      const wanted = accelerator.toLowerCase();
+      const clash = actions.find(
+        (action) =>
+          action !== own &&
+          (settings.hotkeys[action] ?? DEFAULT_HOTKEYS[action]).toLowerCase() === wanted,
+      );
       return clash ? t(`hotkey.${clash}` as TranslationKey) : null;
     },
     [actions, settings.hotkeys, t],
@@ -871,7 +918,7 @@ function ShortcutsSection({ settings, update }: { settings: Settings; update: Up
             <HotkeyRecorder
               value={settings.hotkeys[action] ?? DEFAULT_HOTKEYS[action]}
               defaultValue={DEFAULT_HOTKEYS[action]}
-              findConflict={findConflict}
+              findConflict={(accelerator) => findConflict(accelerator, action)}
               onChange={(accelerator) =>
                 void update({ hotkeys: { ...settings.hotkeys, [action]: accelerator } })
               }
@@ -879,6 +926,12 @@ function ShortcutsSection({ settings, update }: { settings: Settings; update: Up
           }
         />
       ))}
+      {/* Fixed rather than recorded: the numbers are the sidebar's order. */}
+      <SettingRow
+        title={t('settings.placeShortcuts')}
+        description={t('settings.placeShortcutsHint')}
+        control={<span className="kbd h-8 px-3 text-[12.5px] leading-8">Ctrl + 1 … 7</span>}
+      />
     </SettingGroup>
   );
 }

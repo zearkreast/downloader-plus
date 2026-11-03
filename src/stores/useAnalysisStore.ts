@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { fitContainer, fitQuality } from '@/lib/downloadOptions';
 import { titledFromHandoff, type HandoffContext } from '@/lib/handoff';
 import { normalizeUrl } from '@/lib/url';
 import * as ipc from '@/services/ipc';
@@ -34,6 +35,12 @@ export interface DownloadOptions {
 
 interface AnalysisState {
   url: string;
+  /**
+   * The link the result on screen was read from. The field can be edited
+   * after that, and until the new text is analysed the result describes
+   * another link: Download would fetch the old one.
+   */
+  analyzedUrl: string;
   platform: PlatformId;
   phase: AnalysisPhase;
   metadata: MediaMetadata | null;
@@ -85,6 +92,7 @@ let requestToken = 0;
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   url: '',
+  analyzedUrl: '',
   platform: 'unknown',
   phase: 'idle',
   metadata: null,
@@ -114,6 +122,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const kept = handoff ?? (get().handoff?.url === url ? get().handoff : null);
     set({
       url,
+      analyzedUrl: url,
       handoff: kept,
       clipboardSuggestion: null,
       phase: 'analyzing',
@@ -149,6 +158,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     requestToken += 1;
     set({
       url: '',
+      analyzedUrl: '',
       platform: 'unknown',
       phase: 'idle',
       metadata: null,
@@ -161,11 +171,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setOptions: (patch) => {
     const next = { ...get().options, ...patch };
 
-    // Switching mode invalidates an explicit stream choice made for the old one.
+    // Switching mode invalidates an explicit stream choice made for the old
+    // one, and a quality chosen for it: a height has no meaning for a song.
     if (patch.mode && patch.mode !== get().options.mode) {
       next.videoFormatId = null;
       next.audioFormatId = null;
       next.container = null;
+      const metadata = get().metadata;
+      if (metadata && !patch.quality) next.quality = fitQuality(next.quality, next.mode, metadata);
     }
     set({ options: next });
   },
@@ -177,8 +190,16 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
  */
 function reconcileOptions(options: DownloadOptions, metadata: MediaMetadata): DownloadOptions {
   // A list offers nothing of its own yet, and sound or picture both fit it.
+  // Its defaults are still fitted to the kind of file: a song from a list is
+  // no more an MP4 than a single one is.
   if (metadata.listing) {
-    return { ...options, mode: options.mode === 'image' ? 'video' : options.mode };
+    const mode = options.mode === 'image' ? 'video' : options.mode;
+    return {
+      ...options,
+      mode,
+      container: mode === options.mode ? fitContainer(options.container, mode) : null,
+      quality: fitQuality(options.quality, mode, metadata),
+    };
   }
 
   const next = { ...options };
@@ -196,11 +217,15 @@ function reconcileOptions(options: DownloadOptions, metadata: MediaMetadata): Do
     next.mode = hasVideo ? 'video' : 'audio';
   }
 
-  // A default container belongs to the default mode: an MP4 preference means
-  // nothing for a photo, and would otherwise try to "convert" one into video.
-  if (next.mode !== options.mode) {
-    next.container = null;
-  }
+  // A default container belongs to the kind of file it was chosen for: an MP4
+  // preference means nothing for a photo, and would otherwise try to "convert"
+  // one into video -- and the Settings default is checked as well, since the
+  // default type there need not be the kind it was set for.
+  next.container = next.mode === options.mode ? fitContainer(next.container, next.mode) : null;
+
+  // The same for the quality, which also has to be one this medium offers,
+  // or the menu opens on a blank.
+  next.quality = fitQuality(next.quality, next.mode, metadata);
 
   // Only offer "without watermark" where a clean rendition genuinely exists.
   if (metadata.watermarkSupport !== 'cleanAvailable') {

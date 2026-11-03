@@ -831,6 +831,12 @@ pub async fn open_log_dir() -> AppResult<()> {
     crate::files::open_log_dir().await
 }
 
+#[tauri::command]
+pub async fn open_download_dir(state: State<'_, AppState>) -> AppResult<()> {
+    let dir = state.settings().download_dir;
+    crate::files::open_download_dir(dir).await
+}
+
 // -- mobile platform -------------------------------------------------------
 //
 // What the dialog and drag-and-drop APIs do on the desktop has to be asked of

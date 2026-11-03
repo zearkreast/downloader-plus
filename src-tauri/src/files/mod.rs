@@ -228,6 +228,36 @@ pub async fn open_log_dir() -> AppResult<()> {
     }
 }
 
+/// The folder downloads are saved to, for the Downloads screen's folder
+/// button. The caller names no path: it is the one in the settings, so this
+/// cannot be pointed anywhere else either. A folder that is not there yet -- a
+/// fresh install before its first download -- is made, as the first download
+/// would make it.
+pub async fn open_download_dir(dir: String) -> AppResult<()> {
+    #[cfg(not(target_os = "android"))]
+    {
+        on_worker(move || {
+            let dir = PathBuf::from(dir.trim());
+            if !dir.is_absolute() {
+                return Err(AppError::Other(format!("{} is not a full path", dir.display())));
+            }
+            std::fs::create_dir_all(&dir)?;
+            #[cfg(windows)]
+            let _com = Com::sta();
+            settle(
+                tauri_plugin_opener::open_path(&dir, None::<&str>),
+                "the download folder could not be opened",
+            )
+        })
+        .await
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = dir;
+        Err(AppError::Other("the download folder is only opened on the desktop".into()))
+    }
+}
+
 /// What a launch through the opener came to.
 #[cfg(not(target_os = "android"))]
 fn settle(result: Result<(), tauri_plugin_opener::Error>, doing: &str) -> AppResult<()> {

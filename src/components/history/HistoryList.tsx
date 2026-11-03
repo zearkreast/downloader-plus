@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, Clock, Download, FolderOpen, Search, Share, X } from 'lucide-react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
-import { ListGroup, ROW_LINE } from '@/components/ui/ListGroup';
+import { ListGroup, ListGroupLabel, ROW_LINE } from '@/components/ui/ListGroup';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { SourceLink } from '@/components/ui/SourceLink';
@@ -15,14 +15,15 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useFileActions } from '@/hooks/useFileActions';
 import { useMomentary } from '@/hooks/useMomentary';
 import { useThumbnail } from '@/hooks/useThumbnail';
-import { useTranslation } from '@/i18n';
-import type { TranslationKey } from '@/i18n';
+import { errorCopy, useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { PROBLEM_TEXT } from '@/lib/fileProblem';
-import { formatBytes, formatDate, formatDay } from '@/lib/format';
+import { formatBytes, formatTime } from '@/lib/format';
+import { groupByDay } from '@/lib/historyGroups';
 import { LIST_ITEM } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import * as ipc from '@/services/ipc';
+import { useQueueStore } from '@/stores/useQueueStore';
 import type { AppErrorInfo, HistoryEntry } from '@/types';
 import { ClearHistoryModal } from './ClearHistoryModal';
 
@@ -79,33 +80,79 @@ async function redownload(entry: HistoryEntry): Promise<AppErrorInfo | null> {
  * control that switches to it, so there it brings no title.
  */
 export function HistoryList({ onGoHome }: { onGoHome: () => void }) {
-  const { t } = useTranslation();
 
+  const { t, language } = useTranslation();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [total, setTotal] = useState(0);
+  // Whether the last page read came back full, so there may be more after it.
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
 
   const debouncedQuery = useDebouncedValue(query, 220);
 
+  // How many rows are showing, so reading the list again -- after a download
+  // finishes -- keeps the pages already opened instead of folding back to one.
+  const shownRef = useRef(0);
+  shownRef.current = entries.length;
+  const queryRef = useRef(debouncedQuery);
+
   const refresh = useCallback(async () => {
     setLoading(true);
+    // A new search starts from its first page; the same one keeps its length.
+    const sameQuery = queryRef.current === debouncedQuery;
+    queryRef.current = debouncedQuery;
+    const limit = sameQuery ? Math.max(PAGE_SIZE, shownRef.current) : PAGE_SIZE;
     try {
       const [rows, count] = await Promise.all([
-        ipc.listHistory(debouncedQuery || undefined, PAGE_SIZE, 0),
+        ipc.listHistory(debouncedQuery || undefined, limit, 0),
         ipc.countHistory(),
       ]);
       setEntries(rows);
       setTotal(count);
+      setHasMore(rows.length === limit);
     } finally {
       setLoading(false);
     }
   }, [debouncedQuery]);
 
+  // The history used to stop at its first sixty rows, with nothing to say
+  // there were more: older downloads could be found only by searching.
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const rows = await ipc.listHistory(debouncedQuery || undefined, PAGE_SIZE, entries.length);
+      setEntries((current) => {
+        const known = new Set(current.map((row) => row.id));
+        return [...current, ...rows.filter((row) => !known.has(row.id))];
+      });
+      setHasMore(rows.length === PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Read again whenever a download finishes, so one that lands while the
+  // screen is open turns up in it. A count rather than the list, which
+  // changes several times a second while anything is downloading.
+  const finished = useQueueStore(
+    (state) => state.tasks.filter((task) => task.status === 'completed').length,
+  );
+
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, finished]);
+
+  const groups = useMemo(
+    () =>
+      groupByDay(entries, (entry) => entry.createdAt, new Date(), language, {
+        today: t('history.today'),
+        yesterday: t('history.yesterday'),
+      }),
+    [entries, language, t],
+  );
 
   // Stable, so typing in the search field does not re-render every row.
   const remove = useCallback(async (id: number) => {
@@ -188,14 +235,35 @@ export function HistoryList({ onGoHome }: { onGoHome: () => void }) {
         />
       )}
 
-      {entries.length > 0 && (
-        <ListGroup inset={TEXT_INSET} className="relative">
-          <AnimatePresence initial={false} mode={LEAVING}>
-            {entries.map((entry) => (
-              <HistoryRow key={entry.id} entry={entry} onRemove={remove} />
-            ))}
-          </AnimatePresence>
-        </ListGroup>
+      {/* A run of rows for each day, under the day's name. */}
+      {groups.length > 0 && (
+        <div className="flex flex-col gap-5">
+          {groups.map((group) => (
+            <section key={group.key} aria-label={group.label}>
+              <ListGroupLabel className="mb-2">{group.label}</ListGroupLabel>
+              <ListGroup inset={TEXT_INSET} className="relative">
+                <AnimatePresence initial={false} mode={LEAVING}>
+                  {group.items.map((entry) => (
+                    <HistoryRow key={entry.id} entry={entry} onRemove={remove} />
+                  ))}
+                </AnimatePresence>
+              </ListGroup>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {hasMore && entries.length > 0 && (
+        <div className="mt-5 flex flex-col items-center gap-1.5">
+          <Button variant="secondary" loading={loadingMore} onClick={() => void loadMore()}>
+            {t('history.showMore')}
+          </Button>
+          {!debouncedQuery && total > entries.length && (
+            <span className="tabular text-[12px] text-fg-faint">
+              {t('history.showing', { shown: entries.length, total })}
+            </span>
+          )}
+        </div>
       )}
 
       <ClearHistoryModal
@@ -242,11 +310,10 @@ const HistoryRow = memo(function HistoryRow({
     markRequeued();
   };
 
-  const failureTitle = failure
-    ? t(`error.${failure.code}.title` as TranslationKey) === `error.${failure.code}.title`
-      ? failure.title
-      : t(`error.${failure.code}.title` as TranslationKey)
-    : '';
+  // In the user's language, as Home and the Downloads list say it: the
+  // dictionary's pair for the code, the backend's English only as a fallback.
+  // This row used to set a translated title beside the English message.
+  const failureCopy = failure ? errorCopy(failure, IS_MOBILE) : null;
 
   // The backend said whether the file was there when the page was read. It can
   // have gone since, and pressing the row is what finds that out, so being told
@@ -259,8 +326,8 @@ const HistoryRow = memo(function HistoryRow({
       <div
         className={cn(
           'flex h-11 w-[72px] shrink-0 items-center justify-center overflow-hidden',
-          'rounded-[var(--radius-thumb)] bg-surface-sunken',
-          !exists && 'opacity-60',
+          'rounded-[var(--radius-thumb)] bg-surface-sunken ring-1 ring-inset ring-[var(--border)]',
+          !exists && 'opacity-60 grayscale',
         )}
       >
         {src ? (
@@ -282,12 +349,8 @@ const HistoryRow = memo(function HistoryRow({
           </span>
         ) : exists ? (
           <span className={LINE}>
-            {/* A phone has room for the day, not for the year and the minute. */}
-            <span>
-              {IS_MOBILE
-                ? formatDay(entry.createdAt, language)
-                : formatDate(entry.createdAt, language)}
-            </span>
+            {/* The day is the heading above, so the row gives the time of it. */}
+            <span>{formatTime(entry.createdAt, language)}</span>
             <span>{entry.qualityLabel}</span>
             <span>{entry.container.toUpperCase()}</span>
             {entry.fileSize != null && <span>{formatBytes(entry.fileSize)}</span>}
@@ -406,7 +469,7 @@ const HistoryRow = memo(function HistoryRow({
       {failure && (
         <div className="pb-2.5 pr-4" style={{ paddingLeft: TEXT_INSET }}>
           <InlineNotice tone="error">
-            {failureTitle}. {failure.message}
+            {failureCopy?.title}. {failureCopy?.message}
           </InlineNotice>
         </div>
       )}

@@ -49,7 +49,7 @@ export function ErrorCard({ error, onRetry, extraAction, actionError }: ErrorCar
       animate="animate"
       exit="exit"
       role="alert"
-      className="overflow-hidden rounded-[var(--radius-card)] border border-card-edge bg-surface p-4"
+      className="overflow-hidden rounded-[var(--radius-card)] surface-card p-4"
     >
       <div className="flex gap-3">
         <CircleAlert size={18} aria-hidden="true" className="mt-px shrink-0 text-error" />

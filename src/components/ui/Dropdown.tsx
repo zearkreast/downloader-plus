@@ -276,7 +276,7 @@ export function Dropdown<T extends string>({
                 // The corner is the option's corner plus the padding around it,
                 // so the two curves stay concentric.
                 'fixed z-[900] overflow-y-auto overscroll-contain rounded-[var(--radius-card)] p-1.5',
-                'border border-[var(--border)] bg-surface shadow-floating dark:border-[var(--border-strong)]',
+                'border border-[var(--border)] bg-surface/95 shadow-floating backdrop-blur-xl backdrop-saturate-150 dark:border-[var(--border-strong)]',
               )}
               autoFocus
             >
@@ -301,6 +301,7 @@ export function Dropdown<T extends string>({
                       IS_MOBILE ? 'min-h-12 py-2.5' : 'py-1.5',
                       option.disabled && 'cursor-not-allowed opacity-40',
                       !option.disabled && activeIndex === index && 'bg-fill-hover',
+                      isSelected && 'text-accent',
                     )}
                   >
                     {option.icon && <span className="shrink-0 text-fg-muted">{option.icon}</span>}

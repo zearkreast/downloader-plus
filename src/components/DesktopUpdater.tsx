@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect } from 'react';
 
-import { Spinner } from '@/components/ui/Spinner';
+import { Logo } from '@/components/layout/Logo';
 import { useTranslation } from '@/i18n';
 import { FADE } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import { useAnalysisStore } from '@/stores/useAnalysisStore';
 import { selectConvertInFlight, useConvertStore } from '@/stores/useConvertStore';
+import { selectEditing, useEditorStore } from '@/stores/useEditorStore';
 import { selectInFlightCount, useQueueStore } from '@/stores/useQueueStore';
 import { useToolsStore } from '@/stores/useToolsStore';
 import { useUpdateStore } from '@/stores/useUpdateStore';
@@ -83,9 +84,20 @@ export function DesktopUpdater() {
     };
   }, []);
 
+  // The editor's clips and their cuts live only in memory, and an export or a
+  // ranged fetch is a job the window is showing progress for: installing
+  // closes the app, which would throw all of it away mid-sentence.
+  const editorQuiet = useEditorStore(
+    (state) =>
+      !selectEditing(state) &&
+      state.job.status !== 'running' &&
+      state.fetch.status !== 'resolving' &&
+      state.fetch.status !== 'fetching',
+  );
+
   // Work in flight on any of these screens is deferred, not lost: the next
   // launch starts with an empty store and installs then.
-  const idle = queueQuiet && convertQuiet && homeQuiet && toolsQuiet;
+  const idle = queueQuiet && convertQuiet && homeQuiet && toolsQuiet && editorQuiet;
   const due = phase === 'ready' && !stalled && idle;
 
   // Work that starts while the notice is up takes the turn back.
@@ -112,7 +124,15 @@ export function DesktopUpdater() {
           role="status"
           className="fixed inset-0 z-[950] flex flex-col items-center justify-center bg-bg px-8 text-center"
         >
-          <Spinner size={22} className="text-fg-muted" />
+          {/* The aperture turning around its plus, as it does while a link is
+              read, in a glow that breathes with it. */}
+          <div className="relative flex size-14 items-center justify-center">
+            <span
+              aria-hidden="true"
+              className="motion-essential absolute -inset-8 rounded-full bg-[radial-gradient(closest-side,rgb(255_122_61/0.3),rgb(255_168_56/0.08)_55%,transparent)] [animation:ud-glow_2.5s_ease-in-out_infinite]"
+            />
+            <Logo size={56} spinning className="relative" />
+          </div>
           <h2 className="mt-5 text-[17px] font-semibold tracking-[-0.01em] text-fg">
             {t('update.installing')}
           </h2>

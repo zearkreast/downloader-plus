@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { UpdateRow } from '@/components/settings/UpdateRow';
 import { ListGroup } from '@/components/ui/ListGroup';
-import { Logo } from '@/components/layout/Logo';
+import { Logo, Wordmark } from '@/components/layout/Logo';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SettingGroup, SettingRow } from '@/components/ui/SettingRow';
 import { useTranslation } from '@/i18n';
@@ -46,12 +46,30 @@ export function AboutPage({ onPlayIntro }: { onPlayIntro?: () => void }) {
             exists. Releases carry no version number; the build's commit is what
             tells one from the next. */}
         <ListGroup>
-          <div className={cn('flex items-center gap-3.5 px-4', IS_MOBILE ? 'py-4' : 'py-3.5')}>
-            <Logo size={40} className="shrink-0" />
-            {/* English whatever the interface language, and marked as such so
-                it is read out -- and cased -- as English. */}
-            <div lang="en" className="min-w-0 truncate text-[15px] font-semibold text-fg">
-              {t('app.fullName')}
+          {/* The app's own card: the mark in a haze of its colours, the short
+              name as the lockup sets it, and the full one under it. */}
+          <div className={cn('relative overflow-hidden px-5', IS_MOBILE ? 'py-5' : 'py-6')}>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-16 -top-24 size-72 rounded-full bg-[radial-gradient(closest-side,rgb(255_122_61/0.22),rgb(255_168_56/0.08)_60%,transparent)]"
+            />
+            <div className="relative flex items-center gap-4">
+              <Logo
+                size={IS_MOBILE ? 48 : 56}
+                className="shrink-0 transition-transform duration-700 ease-out-quint hover:rotate-90"
+              />
+              <div className="min-w-0">
+                <Wordmark
+                  name={t('app.name')}
+                  className="block text-[24px] font-bold leading-tight tracking-[-0.03em] text-fg"
+                />
+                {/* English whatever the interface language, and marked as such
+                    so it is read out -- and cased -- as English. */}
+                <div lang="en" className="mt-0.5 truncate text-[13px] font-medium text-fg-muted">
+                  {t('app.fullName')}
+                </div>
+                <div className="mt-1 truncate text-[12.5px] text-fg-faint">{t('welcome.subtitle')}</div>
+              </div>
             </div>
           </div>
           <UpdateRow />

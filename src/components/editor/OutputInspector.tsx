@@ -1039,6 +1039,7 @@ function LevelRow({
         disabled={disabled}
         formatValue={(value) => t('editor.volumeValue', { value })}
         onChange={(value) => onChange(value / 100)}
+        live
       />
     </div>
   );

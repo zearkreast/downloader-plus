@@ -849,7 +849,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
   );
 
   const ffmpegNotice = ffmpeg != null && !ffmpegReady && (
-    <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-3">
+    <div className="flex items-center gap-3 rounded-[var(--radius-card)] surface-card px-4 py-3">
       <CircleAlert size={16} aria-hidden="true" className="shrink-0 text-warning" />
       <div className="min-w-0 flex-1">
         <p className="text-[13.5px] font-medium text-fg">{t('convert.ffmpegRequired')}</p>
@@ -1187,7 +1187,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
             >
               {ffmpegNotice && <div className="mb-4">{ffmpegNotice}</div>}
 
-              <div className="flex flex-col items-center rounded-[var(--radius-card)] border border-card-edge bg-surface px-6 py-9 text-center">
+              <div className="flex flex-col items-center rounded-[var(--radius-card)] surface-card px-6 py-9 text-center">
                 <FilePlus2 size={28} strokeWidth={1.5} aria-hidden="true" className="text-fg-faint" />
                 <p className="mt-3 text-[14px] font-medium text-fg">{t('editor.pickTitle')}</p>
                 <p className="mt-0.5 text-[12.5px] text-fg-muted">{t('editor.pickBody')}</p>
@@ -1240,7 +1240,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
 
         <div
           className={cn(
-            'flex flex-col items-center rounded-[var(--radius-card)] border border-card-edge px-6 py-9 text-center',
+            'flex flex-col items-center rounded-[var(--radius-card)] border-[1.5px] border-dashed border-[var(--border-strong)] px-6 py-9 text-center',
             DROP_TRANSITION,
             dragging ? 'bg-accent-soft ring-2 ring-accent' : 'bg-surface',
           )}

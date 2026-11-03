@@ -4,6 +4,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { useTranslation } from '@/i18n';
 import type { TranslationKey } from '@/i18n';
 import { cn } from '@/lib/cn';
+import { Wordmark } from './Logo';
 import type { Route } from './Sidebar';
 
 const TITLES: Record<Route, TranslationKey> = {
@@ -57,12 +58,14 @@ export function Topbar({ route, onOpenAbout, onBack }: TopbarProps) {
         </button>
       )}
 
-      {/* Home is titled with the app's name, which is English in any language. */}
-      <h1
-        lang={route === 'home' ? 'en' : undefined}
-        className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.01em] text-fg"
-      >
-        {t(TITLES[route])}
+      {/* Home is titled with the app's name, set as the lockup sets it --
+          the plus in the mark's colours -- and English in any language. */}
+      <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.01em] text-fg">
+        {route === 'home' ? (
+          <Wordmark name={t('app.name')} className="font-bold tracking-[-0.02em]" />
+        ) : (
+          t(TITLES[route])
+        )}
       </h1>
 
       {!over && (

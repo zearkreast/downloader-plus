@@ -14,27 +14,31 @@
 :root {
   color-scheme: light;
 
-  --bg: #f5f5f7;
+  --bg: #f7f5f2;
   --surface: #ffffff;
-  --surface-active: #e6e6e9;
-  --surface-sunken: #ededf0;
+  --surface-active: #eeeae6;
+  --surface-sunken: #f1ede9;
 
-  --fill: rgb(0 0 0 / 0.05);
-  --fill-hover: rgb(0 0 0 / 0.08);
-  --fill-active: rgb(0 0 0 / 0.11);
+  --fill: rgb(70 40 20 / 0.055);
+  --fill-hover: rgb(70 40 20 / 0.085);
+  --fill-active: rgb(70 40 20 / 0.12);
 
-  --border: rgb(0 0 0 / 0.08);
-  --border-strong: rgb(0 0 0 / 0.16);
-  --card-edge: var(--border);
+  --border: rgb(70 40 20 / 0.09);
+  --border-strong: rgb(70 40 20 / 0.17);
+  --card-edge: rgb(70 40 20 / 0.08);
+  --card-shadow: 0 1px 2px rgb(70 40 20 / 0.04), 0 6px 20px -12px rgb(70 40 20 / 0.12);
 
-  --text-primary: #1d1d1f;
-  --text-secondary: #636366;
-  --text-tertiary: #6a6a6f;
+  --text-primary: #1c1816;
+  --text-secondary: #5e5752;
+  --text-tertiary: #6a625c;
 
-  --accent: #ac440b;
-  --accent-hover: #933a08;
+  --accent: #b23c0b;
+  --accent-hover: #983309;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(172 68 11 / 0.1);
+  --accent-soft: rgb(178 60 11 / 0.1);
+  /* The mark's gradient, as the app's call to action wears it. */
+  --accent-gradient: linear-gradient(135deg, #c44c0c 0%, #a9380a 100%);
+  --accent-glow: rgb(196 76 12 / 0.38);
 
   --success: #0e7046;
   --warning: #8a5707;
@@ -42,8 +46,8 @@
   --error-soft: rgb(180 39 28 / 0.1);
 
   --radius-control: 10px;
-  --radius-thumb: 8px;
-  --radius-card: 14px;
+  --radius-thumb: 9px;
+  --radius-card: 16px;
 
   --font: "InterVariable", -apple-system, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 
@@ -58,28 +62,31 @@
   :root {
     color-scheme: dark;
 
-    --bg: #1c1c1e;
-    --surface: #2c2c2e;
-    --surface-active: #3a3a3d;
-    --surface-sunken: #232325;
+    --bg: #141211;
+    --surface: #211e1c;
+    --surface-active: #312c2a;
+    --surface-sunken: #191615;
 
-    --fill: rgb(255 255 255 / 0.08);
-    --fill-hover: rgb(255 255 255 / 0.12);
-    --fill-active: rgb(255 255 255 / 0.16);
+    --fill: rgb(255 240 228 / 0.07);
+    --fill-hover: rgb(255 240 228 / 0.11);
+    --fill-active: rgb(255 240 228 / 0.15);
 
-    --border: rgb(255 255 255 / 0.08);
-    --border-strong: rgb(255 255 255 / 0.16);
-    /* A dark card is told apart from the page by its fill alone. */
-    --card-edge: transparent;
+    --border: rgb(255 240 228 / 0.08);
+    --border-strong: rgb(255 240 228 / 0.15);
+    /* Light catching the top edge of a dark card, rather than a shadow. */
+    --card-edge: rgb(255 240 228 / 0.06);
+    --card-shadow: inset 0 1px 0 rgb(255 240 228 / 0.035);
 
-    --text-primary: #f5f5f7;
-    --text-secondary: #b2b2b7;
-    --text-tertiary: #9d9da2;
+    --text-primary: #f6f2ee;
+    --text-secondary: #b9b1ab;
+    --text-tertiary: #a19892;
 
     --accent: #ff8a4c;
     --accent-hover: #ff9d69;
     --accent-fg: #1d0e05;
     --accent-soft: rgb(255 138 76 / 0.14);
+    --accent-gradient: linear-gradient(135deg, #ffa346 0%, #ff6a3d 100%);
+    --accent-glow: rgb(255 106 61 / 0.45);
 
     --success: #58cd8e;
     --warning: #efc059;

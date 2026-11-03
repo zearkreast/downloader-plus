@@ -17,8 +17,21 @@ export const en = {
   'nav.collapse': 'Collapse sidebar',
   'nav.expand': 'Expand sidebar',
 
+  // The card at the foot of the sidebar that follows the queue from any screen.
+  'activity.downloading': '{n} downloading',
+  'activity.waiting': '{n} waiting',
+  'activity.paused': '{n} paused',
+  'activity.starting': 'Starting…',
+  'activity.queuedOnly': 'Waiting for a free slot',
+  'activity.heldUntil': 'Starts at {time}',
+  'activity.pausedOnly': 'Paused until you resume it',
+  'activity.open': 'Open Downloads',
+
   'hero.title': 'Paste a link. Download it.',
   'hero.subtitle': 'Video, audio and images from almost any site.',
+  // The Home headline in two parts, the second set in the mark's colours.
+  'hero.titleLead': 'Paste a link.',
+  'hero.titleAccent': 'Download it.',
 
   'input.placeholder': 'Paste a video, image or media link…',
   'input.paste': 'Paste',
@@ -44,7 +57,9 @@ export const en = {
   'preview.openList': 'Open the playlist',
   'preview.alreadyDownloaded': 'You downloaded this on {date}',
   'preview.alreadyQueued': 'This is already in your downloads',
+  'preview.song': '1 song',
   'preview.startOver': 'New link',
+  'preview.stale': 'The link in the field has changed. Analyze it to see what it offers.',
   'preview.warningGeneric':
     'No provider recognised this site, so this is the media the page itself advertises. It may not be the item you meant.',
 
@@ -143,8 +158,11 @@ export const en = {
   'details.pieceDone': 'Done',
   'details.pieceWaiting': 'Waiting',
   'details.morePieces': 'and {count} more pieces',
+  'details.moreOnePiece': 'and 1 more piece',
   'downloads.details': 'Details',
   'downloads.pauseAll': 'Pause all',
+  'downloads.openFolder': 'Open download folder',
+  'downloads.next': 'Download next',
   'downloads.resumeAll': 'Resume all',
   'downloads.clear': 'Clear',
   'downloads.heldUntil': 'Waiting for {time}, as scheduled',
@@ -258,6 +276,10 @@ export const en = {
   'convert.formatHint.jp2': 'JPEG 2000, for archives',
 
   'history.title': 'History',
+  'history.today': 'Today',
+  'history.yesterday': 'Yesterday',
+  'history.showMore': 'Show more',
+  'history.showing': 'Showing {shown} of {total}',
   'history.recent': 'Recent downloads',
   'history.emptyTitle': 'No downloads yet',
   'history.emptyBody': 'Your completed downloads will appear here.',
@@ -298,6 +320,8 @@ export const en = {
   'settings.performance': 'Performance',
   'settings.advanced': 'Advanced',
   'settings.hotkeys': 'Shortcuts',
+  'settings.placeShortcuts': 'Go to a section',
+  'settings.placeShortcutsHint': 'Ctrl+1 to Ctrl+7 open the sidebar’s sections, top to bottom. A shortcut recorded above for the same keys comes first.',
   'settings.generalSummary': 'Clipboard, notifications',
   'settings.downloadsSummary': 'Folder, quality, simultaneous downloads',
   'settings.connectionSummary': 'Browser extension and sign-ins',
@@ -347,6 +371,7 @@ export const en = {
   'settings.embedMetadata': 'Write details into the file',
   'settings.embedMetadataHint':
     'Adds the title, creator, chapters and, where the format allows, a cover. Needs FFmpeg.',
+  'settings.connectionsCapped': 'Low resource mode is on, so at most two are used.',
   'settings.autoRetry': 'Automatic retries',
   'settings.autoRetryHint': 'Retry a failed download this many times before giving up.',
   'settings.filenameTemplate': 'File name template',
@@ -417,7 +442,7 @@ export const en = {
 
   'settings.lowResource': 'Low resource mode',
   'settings.lowResourceHint':
-    'Fewer visual effects and a smaller download buffer. Useful on older machines.',
+    'Fewer visual effects, a smaller download buffer and at most two connections per download. Useful on older machines.',
   'settings.hardwareAcceleration': 'Hardware acceleration',
   'settings.hardwareAccelerationHint':
     'Let FFmpeg use the GPU when converting. Turn off if conversions fail.',
@@ -483,7 +508,7 @@ export const en = {
 
   'about.privacyTitle': 'Your downloads stay on your device.',
   'about.privacyBody':
-    'No account, no ads, no analytics. Links are resolved by tools running on this machine, and the only network requests made are to the media source itself.',
+    'No account, no ads, no analytics. Links are resolved by tools running on this machine. Requests go only to the media source itself, and to GitHub to check for updates and to fetch those tools.',
   'about.privacyBodyMobile':
     "No account, no ads, no analytics. Links are resolved on your phone. Requests go only to the media source, to GitHub to check for updates and, if your phone's DNS can't find a site, to a public DNS resolver (Cloudflare or Google) for its address.",
   'about.licenses': 'Open source libraries',
@@ -517,12 +542,12 @@ export const en = {
 
   'setup.title': 'One-time setup',
   'setup.body':
-    'UMD+ uses two open-source tools to read media details and merge streams. They are downloaded once and run entirely on your machine.',
+    'UMD+ reads media details with yt-dlp, an open-source tool. It is downloaded once and runs entirely on your machine. FFmpeg, which merges streams and powers Convert and Edit, can be added the same way in Settings › Advanced.',
   'setup.bodyMobile':
     'UMD+ reads media details with yt-dlp, an open-source tool. It is downloaded once, about 3 MB, and runs entirely on your phone. FFmpeg is already built in.',
   'setup.installNow': 'Install now',
   'setup.ffmpegOptional':
-    'FFmpeg is optional, but without it separate video and audio streams cannot be merged.',
+    'FFmpeg is optional for downloading, but without it separate video and audio streams cannot be merged, and Convert and Edit cannot run.',
 
   // Tray menu labels are not here: the menu is built in Rust before the
   // webview exists, so they live in src-tauri/src/tray.rs.

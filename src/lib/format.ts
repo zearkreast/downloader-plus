@@ -124,10 +124,25 @@ export function formatEta(seconds: number | null | undefined): string {
 
 export function formatCount(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '--';
-  if (value < 1000) return String(value);
-  if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}K`;
-  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}M`;
-  return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value < 1000) return String(Math.round(value));
+  // Each unit is chosen by what the figure rounds to, not by the raw value:
+  // 999,800 is "1M" rather than "1000K", and 9,980 is "10K" rather than
+  // "10.0K". One decimal under ten of a unit, none from ten up.
+  const units: [number, string][] = [
+    [1_000_000_000, 'B'],
+    [1_000_000, 'M'],
+    [1000, 'K'],
+  ];
+  for (let index = units.length - 1; index >= 0; index -= 1) {
+    const [size, suffix] = units[index]!;
+    const scaled = value / size;
+    const decimals = scaled < 9.95 ? 1 : 0;
+    const shown = Number(scaled.toFixed(decimals));
+    const next = units[index - 1];
+    if (next && shown >= 1000) continue;
+    return `${shown.toFixed(shown < 10 ? decimals : 0)}${suffix}`;
+  }
+  return String(value);
 }
 
 export function formatDate(timestampMs: number, locale: string): string {
@@ -140,6 +155,14 @@ export function formatDate(timestampMs: number, locale: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+/** The time of day alone -- "14:05", or "2:05 PM" where the locale says so --
+ *  for a row that sits under a heading naming its day. */
+export function formatTime(timestampMs: number, locale: string): string {
+  const date = new Date(timestampMs);
+  if (Number.isNaN(date.getTime())) return '--';
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 /**
@@ -160,9 +183,11 @@ export function formatDay(timestampMs: number, locale: string): string {
 /** "2026-09-07" or "20260907" as reported by sources -> localized short date. */
 export function formatUploadDate(raw: string | null, locale: string): string | null {
   if (!raw) return null;
-  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(raw);
-  const iso = compact ? `${compact[1]}-${compact[2]}-${compact[3]}` : raw;
-  const date = new Date(iso);
+  // A bare date is a calendar day, not an instant. `new Date("2024-03-12")`
+  // reads it as midnight UTC, which west of Greenwich is the evening before,
+  // and the day shown came out one early. Built from its parts, it is local.
+  const day = /^(\d{4})-?(\d{2})-?(\d{2})$/.exec(raw);
+  const date = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(raw);
   if (Number.isNaN(date.getTime())) return null;
   return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' })
     .format(date);

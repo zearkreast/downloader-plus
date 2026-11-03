@@ -69,17 +69,16 @@ all.
 
 ### Android
 
-This repository publishes no Android build. The APKs below are the upstream
-project's, and they update from there.
-
-- [`UniversalDownloader_android_arm64.apk`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_android_arm64.apk) -- practically every phone from the last several years. Pick this one if unsure.
-- [`UniversalDownloader_android_armv7.apk`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_android_armv7.apk) -- older 32-bit phones.
-- [`UniversalDownloader_android_x86_64.apk`](https://github.com/unsalable/downloader/releases/latest/download/UniversalDownloader_android_x86_64.apk) -- emulators and x86 Chromebooks.
+- [`UMD-Plus_android_arm64.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_arm64.apk) -- practically every phone from the last several years. Pick this one if unsure.
+- [`UMD-Plus_android_armv7.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_armv7.apk) -- older 32-bit phones.
+- [`UMD-Plus_android_x86_64.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_x86_64.apk) -- emulators and x86 Chromebooks.
 
 Android 7.0 or newer. The app is not on Google Play: open the APK on the phone
 and allow installs from that source when Android asks. Every build is signed
 with the same key, so a newer APK installs over the old one and keeps settings
-and history.
+and history. A copy of the upstream Universal Downloader app has the same
+package name and a different signature, so Android will not install this one
+over it: uninstall that one first.
 
 The app looks for a newer release each time it is opened. When there is one it
 offers to update: the APK for the phone's processor is downloaded, checked
@@ -90,6 +89,25 @@ to check by hand.
 Downloads land in `Download/Universal Downloader`, where the gallery and file
 manager find them. To download from another app, use its **Share** button and
 pick Universal Downloader.
+
+### Linux (Arch, CachyOS)
+
+- [`UMD-Plus_x86_64.pkg.tar.zst`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x86_64.pkg.tar.zst) -- Arch Linux and the distributions built on it: CachyOS, EndeavourOS, Manjaro.
+
+Download it, then install it from the folder it is in:
+
+```bash
+sudo pacman -U ./UMD-Plus_x86_64.pkg.tar.zst
+```
+
+The package is not signed. pacman installs an unsigned package from a file, but
+not from a link. yt-dlp and FFmpeg are installed with it from your
+distribution's repositories, and pacman keeps them up to date. For YouTube,
+install `deno` too.
+
+The Linux app does not update itself. To update, install a newer package over
+it the same way. The browser extension's link to the app works on Windows
+only, for now.
 
 ---
 
@@ -410,6 +428,10 @@ keyPassword=...
 
 Without it the release build is produced unsigned. Keep the keystore safe: an
 APK signed with a different key cannot update an installed copy.
+
+Releases are built and published by GitHub Actions, for Windows, Android and
+Arch Linux at once. See [docs/RELEASING.md](docs/RELEASING.md) for how to run
+it and which secrets it needs.
 
 There is no JavaScript linter configured. `typescript-eslint` does not yet
 support TypeScript 7, and forcing it past its peer range would leave a parser

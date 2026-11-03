@@ -8,12 +8,14 @@ import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { IntroBoundary } from '@/components/intro/IntroBoundary';
 import { Background } from '@/components/layout/Background';
 import { BottomNav, PHONE_TABS } from '@/components/layout/BottomNav';
-import { Sidebar, type Route } from '@/components/layout/Sidebar';
+import { NAV_ORDER, Sidebar, type Route } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
 import type { UrlInputHandle } from '@/components/home/UrlInput';
+import type { HomeRequest } from '@/pages/HomePage';
 import { openLayers, onLayersChange } from '@/hooks/useBackLayer';
 import { useClipboardMonitor } from '@/hooks/useClipboardMonitor';
 import { useHotkeys } from '@/hooks/useHotkeys';
+import { useTaskbarProgress } from '@/hooks/useTaskbarProgress';
 import { cn } from '@/lib/cn';
 import { homeFromHandoff } from '@/lib/handoff';
 import {
@@ -285,6 +287,14 @@ export function App() {
     () => localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
   );
   const urlInputRef = useRef<UrlInputHandle | null>(null);
+  // What a shortcut asked Home to do. Home carries it out once it is on
+  // screen, which from another screen is only after the screen change: a
+  // timer started with the request fired while the last screen was still
+  // leaving, and focused a field that did not exist yet.
+  const [homeRequest, setHomeRequest] = useState<HomeRequest | null>(null);
+  const askHome = useCallback((kind: HomeRequest['kind']) => {
+    setHomeRequest((previous) => ({ kind, id: (previous?.id ?? 0) + 1 }));
+  }, []);
   const mainRef = useRef<HTMLElement | null>(null);
   // The intro played again from About, which a first run does not need.
   const [introReplay, setIntroReplay] = useState(false);
@@ -652,24 +662,41 @@ export function App() {
 
   const hotkeyHandlers = useMemo(
     () => ({
+      // Takes what is on the clipboard to Home and analyses it, from any
+      // screen -- it used to only open Home and leave the paste to the user.
       pasteUrl: () => {
         setRoute('home');
-        window.setTimeout(() => urlInputRef.current?.focus(), 40);
+        askHome('paste');
       },
+      // Whatever Home's next step is: Download when a result is ready, Analyze
+      // when a link is waiting in the field, and otherwise the field itself.
+      // It is let through while typing so the address field can use it, and
+      // in any other field it is left to the field.
       download: () => {
-        // Handled by the Home screen's own Enter binding when a result is on
-        // screen; from anywhere else, the useful action is to focus the field.
+        const typing = document.activeElement?.matches('input, textarea, [contenteditable="true"]');
+        if (typing && navRef.current.route !== 'home') return;
         setRoute('home');
-        window.setTimeout(() => urlInputRef.current?.focus(), 40);
+        askHome('primary');
       },
       openDownloads: () => setRoute('downloads'),
       openHistory: () => setRoute('history'),
       openSettings: () => setRoute('settings'),
     }),
+    [askHome, setRoute],
+  );
+
+  // Ctrl+1 ... Ctrl+7: the sidebar's places, top to bottom. The phone has no
+  // keyboard to speak of and a different set of places.
+  const goToPlace = useCallback(
+    (position: number) => {
+      const target = NAV_ORDER[position - 1];
+      if (!IS_MOBILE && target) setRoute(target);
+    },
     [setRoute],
   );
 
-  useHotkeys(settings?.hotkeys ?? ({} as never), hotkeyHandlers);
+  useHotkeys(settings?.hotkeys ?? ({} as never), hotkeyHandlers, goToPlace);
+  useTaskbarProgress(!IS_MOBILE);
 
   // Counts, not lists: a count that has not changed does not re-render.
   const inFlight = useQueueStore((state) => selectInFlightCount(state.tasks));
@@ -733,6 +760,7 @@ export function App() {
         <HomePage
           settings={settings}
           inputRef={urlInputRef}
+          request={homeRequest}
           onGoToDownloads={goToDownloads}
           // A section to point at opens Settings already at it; the desktop
           // keeps it for the settings route, and the phone opens it as its page.

@@ -1,12 +1,13 @@
 import { motion } from 'motion/react';
 
+import { Logo } from '@/components/layout/Logo';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { rise } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 
-const CARD = 'overflow-hidden rounded-[var(--radius-card)] border border-card-edge bg-surface';
+const CARD = 'overflow-hidden rounded-[var(--radius-card)] surface-card';
 
 /**
  * Skeleton shown while the engine resolves a link. It mirrors the preview card
@@ -29,6 +30,14 @@ export function AnalyzingCard() {
       aria-live="polite"
       aria-label={t('analyze.analyzing')}
     >
+      {/* The aperture turning around its plus while the link is read: the
+          one spinner in the app drawn as the mark, since this wait is the one
+          every download starts with. */}
+      <div className="flex items-center justify-center gap-2.5 text-[13px] font-medium text-fg-muted">
+        <Logo size={22} spinning />
+        {t('analyze.analyzing')}
+      </div>
+
       <div className={CARD}>
         {/* Square-cornered: the card clips it, as it does the real thumbnail. */}
         <div aria-hidden="true" className="skeleton aspect-video w-full" />
@@ -44,7 +53,7 @@ export function AnalyzingCard() {
           <Skeleton className={field} />
         </div>
         <Skeleton className={cn('mt-3', field)} />
-        <Skeleton className={cn('mt-4', IS_MOBILE ? 'h-13' : 'h-11')} rounded="lg" />
+        <Skeleton className={cn('mt-4', IS_MOBILE ? 'h-13' : 'h-12')} rounded="lg" />
       </div>
     </motion.div>
   );

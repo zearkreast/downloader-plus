@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react';
-import { Clock, Download, Pause, Play } from 'lucide-react';
+import { Clock, Download, FolderOpen, Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
 
@@ -13,9 +13,13 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ListGroup } from '@/components/ui/ListGroup';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Progress } from '@/components/ui/Progress';
 import { Segmented } from '@/components/ui/Segmented';
 import { useTranslation } from '@/i18n';
-import { SIDEWAYS } from '@/lib/motion';
+import { isBusy, summarizeActivity } from '@/lib/activity';
+import { cn } from '@/lib/cn';
+import { formatEta, formatSpeed } from '@/lib/format';
+import { RISE, SIDEWAYS } from '@/lib/motion';
 import { IS_MOBILE } from '@/lib/platform';
 import * as ipc from '@/services/ipc';
 import {
@@ -38,6 +42,9 @@ const HANDLERS = {
   onCancel: (id: string) => void ipc.cancelDownload(id),
   onRetry: (id: string) => void ipc.retryDownload(id),
   onRemove: (id: string) => void ipc.removeDownload(id),
+  // The queue starts the first waiting download in its own order, so putting
+  // this one first makes it the next to start; the rest keep theirs.
+  onNext: (id: string) => void ipc.setDownloadOrder([id]),
   onDetails: openDownloadDetails,
 };
 
@@ -152,50 +159,6 @@ const AFTER_LABELS = {
   shutdown: 'downloads.afterShutdown',
 } as const;
 
-/**
- * Says when the schedule is keeping the queue back, and offers what to do once
- * it has run out. Only with something in flight: choosing an ending for a queue
- * with nothing in it would have nothing to end.
- */
-function QueueBar({ tasks }: { tasks: DownloadTask[] }) {
-  const { t } = useTranslation();
-  const outlook = useQueueStore((state) => state.outlook);
-  const inFlight = selectInFlightCount(tasks) > 0;
-  const held = outlook.heldUntil != null && tasks.some((task) => task.status === 'queued');
-  // A phone has only the first of the two to show.
-  if (!inFlight || (IS_MOBILE && !held)) return null;
-
-  return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
-      {held && (
-        <p className="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-fg-muted">
-          <Clock size={14} className="shrink-0" />
-          {t('downloads.heldUntil', { time: outlook.heldUntil! })}
-        </p>
-      )}
-      {held && (
-        <Button size="sm" variant="ghost" onClick={() => void ipc.runOutsideSchedule()}>
-          {t('downloads.startNow')}
-        </Button>
-      )}
-      {/* A phone cannot be turned off from an app, and quitting one means nothing. */}
-      {!IS_MOBILE && (
-        <div className="ml-auto w-[230px]">
-          <Dropdown
-            aria-label={t('downloads.after')}
-            value={outlook.after}
-            options={(Object.keys(AFTER_LABELS) as AfterQueue[]).map((after) => ({
-              value: after,
-              label: t(AFTER_LABELS[after]),
-            }))}
-            onChange={(after) => void ipc.setAfterQueue(after)}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** The last chance to stop what was asked for after the queue. */
 export function QueueEndingDialog() {
   const { t } = useTranslation();
@@ -239,22 +202,36 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
   // never changes, so a progress tick rebuilds this array in the same order and
   // no row moves; the sort is stable, so the items of a gallery, queued in the
   // same instant, stay in the order they were queued.
-  const { rows, anyRunning, anyPaused, anyFinished } = useMemo(
+  const { rows, anyRunning, anyQueued, anyPaused, anyFinished } = useMemo(
     () => ({
       rows: [...tasks].sort((a, b) => b.createdAt - a.createdAt),
       anyRunning: selectActive(tasks).length > 0,
+      anyQueued: tasks.some((task) => task.status === 'queued'),
       anyPaused: tasks.some((task) => task.status === 'paused'),
       anyFinished: selectFinished(tasks).length > 0,
     }),
     [tasks],
   );
+  const activity = useMemo(() => summarizeActivity(tasks), [tasks]);
 
   // Only what applies right now. Left undefined when nothing does, so a phone,
-  // which shows the actions and no title, renders no header at all.
+  // which shows the actions and no title, renders no header at all. Pause all
+  // holds what is waiting as well as what is running, so it is offered while
+  // either is there -- not only once something has started.
+  const canPause = anyRunning || anyQueued;
   const actions =
-    anyRunning || anyPaused || anyFinished ? (
+    canPause || anyPaused || anyFinished || !IS_MOBILE ? (
       <>
-        {anyRunning && (
+        {/* The folder the downloads land in, a press away from the list of
+            them. A phone's downloads are in its own Downloads app. */}
+        {!IS_MOBILE && (
+          <IconButton
+            icon={<FolderOpen size={16} />}
+            label={t('downloads.openFolder')}
+            onClick={() => void ipc.openDownloadDir().catch(() => {})}
+          />
+        )}
+        {canPause && (
           <IconButton
             icon={<Pause size={15} />}
             label={t('downloads.pauseAll')}
@@ -291,7 +268,20 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
         className={IS_MOBILE ? 'pt-0' : undefined}
       />
 
-      <QueueBar tasks={tasks} />
+      <AnimatePresence initial={false}>
+        {isBusy(activity) && (
+          <motion.div
+            key="summary"
+            variants={RISE}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="mb-4"
+          >
+            <QueueSummary activity={activity} tasks={tasks} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {rows.length === 0 ? (
         <EmptyState
@@ -318,5 +308,134 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
 
       <DownloadDetailDialog />
     </>
+  );
+}
+
+/**
+ * The whole queue at a glance, over the list: how many are running and
+ * waiting, how far they have got together, how fast and how long is left --
+ * the same reading as the sidebar's card (see `summarizeActivity`). Its foot
+ * holds what the queue does about time: the hours the schedule keeps it back,
+ * and what happens once it has run out.
+ */
+function QueueSummary({
+  activity,
+  tasks,
+}: {
+  activity: ReturnType<typeof summarizeActivity>;
+  tasks: DownloadTask[];
+}) {
+  const { t } = useTranslation();
+  const outlook = useQueueStore((state) => state.outlook);
+  const running = activity.running > 0;
+  const percent = activity.percent;
+
+  const held = outlook.heldUntil != null && tasks.some((task) => task.status === 'queued');
+  // Choosing an ending for a queue with nothing in flight would have nothing
+  // to end; a phone cannot be turned off from an app, and quitting one means
+  // nothing.
+  const offerAfter = !IS_MOBILE && selectInFlightCount(tasks) > 0;
+  const heldLine = held && (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Clock size={13} className="shrink-0" />
+      <span className="truncate">{t('downloads.heldUntil', { time: outlook.heldUntil! })}</span>
+    </span>
+  );
+
+  const parts = [
+    running && t('activity.downloading', { n: activity.running }),
+    activity.waiting > 0 && t('activity.waiting', { n: activity.waiting }),
+    activity.paused > 0 && t('activity.paused', { n: activity.paused }),
+  ].filter(Boolean);
+
+  return (
+    <div className="surface-card rounded-[var(--radius-card)] px-4 py-3.5">
+      <div className="flex items-center gap-3">
+        {/* Lit while something moves; at rest, the reason it is at rest. */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-9 shrink-0 items-center justify-center rounded-[11px] transition-colors duration-300',
+            running ? 'brand-fill' : 'bg-surface-sunken text-fg-muted',
+          )}
+        >
+          {running ? (
+            <Download size={17} strokeWidth={2.2} />
+          ) : held ? (
+            <Clock size={17} strokeWidth={2.2} />
+          ) : activity.waiting > 0 ? (
+            <Download size={17} strokeWidth={2.2} />
+          ) : (
+            <Pause size={16} strokeWidth={2.2} />
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13.5px] font-semibold text-fg">{parts.join(' · ')}</div>
+          <div className="tabular mt-0.5 flex gap-3 text-[12.5px] text-fg-muted">
+            {running && activity.speedBps > 0 ? (
+              <>
+                <span>{formatSpeed(activity.speedBps)}</span>
+                {activity.etaSec != null && (
+                  <span>{t('downloads.eta', { time: formatEta(activity.etaSec) })}</span>
+                )}
+              </>
+            ) : held && !running ? (
+              heldLine
+            ) : (
+              <span>
+                {running
+                  ? t('activity.starting')
+                  : activity.waiting > 0
+                    ? t('activity.queuedOnly')
+                    : t('activity.pausedOnly')}
+              </span>
+            )}
+          </div>
+        </div>
+        {running && percent != null && (
+          <span
+            className={cn(
+              'tabular shrink-0 font-semibold tracking-[-0.02em] text-fg',
+              IS_MOBILE ? 'text-[18px]' : 'text-[22px]',
+            )}
+          >
+            {Math.floor(percent)}
+            <span className="text-[0.6em] font-medium text-fg-muted">%</span>
+          </span>
+        )}
+      </div>
+      <Progress
+        value={running ? percent : 0}
+        tone={running ? 'live' : 'muted'}
+        label={parts.join(', ')}
+        className="mt-3"
+      />
+
+      {(held || offerAfter) && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3">
+          {/* While something runs the line above shows its speed, so the
+              hours that hold the rest back are said here instead. */}
+          {held && running && <p className="min-w-0 flex-1 text-[12.5px] text-fg-muted">{heldLine}</p>}
+          {held && (
+            <Button size="sm" variant="secondary" onClick={() => void ipc.runOutsideSchedule()}>
+              {t('downloads.startNow')}
+            </Button>
+          )}
+          {offerAfter && (
+            <div className="ml-auto w-[230px]">
+              <Dropdown
+                aria-label={t('downloads.after')}
+                value={outlook.after}
+                options={(Object.keys(AFTER_LABELS) as AfterQueue[]).map((after) => ({
+                  value: after,
+                  label: t(AFTER_LABELS[after]),
+                }))}
+                onChange={(after) => void ipc.setAfterQueue(after)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

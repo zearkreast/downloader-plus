@@ -53,7 +53,7 @@ export function ListGroup({ children, inset = 16, tone = 'card', className }: Li
       style={{ '--list-inset': `${inset}px` } as CSSProperties}
       className={cn(
         'list-group overflow-hidden rounded-[var(--radius-card)]',
-        tone === 'fill' ? 'bg-fill' : 'border border-card-edge bg-surface',
+        tone === 'fill' ? 'bg-fill' : 'surface-card',
         className,
       )}
     >
@@ -75,7 +75,7 @@ export const ROW_LINE =
  *  the page's title, which is the only thing above it. */
 export function ListGroupLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h2 className={cn('px-4 text-[13px] font-semibold tracking-normal text-fg-muted', className)}>
+    <h2 className={cn('px-4 text-[12.5px] font-semibold tracking-[0.01em] text-fg-muted', className)}>
       {children}
     </h2>
   );

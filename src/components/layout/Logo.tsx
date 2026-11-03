@@ -1,11 +1,17 @@
 /**
  * The application mark: an eight-blade aperture with a plus in its opening.
  *
+ * The blades are drawn as a ring of their own, so the ring can turn while the
+ * plus holds still: `spinning` is the app's loading mark (see `.logo-ring` in
+ * globals.css), and `ringClassName` lets a caller turn it some other way.
+ *
  * Same geometry as the generated app icon (`scripts/generate_icon.py`), worked
  * out here as vectors so it stays crisp at any size. The two are one shape
  * written twice, as is `extension/make-icons.mjs`, so a change to one has to be
  * made to all three.
  */
+
+import { cn } from '@/lib/cn';
 
 type Point = readonly [number, number];
 
@@ -79,7 +85,30 @@ const PLUS_HALF = RADIUS * PLUS_SPAN;
 const PLUS_ARM = RADIUS * PLUS_W;
 const PLUS_CORNER = PLUS_ARM * 0.42;
 
-export function Logo({ size = 24, className }: { size?: number; className?: string }) {
+export function Logo({
+  size = 24,
+  className,
+  spinning = false,
+  ringClassName,
+}: {
+  size?: number;
+  className?: string;
+  /** The ring of blades turns around a still plus, for as long as this is set. */
+  spinning?: boolean;
+  /** Classes for the ring alone, e.g. a turn on hover that leaves the plus be. */
+  ringClassName?: string;
+}) {
+  // Reduced motion leaves the spinner turning, as it does every spinner: it is
+  // what says the wait is not over. The rule matches each element on its own,
+  // so both groups carry the exemption.
+  const ring = (
+    <g className={cn('logo-ring', spinning && 'logo-ring-spin motion-essential', ringClassName)}>
+      {PIECES.map((piece, index) => (
+        <path key={index} d={piece.path} fill={`url(#umd-blade-${index})`} />
+      ))}
+    </g>
+  );
+
   return (
     <svg
       width={size}
@@ -116,9 +145,7 @@ export function Logo({ size = 24, className }: { size?: number; className?: stri
           <stop offset="1" stopColor={colour(0)} />
         </linearGradient>
       </defs>
-      {PIECES.map((piece, index) => (
-        <path key={index} d={piece.path} fill={`url(#umd-blade-${index})`} />
-      ))}
+      {spinning ? <g className="logo-iris motion-essential">{ring}</g> : ring}
       <g fill="url(#umd-plus)">
         <rect
           x={CENTRE - PLUS_HALF}
@@ -136,5 +163,22 @@ export function Logo({ size = 24, className }: { size?: number; className?: stri
         />
       </g>
     </svg>
+  );
+}
+
+/**
+ * The name as it is set beside the mark: "UMD" in the text colour and the
+ * plus in the mark's own gradient, so the two read as one lockup. Any name
+ * that does not end in a plus is set plainly.
+ */
+export function Wordmark({ name, className }: { name: string; className?: string }) {
+  const plus = name.endsWith('+');
+  return (
+    // English whatever the interface language, so it is read out -- and
+    // cased -- as English.
+    <span lang="en" className={className}>
+      {plus ? name.slice(0, -1) : name}
+      {plus && <span className="text-brand">+</span>}
+    </span>
   );
 }

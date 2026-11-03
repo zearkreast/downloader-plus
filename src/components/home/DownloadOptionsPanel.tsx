@@ -10,7 +10,7 @@ import {
   TriangleAlert,
   Video,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type Ref } from 'react';
 
 import { useToolInstall } from '@/components/home/useToolInstall';
 import { InstallProgress } from '@/components/settings/ToolCard';
@@ -19,7 +19,7 @@ import { Dropdown } from '@/components/ui/Dropdown';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Segmented, type SegmentedOption } from '@/components/ui/Segmented';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { useTranslation } from '@/i18n';
+import { errorCopy, useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { COLLAPSE } from '@/lib/motion';
 import {
@@ -57,6 +57,10 @@ interface DownloadOptionsPanelProps {
   /** Whether to say what the button fetches. Off while picking from a gallery:
    *  the line describes the first item, and the items need not be alike. */
   showPlan?: boolean;
+  /** The Download button, for the shortcut that presses it. */
+  downloadRef?: Ref<HTMLButtonElement>;
+  /** The link in the field is no longer the one these options are for. */
+  stale?: boolean;
 }
 
 const MODE_ICONS = { video: Video, audio: Music, image: ImageIcon } as const;
@@ -72,6 +76,8 @@ export function DownloadOptionsPanel({
   downloadLabel,
   nothingPicked = false,
   showPlan = true,
+  downloadRef,
+  stale = false,
 }: DownloadOptionsPanelProps) {
   const { t } = useTranslation();
   const [plan, setPlan] = useState<ipc.PlanSummary | null>(null);
@@ -129,7 +135,9 @@ export function DownloadOptionsPanel({
       .catch((error) => {
         if (!active) return;
         setPlan(null);
-        setPlanError(ipc.toAppError(error).message);
+        // In the user's language, as every other failure on Home is said.
+        const { title, message } = errorCopy(ipc.toAppError(error), IS_MOBILE);
+        setPlanError(`${title}. ${message}`);
       });
     return () => {
       active = false;
@@ -160,7 +168,7 @@ export function DownloadOptionsPanel({
   const outputDir = options.outputDir ?? defaultDownloadDir;
 
   return (
-    <section className="rounded-[var(--radius-card)] border border-card-edge bg-surface p-4">
+    <section className="rounded-[var(--radius-card)] surface-card p-4">
       {modeOptions.length > 1 && (
         <Segmented
           value={options.mode}
@@ -368,13 +376,18 @@ export function DownloadOptionsPanel({
         </InlineNotice>
       )}
 
+      {stale && (
+        <InlineNotice className="mt-3.5">{t('preview.stale')}</InlineNotice>
+      )}
+
       <Button
+        ref={downloadRef}
         variant="cta"
         size="lg"
         fullWidth
-        icon={<Download size={17} />}
+        icon={<Download size={18} />}
         loading={submitting}
-        disabled={ffmpegBlocked || plan == null || nothingPicked}
+        disabled={ffmpegBlocked || plan == null || nothingPicked || stale}
         onClick={onDownload}
         className="mt-4"
       >

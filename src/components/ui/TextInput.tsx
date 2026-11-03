@@ -31,10 +31,11 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
           IS_MOBILE ? 'h-12' : 'h-9',
           // The ring is the whole of the focus treatment: a filled field has no
           // border to recolour, and the input inside draws no outline of its own.
-          'ring-inset',
+          'transition-[box-shadow,background-color] duration-150 ease-out-quint',
+          // Focused, a ring of the accent with a soft halo of it outside.
           error
-            ? 'ring-2 ring-[var(--error)]'
-            : 'focus-within:ring-2 focus-within:ring-[var(--accent)]',
+            ? 'shadow-[inset_0_0_0_1.5px_var(--error)]'
+            : 'hover:bg-fill-hover focus-within:bg-transparent focus-within:shadow-[inset_0_0_0_1.5px_var(--accent),0_0_0_4px_var(--accent-soft)]',
           className,
         )}
       >
