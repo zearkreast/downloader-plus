@@ -315,7 +315,7 @@ export const tr: Record<TranslationKey, string> = {
   'settings.hotkeys': 'Kısayollar',
   'settings.placeShortcuts': 'Bir bölüme git',
   'settings.placeShortcutsHint': 'Ctrl+1 ile Ctrl+7 arası, kenar çubuğundaki bölümleri yukarıdan aşağıya açar. Yukarıda aynı tuşlara atanmış bir kısayol önce gelir.',
-  'settings.generalSummary': 'Pano izleme, bildirimler',
+  'settings.generalSummary': 'Pano izleme, bildirimler, güncelleme',
   'settings.downloadsSummary': 'Klasör, kalite, eşzamanlı indirme',
   'settings.connectionSummary': 'Tarayıcı uzantısı ve oturumlar',
   'settings.appearanceSummary': 'Tema, dil, hareket',
@@ -332,6 +332,11 @@ export const tr: Record<TranslationKey, string> = {
     'Pencereyi kapatmak uygulamadan çıkmaz; indirmeler arka planda sürer.',
   'settings.clipboard': 'Pano izleme',
   'settings.clipboardHint': 'Kopyaladığın medya bağlantılarını analiz etmeyi öner.',
+  'settings.autoUpdate': 'Otomatik güncelle',
+  'settings.autoUpdateHint':
+    'Yeni sürüm arka planda iner ve süren bir iş yokken kurulur, uygulama yeniden açılır. Kapalıyken Hakkında sayfasından güncellersin.',
+  'settings.autoUpdateHintMobile':
+    'Uygulama açılınca yeni sürüm varsa sorulur. Kapalıyken Hakkında sayfasından denetlersin.',
   'settings.notifications': 'Bildirimler',
   'settings.notificationsHint': 'İndirmeler bitince sistem bildirimi göster.',
   'settings.notifyComplete': 'Tamamlanınca bildir',

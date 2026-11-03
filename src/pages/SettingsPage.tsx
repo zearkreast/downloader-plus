@@ -395,6 +395,12 @@ function GeneralSection({ settings, update }: { settings: Settings; update: Upda
           checked={settings.clipboardMonitoring}
           onChange={(value) => void update({ clipboardMonitoring: value })}
         />
+        <ToggleRow
+          title={t('settings.autoUpdate')}
+          description={t(IS_MOBILE ? 'settings.autoUpdateHintMobile' : 'settings.autoUpdateHint')}
+          checked={settings.autoUpdate}
+          onChange={(value) => void update({ autoUpdate: value })}
+        />
       </SettingGroup>
 
       <SettingGroup title={t('settings.notifications')}>

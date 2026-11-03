@@ -666,6 +666,11 @@ export interface Settings {
   notificationsEnabled: boolean;
   notifyOnComplete: boolean;
   notifyOnError: boolean;
+  /**
+   * Look for a newer build by itself: the desktop fetches and installs it,
+   * the phone offers it. Off, only the About page's check does anything.
+   */
+  autoUpdate: boolean;
 
   // Downloads
   downloadDir: string;

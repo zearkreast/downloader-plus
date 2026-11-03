@@ -41,6 +41,17 @@ function rememberAttempt(commit: string) {
   }
 }
 
+/**
+ * Desktop: whether the staged build installs as soon as nothing is running.
+ * `autoUpdate` is the setting, undefined until the settings have loaded.
+ */
+export function selectInstallsItself(
+  state: { phase: UpdatePhase; stalled: boolean; asked: boolean },
+  autoUpdate: boolean | undefined,
+): boolean {
+  return state.phase === 'ready' && !state.stalled && (autoUpdate === true || state.asked);
+}
+
 interface UpdateState {
   update: AppUpdate | null;
   open: boolean;
@@ -58,12 +69,18 @@ interface UpdateState {
    */
   stalled: boolean;
   /**
+   * Desktop: the user pressed Update for this build, which installs it even
+   * with automatic updates off.
+   */
+  asked: boolean;
+  /**
    * Look for a newer build. An automatic check stays silent about failures --
    * being offline is no reason to interrupt anyone -- and does not re-offer a
    * build the user postponed. A manual one does both.
    */
   check: (manual?: boolean) => Promise<AppUpdate | null>;
-  install: () => Promise<void>;
+  /** `asked`: the user pressed Update, rather than the app staging it unasked. */
+  install: (asked?: boolean) => Promise<void>;
   /** Desktop: hand over to the staged installer. The app exits when it works. */
   apply: () => Promise<void>;
   postpone: () => void;
@@ -80,6 +97,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   checked: false,
   postponed: null,
   stalled: false,
+  asked: false,
 
   check: async (manual = false) => {
     const busy = get().phase;
@@ -109,15 +127,18 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
       stalled: !IS_MOBILE && !manual && attemptedRecently(found.commit),
       // A different build replaces whatever state the previous one was in.
       ...(state.update?.commit !== found.commit
-        ? { phase: 'idle' as const, error: null, progress: null }
+        ? { phase: 'idle' as const, error: null, progress: null, asked: false }
         : {}),
     }));
     return found;
   },
 
-  install: async () => {
+  install: async (asked = false) => {
     const { update, phase } = get();
     if (!update || phase === 'downloading' || phase === 'applying') return;
+    // Before the early return below: a build staged unasked may be the one
+    // the press is for. A press is also another attempt, as a manual check is.
+    if (asked) set({ asked: true, stalled: false });
     // A second press on the phone opens the system installer again. On the
     // desktop the file is already where it needs to be.
     if (!IS_MOBILE && phase === 'ready') return;
