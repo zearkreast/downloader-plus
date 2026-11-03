@@ -14,8 +14,19 @@ export const tr: Record<TranslationKey, string> = {
   'nav.collapse': 'Kenar çubuğunu daralt',
   'nav.expand': 'Kenar çubuğunu genişlet',
 
+  'activity.downloading': '{n} indiriliyor',
+  'activity.waiting': '{n} sırada',
+  'activity.paused': '{n} duraklatıldı',
+  'activity.starting': 'Başlatılıyor…',
+  'activity.queuedOnly': 'Boş yer bekleniyor',
+  'activity.heldUntil': '{time} saatinde başlar',
+  'activity.pausedOnly': 'Sen sürdürene kadar duraklatıldı',
+  'activity.open': 'İndirmeleri aç',
+
   'hero.title': 'Bağlantıyı yapıştır, indir.',
   'hero.subtitle': 'Hemen her siteden video, ses ve görsel.',
+  'hero.titleLead': 'Bağlantıyı yapıştır,',
+  'hero.titleAccent': 'indir.',
 
   'input.placeholder': 'Bir video, görsel veya medya bağlantısı yapıştır…',
   'input.paste': 'Yapıştır',
@@ -41,7 +52,9 @@ export const tr: Record<TranslationKey, string> = {
   'preview.openList': 'Listeyi aç',
   'preview.alreadyDownloaded': 'Bunu {date} tarihinde indirdin',
   'preview.alreadyQueued': 'Bu zaten indirmelerinde',
+  'preview.song': '1 şarkı',
   'preview.startOver': 'Yeni bağlantı',
+  'preview.stale': 'Alandaki bağlantı değişti. Neler sunduğunu görmek için analiz et.',
   'preview.warningGeneric':
     'Bu site tanınmadı; gösterilen, sayfanın kendi öne çıkardığı medya. Aradığın bu olmayabilir.',
 
@@ -136,8 +149,11 @@ export const tr: Record<TranslationKey, string> = {
   'details.pieceDone': 'Tamam',
   'details.pieceWaiting': 'Bekliyor',
   'details.morePieces': 've {count} parça daha',
+  'details.moreOnePiece': 've 1 parça daha',
   'downloads.details': 'Ayrıntılar',
   'downloads.pauseAll': 'Tümünü duraklat',
+  'downloads.openFolder': 'İndirme klasörünü aç',
+  'downloads.next': 'Sıradaki olarak indir',
   'downloads.resumeAll': 'Tümünü sürdür',
   'downloads.clear': 'Temizle',
   'downloads.heldUntil': 'Zamanlamaya göre {time} bekleniyor',
@@ -251,6 +267,10 @@ export const tr: Record<TranslationKey, string> = {
   'convert.formatHint.jp2': 'JPEG 2000, arşiv için',
 
   'history.title': 'Geçmiş',
+  'history.today': 'Bugün',
+  'history.yesterday': 'Dün',
+  'history.showMore': 'Daha fazla göster',
+  'history.showing': '{total} kayıttan {shown} tanesi gösteriliyor',
   'history.recent': 'Son indirilenler',
   'history.emptyTitle': 'Henüz indirme yok',
   'history.emptyBody': 'Tamamlanan indirmelerin burada görünür.',
@@ -292,6 +312,8 @@ export const tr: Record<TranslationKey, string> = {
   'settings.performance': 'Performans',
   'settings.advanced': 'Gelişmiş',
   'settings.hotkeys': 'Kısayollar',
+  'settings.placeShortcuts': 'Bir bölüme git',
+  'settings.placeShortcutsHint': 'Ctrl+1 ile Ctrl+7 arası, kenar çubuğundaki bölümleri yukarıdan aşağıya açar. Yukarıda aynı tuşlara atanmış bir kısayol önce gelir.',
   'settings.generalSummary': 'Pano izleme, bildirimler',
   'settings.downloadsSummary': 'Klasör, kalite, eşzamanlı indirme',
   'settings.connectionSummary': 'Tarayıcı uzantısı ve oturumlar',
@@ -342,6 +364,7 @@ export const tr: Record<TranslationKey, string> = {
   'settings.embedMetadata': 'Bilgileri dosyaya yaz',
   'settings.embedMetadataHint':
     'Başlık, kanal, bölümler ve biçim izin veriyorsa kapak eklenir. FFmpeg gerekir.',
+  'settings.connectionsCapped': 'Düşük kaynak modu açık, bu yüzden en fazla iki tane kullanılır.',
   'settings.autoRetry': 'Otomatik yeniden deneme',
   'settings.autoRetryHint':
     'Başarısız bir indirme vazgeçilmeden önce kaç kez tekrar denensin.',
@@ -413,7 +436,7 @@ export const tr: Record<TranslationKey, string> = {
 
   'settings.lowResource': 'Düşük kaynak modu',
   'settings.lowResourceHint':
-    'Daha az görsel efekt ve daha küçük indirme tamponu. Eski makinelerde işe yarar.',
+    'Daha az görsel efekt, daha küçük indirme tamponu ve indirme başına en fazla iki bağlantı. Eski makinelerde işe yarar.',
   'settings.hardwareAcceleration': 'Donanım hızlandırma',
   'settings.hardwareAccelerationHint':
     'Dönüştürmede FFmpeg GPU kullansın. Dönüştürmeler başarısız olursa kapat.',
@@ -480,14 +503,14 @@ export const tr: Record<TranslationKey, string> = {
 
   'about.privacyTitle': 'İndirmelerin cihazında kalır.',
   'about.privacyBody':
-    'Hesap yok, reklam yok, analitik yok. Bağlantılar bu makinede çalışan araçlarla çözümlenir ve yalnızca medya kaynağının kendisine ağ isteği yapılır.',
+    "Hesap yok, reklam yok, analitik yok. Bağlantılar bu makinede çalışan araçlarla çözümlenir. İstekler yalnızca medya kaynağının kendisine, güncellemeleri denetlemek ve bu araçları indirmek için de GitHub'a gider.",
   'about.privacyBodyMobile':
     "Hesap yok, reklam yok, analitik yok. Bağlantılar telefonunda çözümlenir. İstekler yalnızca medya kaynağına, güncellemeleri denetlemek için GitHub'a ve telefonunun DNS'i bir siteyi bulamazsa adresini sormak için herkese açık bir DNS çözümleyicisine (Cloudflare veya Google) gider.",
   'about.licenses': 'Açık kaynak kütüphaneler',
   'about.externalTools': 'Harici araçlar',
   'about.system': 'Sistem',
 
-  'welcome.title': "Universal Media Downloader+'a hoş geldin",
+  'welcome.title': "Universal Media Downloader+'ya hoş geldin",
   'welcome.subtitle': 'Hızlı. Gizli. Reklamsız.',
   'welcome.getStarted': 'Başla',
   'welcome.pointPrivacy': 'Hiçbir şey cihazından çıkmaz',
@@ -514,12 +537,12 @@ export const tr: Record<TranslationKey, string> = {
 
   'setup.title': 'Tek seferlik kurulum',
   'setup.body':
-    'UMD+, medya bilgilerini okumak ve akışları birleştirmek için iki açık kaynak araç kullanır. Bir kez indirilir ve tamamen bu bilgisayarda çalışır.',
+    "UMD+, medya bilgilerini açık kaynaklı yt-dlp aracıyla okur. Bir kez indirilir ve tamamen bu bilgisayarda çalışır. Akışları birleştiren, Dönüştür ve Düzenle'yi çalıştıran FFmpeg de Ayarlar › Gelişmiş'ten aynı şekilde eklenebilir.",
   'setup.bodyMobile':
     'UMD+, medya bilgilerini açık kaynaklı yt-dlp aracıyla okur. Bir kez indirilir (yaklaşık 3 MB) ve tamamen telefonunda çalışır. FFmpeg zaten uygulamanın içinde.',
   'setup.installNow': 'Şimdi kur',
   'setup.ffmpegOptional':
-    'FFmpeg isteğe bağlıdır, ancak onsuz ayrı video ve ses akışları birleştirilemez.',
+    "FFmpeg indirmek için isteğe bağlıdır, ancak onsuz ayrı video ve ses akışları birleştirilemez, Dönüştür ve Düzenle de çalışmaz.",
 
 
   // -- editor ----------------------------------------------------------------
@@ -697,7 +720,7 @@ export const tr: Record<TranslationKey, string> = {
   'error.notFound.title': 'Bu medya artık mevcut değil',
   'error.notFound.message': 'Gönderi silinmiş veya gizli yapılmış olabilir.',
   'error.streamLink.title': 'Bu yayın linki tek başına açılmıyor',
-  'error.streamLink.message': 'Bu tür linkler çabuk geçersiz olur veya yalnızca kendi sayfasında çalışır. Videoyu tarayıcıda oynatıp eklentiden gönderin.',
+  'error.streamLink.message': 'Bu tür bağlantılar çabuk geçersiz olur veya yalnızca kendi sayfasında çalışır. Videoyu tarayıcıda oynat ve uzantıdan gönder.',
   'error.fileMissing.title': 'Dosya taşınmış veya silinmiş',
   'error.fileMissing.message': 'Kaydedildiği yerde artık yok.',
   'error.noMatch.title': 'Bu şarkı bulunamadı',

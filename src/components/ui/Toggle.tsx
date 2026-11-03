@@ -43,9 +43,13 @@ export function ToggleTrack({ checked }: { checked: boolean }) {
       className={cn(
         // The proportions of the system switch: a track a little over one and a
         // half knobs wide, the knob filling it but for 2px all round.
-        'relative flex shrink-0 items-center rounded-full p-[2px] transition-colors duration-250 ease-out-quint',
+        'relative flex shrink-0 items-center rounded-full p-[2px] transition-[background-color,box-shadow] duration-250 ease-out-quint',
         IS_MOBILE ? 'h-[31px] w-[51px]' : 'h-[24px] w-[40px]',
-        checked ? 'bg-accent' : 'bg-fill-active',
+        // On, it wears the mark's gradient, lit along its top edge like the
+        // button that is the screen's call to action.
+        checked
+          ? 'brand-track shadow-[inset_0_1px_0_rgb(255_255_255/0.2)]'
+          : 'bg-fill-active shadow-[inset_0_1px_2px_rgb(0_0_0/0.08)]',
       )}
     >
       <motion.span

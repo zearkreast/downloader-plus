@@ -56,13 +56,7 @@ export function qualityOptions(
 
   if (mode === 'audio') {
     if (metadata.listing) return [{ value: 'best', label: translate('options.audioBest') }];
-    const bitrates = [
-      ...new Set(
-        metadata.formats
-          .filter((format) => format.kind === 'audio' && format.abr != null)
-          .map((format) => Math.round(format.abr!)),
-      ),
-    ].sort((a, b) => b - a);
+    const bitrates = bitratesOf(metadata);
 
     return [
       { value: 'best', label: translate('options.audioBest') },
@@ -92,13 +86,7 @@ export function qualityOptions(
 
   // Distinct heights, best first. A source that reports no height at all still
   // gets Best/Auto rather than an empty menu.
-  const heights = [
-    ...new Set(
-      metadata.formats
-        .filter((format) => format.hasVideo && format.height != null)
-        .map((format) => format.height!),
-    ),
-  ].sort((a, b) => b - a);
+  const heights = heightsOf(metadata);
 
   const options: DropdownOption<QualityKey>[] = [
     {
@@ -129,12 +117,89 @@ const VIDEO_CONTAINERS = ['mp4', 'webm', 'mkv'];
 const AUDIO_CONTAINERS = ['mp3', 'm4a', 'wav', 'opus'];
 const IMAGE_CONTAINERS = ['jpg', 'png', 'webp'];
 
+/** The containers a download of this kind can be written as. */
+export function containersFor(mode: DownloadMode): readonly string[] {
+  return mode === 'audio' ? AUDIO_CONTAINERS : mode === 'image' ? IMAGE_CONTAINERS : VIDEO_CONTAINERS;
+}
+
+/**
+ * A preferred container that still means something for this kind of file, or
+ * null -- "keep the source's" -- when it does not. An MP4 preference set for
+ * video, carried into an audio download, wrapped the sound in a video file
+ * and left the Format menu showing nothing it offered.
+ */
+export function fitContainer(container: string | null, mode: DownloadMode): string | null {
+  return container && containersFor(mode).includes(container) ? container : null;
+}
+
+/** The heights a medium's pictures come in, tallest first. */
+function heightsOf(metadata: MediaMetadata): number[] {
+  return [
+    ...new Set(
+      metadata.formats
+        .filter((format) => format.hasVideo && format.height != null)
+        .map((format) => format.height!),
+    ),
+  ].sort((a, b) => b - a);
+}
+
+/** The bitrates a medium's sound comes in apart from any picture, highest first. */
+function bitratesOf(metadata: MediaMetadata): number[] {
+  return [
+    ...new Set(
+      metadata.formats
+        .filter((format) => format.kind === 'audio' && format.abr != null)
+        .map((format) => Math.round(format.abr!)),
+    ),
+  ].sort((a, b) => b - a);
+}
+
+/**
+ * A quality preference brought into line with what this medium offers in this
+ * mode, so the Quality menu always opens on one of its own entries.
+ *
+ * A height is a ceiling, and the downloader already treats it as one: asked
+ * for 1080p of a video that tops out at 720p, it fetches the 720p. So the
+ * preference is moved to the tallest height at or under it -- the same file,
+ * now named in the menu -- and to the shortest there is when every height is
+ * over it. A bitrate is handled alike. A preference made for another kind of
+ * file -- a height for a song, a bitrate for a video -- means nothing here,
+ * and becomes Best.
+ */
+export function fitQuality(
+  quality: QualityPreference,
+  mode: DownloadMode,
+  metadata: MediaMetadata,
+): QualityPreference {
+  if (mode === 'image') return { type: 'best' };
+
+  if (quality.type === 'maxHeight') {
+    if (mode !== 'video') return { type: 'best' };
+    // A list offers ceilings, not the renditions of one video.
+    const heights = metadata.listing ? LIST_HEIGHTS : heightsOf(metadata);
+    if (heights.length === 0) return { type: 'best' };
+    const height = heights.find((candidate) => candidate <= quality.height) ?? heights[heights.length - 1]!;
+    return { type: 'maxHeight', height };
+  }
+
+  if (quality.type === 'audioBitrate') {
+    if (mode !== 'audio') return { type: 'best' };
+    const rates = bitratesOf(metadata);
+    if (rates.length === 0) return { type: 'best' };
+    const kbps = rates.find((candidate) => candidate <= quality.kbps) ?? rates[rates.length - 1]!;
+    return { type: 'audioBitrate', kbps };
+  }
+
+  // Auto is a video choice: the best picture that needs no merge.
+  if (quality.type === 'auto' && mode !== 'video') return { type: 'best' };
+  return quality;
+}
+
 export function containerOptions(
   mode: DownloadMode,
   ffmpegAvailable: boolean,
 ): DropdownOption<string>[] {
-  const list =
-    mode === 'audio' ? AUDIO_CONTAINERS : mode === 'image' ? IMAGE_CONTAINERS : VIDEO_CONTAINERS;
+  const list = containersFor(mode);
 
   return [
     { value: '', label: translate('settings.containerKeep') },

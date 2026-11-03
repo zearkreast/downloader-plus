@@ -472,9 +472,19 @@ fn build_audio(
         .unwrap_or_else(|| if from_muxed { "m4a".to_string() } else { source_container.clone() });
     let convert_to = (from_muxed || container != source_container).then(|| container.clone());
 
+    // The sound taken out of a picture-and-sound rendition is not that
+    // rendition: its own label is the picture's ("720p"), and an audio file
+    // called "720p - M4A" -- in the list, in History, in a `{quality}` file
+    // name -- describes something it is not. Its bitrate says what it is.
+    let quality_label = if from_muxed {
+        sound_label(chosen)
+    } else {
+        chosen.quality_label.clone()
+    };
+
     Ok(DownloadPlan {
-        quality_label: chosen.quality_label.clone(),
-        label: format!("{} - {}", chosen.quality_label, container.to_uppercase()),
+        label: format!("{} - {}", quality_label, container.to_uppercase()),
+        quality_label,
         estimated_bytes: chosen.best_known_size(),
         needs_engine: chosen.needs_engine_download,
         engine_selector: chosen.needs_engine_download.then(|| chosen.id.clone()),
@@ -486,6 +496,15 @@ fn build_audio(
         convert_to,
         kept_range: None,
     })
+}
+
+/// What the sound of a rendition is called once it is all that is kept: its
+/// bitrate where the source gave one, and plainly "Audio" where it did not.
+fn sound_label(format: &MediaFormat) -> String {
+    match format.abr {
+        Some(kbps) if kbps.is_finite() && kbps >= 1.0 => format!("{} kbps", kbps.round() as u32),
+        _ => "Audio".to_string(),
+    }
 }
 
 fn build_video(
@@ -1814,5 +1833,43 @@ mod tests {
         .unwrap();
         assert!(result.needs_merge);
         assert!(result.sound_from_muxed());
+    }
+
+    #[test]
+    fn sound_taken_out_of_a_picture_is_named_by_its_bitrate_not_the_picture() {
+        let audio = |abr| {
+            let meta = metadata(vec![format("m", FormatKind::Muxed, Some(720), abr, "mp4")]);
+            build(
+                &meta,
+                DownloadMode::Audio,
+                QualityPreference::Best,
+                None,
+                None,
+                None,
+                WatermarkPreference::Any,
+            )
+            .unwrap()
+        };
+
+        let named = audio(Some(127.6));
+        assert_eq!(named.quality_label, "128 kbps");
+        assert_eq!(named.label, "128 kbps - M4A");
+
+        // A source that gave no bitrate still does not call it "720p".
+        assert_eq!(audio(None).quality_label, "Audio");
+
+        // A rendition that is sound alone keeps its own name.
+        let meta = metadata(vec![format("a", FormatKind::Audio, None, Some(160.0), "m4a")]);
+        let alone = build(
+            &meta,
+            DownloadMode::Audio,
+            QualityPreference::Best,
+            None,
+            None,
+            None,
+            WatermarkPreference::Any,
+        )
+        .unwrap();
+        assert_eq!(alone.quality_label, "160 kbps");
     }
 }

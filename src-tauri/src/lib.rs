@@ -298,6 +298,7 @@ pub fn run() {
             commands::reveal_file,
             commands::share_file,
             commands::open_log_dir,
+            commands::open_download_dir,
             commands::cache_stats,
             commands::clear_cache,
             commands::get_diagnostics,

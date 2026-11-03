@@ -1,0 +1,70 @@
+# Maintainer: UMD+ <https://github.com/zearkreast/downloader-plus>
+#
+# UMD+ for Arch Linux and the distributions built on it: CachyOS,
+# EndeavourOS, Manjaro, Garuda.
+#
+# This packages a build that was made beforehand rather than compiling one.
+# Tauri's bundler already lays the app out the way a Linux desktop expects --
+# the program in /usr/bin, its resources under /usr/lib, a .desktop entry and
+# the icons -- in the Debian package it writes, so that package's contents are
+# what goes in. The release workflow makes it on Arch itself, against Arch's
+# own WebKitGTK, and runs makepkg beside it (see .github/workflows/release.yml).
+#
+# By hand, on an Arch machine, from the root of the repository:
+#
+#   npm ci
+#   npx tauri build --bundles deb
+#   cp src-tauri/target/release/bundle/deb/*.deb packaging/arch/
+#   cd packaging/arch && makepkg -si
+#
+# The app does not update itself on Linux; a newer package replaces it.
+# yt-dlp and FFmpeg come from the distribution, so pacman keeps them current,
+# and the app finds them on PATH.
+
+pkgname=umd-plus
+pkgver=2.0.0
+pkgrel=1
+pkgdesc='Universal Media Downloader+: fast, private and ad-free media downloading'
+arch=('x86_64')
+url='https://github.com/zearkreast/downloader-plus'
+license=('MIT')
+depends=(
+  'webkit2gtk-4.1'
+  'gtk3'
+  'libayatana-appindicator'
+  'hicolor-icon-theme'
+  'yt-dlp'
+  'ffmpeg'
+)
+optdepends=(
+  'deno: the JavaScript runtime yt-dlp uses to read YouTube'
+  'nodejs: serves yt-dlp instead of Deno'
+)
+provides=('umd-plus')
+conflicts=('umd-plus-bin' 'umd-plus-git')
+# Already stripped by Cargo's release profile, and there are no debug symbols
+# to split off.
+options=('!strip' '!debug')
+
+package() {
+  local debs=("$startdir"/*.deb)
+  if [[ ! -f ${debs[0]} ]]; then
+    error 'No .deb beside the PKGBUILD. Build one first: npx tauri build --bundles deb'
+    return 1
+  fi
+  if (( ${#debs[@]} > 1 )); then
+    error 'More than one .deb beside the PKGBUILD; leave only the one to package.'
+    return 1
+  fi
+
+  # A .deb is an ar archive holding data.tar.*, the files as installed.
+  bsdtar -xOf "${debs[0]}" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
+
+  # Debian's copyright file is replaced by the licence where Arch keeps them.
+  rm -rf "$pkgdir/usr/share/doc"
+  local licence="$startdir/../../LICENSE"
+  [[ -f $licence ]] && install -Dm644 "$licence" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # Directories as root:root 755, whatever the archive said.
+  find "$pkgdir" -type d -exec chmod 755 {} +
+}

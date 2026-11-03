@@ -20,9 +20,16 @@ interface EmptyStateProps {
 export function EmptyState({ icon: Icon, title, body, action, className }: EmptyStateProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center px-6 py-16 text-center', className)}>
-      <Icon size={36} strokeWidth={1.5} aria-hidden="true" className="mb-4 text-fg-faint" />
-      <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
-      {body && <p className="mt-1 max-w-[300px] text-[13px] leading-relaxed text-fg-muted">{body}</p>}
+      {/* The icon sits in a tile with a breath of the accent behind it: the
+          same light the mark gives off on Home, turned right down. */}
+      <span aria-hidden="true" className="relative mb-5 flex size-16 items-center justify-center">
+        <span className="absolute inset-0 rounded-[20px] bg-[image:var(--brand-gradient)] opacity-[0.16] blur-xl" />
+        <span className="surface-card relative flex size-16 items-center justify-center rounded-[20px]">
+          <Icon size={28} strokeWidth={1.6} className="text-accent" />
+        </span>
+      </span>
+      <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-fg">{title}</h3>
+      {body && <p className="mt-1.5 max-w-[320px] text-[13px] leading-relaxed text-fg-muted">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

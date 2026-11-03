@@ -92,7 +92,7 @@ export const BottomNav = memo(function BottomNav({
                 layoutId="bottom-nav-active"
                 transition={SPRING.glide}
                 aria-hidden="true"
-                className="absolute left-[calc(50%-28px)] top-[calc(50%-25px)] h-[30px] w-14 rounded-full bg-fill-active"
+                className="absolute left-[calc(50%-28px)] top-[calc(50%-25px)] h-[30px] w-14 rounded-full bg-accent-soft"
               />
             )}
 
@@ -115,7 +115,7 @@ export const BottomNav = memo(function BottomNav({
                 />
               </motion.span>
               {badge > 0 && (
-                <span className="tabular absolute -right-3.5 top-0 min-w-[17px] rounded-full bg-accent px-[5px] text-center text-[12px] font-semibold leading-[17px] text-accent-fg">
+                <span className="brand-track tabular absolute -right-3.5 top-0 min-w-[17px] rounded-full px-[5px] text-center text-[12px] font-semibold leading-[17px] text-accent-fg">
                   {badge > 99 ? '99+' : badge}
                 </span>
               )}

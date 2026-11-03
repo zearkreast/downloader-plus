@@ -199,8 +199,8 @@ export function Tooltip({ label, side = 'top', delayMs = 380, children }: Toolti
                 style={{ transformOrigin: ORIGIN[coords.side] }}
                 className={cn(
                   'max-w-56 rounded-[8px] px-2.5 py-1.5 text-[12px] font-medium text-fg',
-                  'border border-[var(--border)] bg-surface shadow-raised',
-                  'dark:border-[var(--border-strong)] dark:bg-surface-active',
+                  'border border-[var(--border)] bg-surface/95 shadow-raised backdrop-blur-xl',
+                  'dark:border-[var(--border-strong)] dark:bg-surface-active/95',
                 )}
               >
                 {label}

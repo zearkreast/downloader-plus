@@ -61,7 +61,6 @@ function Details({ task, open }: { task: DownloadTask; open: boolean }) {
   const { progress, status } = task;
 
   const running = status === 'downloading' || status === 'preparing' || status === 'processing';
-  const waiting = status === 'paused' || status === 'queued';
   const finished = status === 'completed' || status === 'failed' || status === 'canceled';
 
   // A stopped transfer's last report still names the pieces that were running.
@@ -106,12 +105,15 @@ function Details({ task, open }: { task: DownloadTask; open: boolean }) {
       }
       footer={
         <>
-          {running && (
+          {/* A download still waiting for its turn can be held, as one that
+              is running can; only a held one has anything to resume. The
+              queue's resume does nothing for one that is merely waiting. */}
+          {(running || status === 'queued') && (
             <Button variant="secondary" icon={<Pause size={15} />} onClick={() => void ipc.pauseDownload(task.id)}>
               {t('downloads.pause')}
             </Button>
           )}
-          {waiting && (
+          {status === 'paused' && (
             <Button variant="secondary" icon={<Play size={15} />} onClick={() => void ipc.resumeDownload(task.id)}>
               {t('downloads.resume')}
             </Button>
@@ -192,7 +194,9 @@ function PieceList({ pieces }: { pieces: SegmentProgress[] }) {
       </ol>
       {pieces.length > shown.length && (
         <p className="mt-1 text-[12px] text-fg-faint">
-          {t('details.morePieces', { count: pieces.length - shown.length })}
+          {pieces.length - shown.length === 1
+            ? t('details.moreOnePiece')
+            : t('details.morePieces', { count: pieces.length - shown.length })}
         </p>
       )}
     </div>

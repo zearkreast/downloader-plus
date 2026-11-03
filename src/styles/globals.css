@@ -15,10 +15,18 @@
 /* ---------------------------------------------------------------------------
    Semantic tokens.
 
-   A system-app palette: neutral greys with no tint of their own, and one ember
-   accent that is spent sparingly -- the primary button, a selected icon, a
-   switch that is on. Surfaces are told apart by their fill, not by outlines,
-   so the borders here are hairlines for the few places that still need one.
+   UMD+ is drawn from its mark: an aperture whose blades run from amber, where
+   the light falls, to ember in the shade. The palette is built around that one
+   gradient. The neutrals are graphite with a trace of the same warmth -- never
+   so much that a grey reads as brown, only enough that the accent sits in them
+   rather than on them -- and the accent is spent where the mark would be: the
+   one call to action on a screen, a selected place, a switch that is on, a bar
+   that is filling.
+
+   Surfaces are told apart by their fill first. Cards carry a hairline and, in
+   the light theme, the faintest lift; in the dark theme the hairline is a
+   whisper of light along the edge instead, which is what a lit card looks like
+   against a deep page.
 
    Only these names are used by components; there is no raw hex in the
    component layer.
@@ -28,47 +36,65 @@
    later change can be checked the same way.
    --------------------------------------------------------------------------- */
 :root {
-  --bg: #f5f5f7;
-  --bg-deep: #ececee;
+  /* The mark's two ends, for the places that draw the brand itself: the
+     gradient on the headline, the glow behind the mark, a filling bar. */
+  --brand-amber: #ffa838;
+  --brand-ember: #ff4e2c;
+  --brand-gradient: linear-gradient(135deg, var(--brand-amber) 0%, #ff7a3d 52%, var(--brand-ember) 100%);
+  /* A filling bar runs the other way round: it starts hot and lightens as it
+     goes, so the leading edge is the brightest point. */
+  --brand-bar: linear-gradient(90deg, #ff5a2e 0%, #ff7f3f 55%, #ffad45 100%);
+
+  --bg: #f7f5f2;
+  --bg-deep: #efebe7;
   --surface: #ffffff;
-  --surface-hover: #f0f0f2;
-  --surface-active: #e6e6e9;
-  --surface-sunken: #ededf0;
+  --surface-hover: #f7f4f1;
+  --surface-active: #eeeae6;
+  --surface-sunken: #f1ede9;
 
   /* Control fills. Translucent, so one value works on whatever a control sits
      on -- page, card or sidebar -- where an opaque grey tuned for one of them
      vanishes on the next. `--fill` is a field, a quiet button, or the hover of
      something that has no fill at rest; the other two are its hover and its
-     pressed or selected state. */
-  --fill: rgb(0 0 0 / 0.05);
-  --fill-hover: rgb(0 0 0 / 0.08);
-  --fill-active: rgb(0 0 0 / 0.11);
+     pressed or selected state. Tinted with the page's own warmth. */
+  --fill: rgb(70 40 20 / 0.055);
+  --fill-hover: rgb(70 40 20 / 0.085);
+  --fill-active: rgb(70 40 20 / 0.12);
 
-  --border: rgb(0 0 0 / 0.08);
-  --border-strong: rgb(0 0 0 / 0.16);
-  /* The edge of a card in the page flow. A white card on a near-white page
-     needs the hairline to read as a card at all; a dark one is told apart by
-     its fill alone, so there the edge is transparent. */
-  --card-edge: var(--border);
+  --border: rgb(70 40 20 / 0.09);
+  --border-strong: rgb(70 40 20 / 0.17);
+  /* The edge of a card in the page flow. */
+  --card-edge: rgb(70 40 20 / 0.08);
+  /* What lifts a card off the page: in the light theme a shadow so faint it
+     reads as the card being slightly nearer, never as a drop shadow. */
+  --card-shadow: 0 1px 2px rgb(70 40 20 / 0.04), 0 6px 20px -12px rgb(70 40 20 / 0.12);
 
-  --text-primary: #1d1d1f;
-  /* 5.50:1 on --bg, 5.99 on --surface, 5.12 on --surface-sunken. The sidebar's
-     labels are this colour on the sunken fill, which is why it is a shade
-     deeper than the #6e6e73 it started as (4.34 there). */
-  --text-secondary: #636366;
-  /* 4.94:1 on --bg, 5.38 on --surface, 4.60 on --surface-sunken, 4.73 on a
-     hovered row. Not for text on a `--fill`, where it drops to 4.4 and under;
-     the secondary colour is the quietest that holds there. */
-  --text-tertiary: #6a6a6f;
+  --text-primary: #1c1816;
+  /* 6.52:1 on --bg, 7.09 on --surface, 6.09 on --surface-sunken, and 5.22
+     on the hover fill over the sidebar. */
+  --text-secondary: #5e5752;
+  /* 5.49:1 on --bg, 5.98 on --surface, 5.13 on --surface-sunken, 5.45 on a
+     hovered row. Not for text on a `--fill`; the secondary colour is the
+     quietest that holds there. */
+  --text-tertiary: #6a625c;
 
   /* The accent is a text colour as well as a fill -- "Open file", "Change" --
-     so it has to clear 4.5:1 on the page, not only on white: 5.38 on --bg,
-     5.86 on --surface, and on its own soft fill 4.66 over the page and 5.05
-     over a card. White on it is 5.86. */
-  --accent: #ac440b;
-  --accent-hover: #933a08;
+     so it has to clear 4.5:1 on the page, not only on white: 5.44 on --bg,
+     5.93 on --surface, 4.69 on its own soft fill over the page. White on it is
+     5.93. */
+  --accent: #b23c0b;
+  --accent-hover: #983309;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(172 68 11 / 0.1);
+  --accent-soft: rgb(178 60 11 / 0.1);
+  /* The fill of the one call to action. Both ends hold white text at 4.79:1 or
+     better; the light theme's is the mark's gradient taken down into the
+     range where white still reads on it. */
+  --accent-gradient: linear-gradient(135deg, #c44c0c 0%, #a9380a 100%);
+  --accent-glow: rgb(196 76 12 / 0.38);
+  /* Large display text in the brand's colours: 3.5:1 on --bg at its palest
+     end, which clears the 3:1 that text this size asks for, and 5.44 at the
+     other. Never for body text. */
+  --brand-text: linear-gradient(120deg, #e0560f 0%, #b23c0b 100%);
 
   /* Each is at least 4.7:1 on --bg and on its own soft fill over --surface. */
   --success: #0e7046;
@@ -79,59 +105,65 @@
   --error-soft: rgb(180 39 28 / 0.1);
 
   /* Shadows belong to things that float over the page -- a menu, a dialog, a
-     tooltip -- and to nothing in the page flow. Wide and faint, so the edge of
-     the object is what is seen and not the shadow under it. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
-  --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 24px 60px -12px rgb(0 0 0 / 0.18), 0 2px 8px rgb(0 0 0 / 0.06);
+     tooltip. Wide and faint, so the edge of the object is what is seen and not
+     the shadow under it. */
+  --shadow-sm: 0 1px 2px rgb(40 20 10 / 0.08);
+  --shadow-md: 0 6px 20px -6px rgb(40 20 10 / 0.14);
+  --shadow-lg: 0 28px 70px -16px rgb(40 20 10 / 0.24), 0 2px 8px rgb(40 20 10 / 0.06);
 
-  --scrim: rgb(0 0 0 / 0.28);
+  --scrim: rgb(28 18 12 / 0.32);
 }
 
 .dark {
-  --bg: #1c1c1e;
-  --bg-deep: #161618;
-  --surface: #2c2c2e;
-  --surface-hover: #343437;
-  --surface-active: #3a3a3d;
-  --surface-sunken: #232325;
+  --bg: #141211;
+  --bg-deep: #0e0c0b;
+  --surface: #211e1c;
+  --surface-hover: #292523;
+  --surface-active: #312c2a;
+  --surface-sunken: #191615;
 
-  --fill: rgb(255 255 255 / 0.08);
-  --fill-hover: rgb(255 255 255 / 0.12);
-  --fill-active: rgb(255 255 255 / 0.16);
+  --fill: rgb(255 240 228 / 0.07);
+  --fill-hover: rgb(255 240 228 / 0.11);
+  --fill-active: rgb(255 240 228 / 0.15);
 
-  --border: rgb(255 255 255 / 0.08);
-  --border-strong: rgb(255 255 255 / 0.16);
-  --card-edge: transparent;
+  --border: rgb(255 240 228 / 0.08);
+  --border-strong: rgb(255 240 228 / 0.15);
+  --card-edge: rgb(255 240 228 / 0.06);
+  /* Light catching the top edge rather than a shadow beneath: on a page this
+     deep a shadow would have nothing to fall on. */
+  --card-shadow: inset 0 1px 0 rgb(255 240 228 / 0.035);
 
-  --text-primary: #f5f5f7;
-  /* 8.06:1 on --bg, 6.60 on --surface, 5.37 on --surface-active, and 4.51 on
-     the hover fill over a card, which is the lightest thing it is set on. */
-  --text-secondary: #b2b2b7;
-  /* 6.30:1 on --bg, 5.16 on --surface, 4.60 on a hovered row. #8a8a8f measured
-     4.06 on --surface. As in the light theme, not for text on a `--fill`. */
-  --text-tertiary: #9d9da2;
+  --text-primary: #f6f2ee;
+  /* 8.84:1 on --bg, 7.84 on --surface, 6.52 on --surface-active, and 5.56 on
+     the pressed fill over the sidebar, the lightest thing it is set on. */
+  --text-secondary: #b9b1ab;
+  /* 6.60:1 on --bg, 5.86 on --surface, 5.37 on a hovered row. As in the light
+     theme, not for text on a `--fill`. */
+  --text-tertiary: #a19892;
 
   --accent: #ff8a4c;
   --accent-hover: #ff9d69;
-  /* Dark ink on the bright accent reads far better than white does: 8.05:1. */
+  /* Dark ink on the bright accent reads far better than white does: 8.05:1,
+     and 6.61 at the deep end of the gradient. */
   --accent-fg: #1d0e05;
   --accent-soft: rgb(255 138 76 / 0.14);
+  --accent-gradient: linear-gradient(135deg, #ffa346 0%, #ff6a3d 100%);
+  --accent-glow: rgb(255 106 61 / 0.45);
+  --brand-text: linear-gradient(120deg, #ffb457 0%, #ff6a3d 100%);
 
   --success: #58cd8e;
   --success-soft: rgb(88 205 142 / 0.14);
   --warning: #efc059;
   --warning-soft: rgb(239 192 89 / 0.14);
-  /* 5.90:1 on --surface and 4.64 on its own soft fill there; the deeper
-     #ff6f5e it replaces came in at 4.15 on the fill. */
+  /* 7.01:1 on --surface and 5.52 on its own soft fill there. */
   --error: #ff857a;
   --error-soft: rgb(255 133 122 / 0.14);
 
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 24px 60px -12px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 30px 80px -16px rgb(0 0 0 / 0.65), 0 2px 10px rgb(0 0 0 / 0.35);
 
-  --scrim: rgb(0 0 0 / 0.5);
+  --scrim: rgb(6 4 3 / 0.58);
 }
 
 /* Map the semantic tokens onto Tailwind's utility namespace. `inline` keeps the
@@ -170,6 +202,8 @@
   --color-error-soft: var(--error-soft);
 
   --color-scrim: var(--scrim);
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-ember: var(--brand-ember);
 
   --font-sans: "InterVariable", "Inter", -apple-system, "Segoe UI Variable Text",
     "Segoe UI", system-ui, sans-serif;
@@ -181,9 +215,9 @@
      thumbnail, a card or grouped list in the page, and a panel that floats
      over it. Soft throughout; nothing in the app has a square corner. */
   --radius-control: 10px;
-  --radius-thumb: 8px;
-  --radius-card: 14px;
-  --radius-panel: 18px;
+  --radius-thumb: 9px;
+  --radius-card: 16px;
+  --radius-panel: 22px;
 
   --shadow-soft: var(--shadow-sm);
   --shadow-raised: var(--shadow-md);
@@ -282,6 +316,84 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Brand surfaces. A handful of named finishes rather than long utility
+   strings, so every card, every call to action and every switch that is on
+   wears the same one. In the components layer, so a utility on the same
+   element -- a floating shadow on a card that floats -- still wins.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* A card in the page flow. */
+  .surface-card {
+    background-color: var(--surface);
+    border: 1px solid var(--card-edge);
+    box-shadow: var(--card-shadow);
+  }
+
+  /* The one call to action: the mark's gradient, a highlight along the top
+     edge as if lit from above, and a glow of its own colour beneath that
+     grows a little under the pointer. The flat accent is underneath, so the
+     button still reads where a gradient cannot be drawn. */
+  .brand-fill {
+    background-color: var(--accent);
+    background-image: var(--accent-gradient);
+    color: var(--accent-fg);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      inset 0 -1px 0 rgb(0 0 0 / 0.08),
+      0 8px 22px -12px var(--accent-glow);
+  }
+  @media (hover: hover) {
+    .brand-fill:hover:not(:disabled) {
+      filter: brightness(1.06) saturate(1.04);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.26),
+        inset 0 -1px 0 rgb(0 0 0 / 0.08),
+        0 12px 28px -12px var(--accent-glow);
+    }
+  }
+
+  /* Out of reach, it gives up the colour altogether: a dimmed gradient reads
+     as a muddy brown, not as a button that is waiting for something. One
+     that is busy -- its press already on its way -- keeps it. */
+  .brand-fill:disabled:not([aria-busy="true"]) {
+    background-image: none;
+    background-color: var(--fill-active);
+    color: var(--text-primary);
+    box-shadow: none;
+  }
+
+  /* The same fill without the glow, for a track or a dot that is on. */
+  .brand-track {
+    background-color: var(--accent);
+    background-image: var(--accent-gradient);
+  }
+
+  /* Display text in the brand's colours. Large text only: see --brand-text. */
+  .text-brand {
+    background-image: var(--brand-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A keyboard shortcut, set as a key cap. */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 5px;
+    background: var(--fill);
+    box-shadow: inset 0 -1px 0 var(--border-strong);
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 17px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 @layer utilities {
   /* Everything the app measures -- bytes, rates, timings, percentages -- in
      the same face and size as the text around it; only the figures are made
@@ -329,7 +441,7 @@
      on its own. */
   .pressable,
   .pressable-sm {
-    transition-property: transform, background-color, border-color, color, box-shadow, opacity;
+    transition-property: transform, background-color, border-color, color, box-shadow, opacity, filter;
     transition-duration: var(--dur-micro);
     transition-timing-function: var(--ease-out-quint);
   }
@@ -400,6 +512,76 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+/* The light that runs along a bar that is filling: says the transfer is
+   alive between two progress ticks. Decorative, so reduced motion stops it. */
+@keyframes ud-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  60%,
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* The aperture turning while a link is read. */
+/* The loading mark (`<Logo spinning>`): the plus holds still while the ring of
+   blades turns around it. A quarter turn at a time, easing in and out without
+   ever quite stopping -- the blades are eightfold, so each quarter lands on the
+   shape it left and the loop has no seam -- while the iris draws in a little
+   as the ring speeds up, the way a lens does when its ring is turned. */
+.logo-ring,
+.logo-iris {
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+.logo-ring-spin {
+  animation: ud-iris-turn 1.25s cubic-bezier(0.45, 0.12, 0.55, 0.88) infinite;
+}
+
+.logo-iris {
+  animation: ud-iris-draw 1.25s ease-in-out infinite;
+}
+
+@keyframes ud-iris-turn {
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+/* The light behind a large loading mark, breathing slowly while it turns. */
+@keyframes ud-glow {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes ud-iris-draw {
+  50% {
+    transform: scale(0.93);
+  }
+}
+
+/* A dot that says "live": breathes rather than blinks. */
+@keyframes ud-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
   }
 }
 

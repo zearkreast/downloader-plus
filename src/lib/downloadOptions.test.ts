@@ -5,6 +5,8 @@ import type { MediaFormat, MediaMetadata } from '@/types';
 import {
   audioStreamOptions,
   availableModes,
+  fitContainer,
+  fitQuality,
   qualityOptions,
   subtitleOptions,
   videoStreamOptions,
@@ -208,6 +210,25 @@ describe('a list of links', () => {
     const values = qualityOptions(list, 'video').map((option) => option.value);
     expect(values).toEqual(['best', 'auto', 'h:2160', 'h:1440', 'h:1080', 'h:720', 'h:480', 'h:360']);
     expect(qualityOptions(list, 'audio').map((option) => option.value)).toEqual(['best']);
+  });
+
+  it('keeps a default ceiling, fitted to the ones a list offers', () => {
+    expect(fitQuality({ type: 'maxHeight', height: 1080 }, 'video', list)).toEqual({
+      type: 'maxHeight',
+      height: 1080,
+    });
+    expect(fitQuality({ type: 'maxHeight', height: 900 }, 'video', list)).toEqual({
+      type: 'maxHeight',
+      height: 720,
+    });
+    // Sound from a list has only Best to offer.
+    expect(fitQuality({ type: 'maxHeight', height: 1080 }, 'audio', list)).toEqual({ type: 'best' });
+    expect(fitQuality({ type: 'audioBitrate', kbps: 160 }, 'audio', list)).toEqual({ type: 'best' });
+  });
+
+  it('drops a video container for the songs of a list', () => {
+    expect(fitContainer('mp4', 'audio')).toBeNull();
+    expect(fitContainer('mp3', 'audio')).toBe('mp3');
   });
 });
 

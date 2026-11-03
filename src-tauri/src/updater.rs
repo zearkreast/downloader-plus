@@ -69,9 +69,9 @@ fn asset_name() -> Option<&'static str> {
     #[cfg(target_os = "android")]
     {
         match std::env::consts::ARCH {
-            "aarch64" => Some("UniversalDownloader_android_arm64.apk"),
-            "arm" => Some("UniversalDownloader_android_armv7.apk"),
-            "x86_64" => Some("UniversalDownloader_android_x86_64.apk"),
+            "aarch64" => Some("UMD-Plus_android_arm64.apk"),
+            "arm" => Some("UMD-Plus_android_armv7.apk"),
+            "x86_64" => Some("UMD-Plus_android_x86_64.apk"),
             _ => None,
         }
     }
@@ -591,7 +591,7 @@ mod tests {
             r#"{
                 "published_at": "2026-09-15T00:00:00Z",
                 "assets": [{
-                    "name": "UniversalDownloader_android_arm64.apk",
+                    "name": "UMD-Plus_android_arm64.apk",
                     "size": 57268738,
                     "browser_download_url": "https://github.com/x/y/releases/download/latest/a.apk",
                     "digest": "sha256:abc",

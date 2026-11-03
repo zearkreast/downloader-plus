@@ -5,6 +5,12 @@ interface ProgressProps {
   value: number | null;
   className?: string;
   label?: string;
+  /**
+   * `live` is a transfer under way: a faint light runs along the filled part
+   * between ticks. `muted` is one that is held -- paused or waiting -- drawn
+   * in the quiet fill so it does not look as if it were still moving.
+   */
+  tone?: 'default' | 'live' | 'muted';
 }
 
 /**
@@ -13,7 +19,7 @@ interface ProgressProps {
  * between those samples is what makes the bar look continuous. A spring would
  * overshoot backwards whenever a tick arrived slightly late.
  */
-export function Progress({ value, className, label }: ProgressProps) {
+export function Progress({ value, className, label, tone = 'default' }: ProgressProps) {
   const indeterminate = value == null;
 
   return (
@@ -23,12 +29,12 @@ export function Progress({ value, className, label }: ProgressProps) {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={indeterminate ? undefined : Math.round(value)}
-      className={cn('relative h-[3px] w-full overflow-hidden rounded-full bg-fill-hover', className)}
+      className={cn('relative h-1 w-full overflow-hidden rounded-full bg-fill-hover', className)}
     >
       {indeterminate ? (
         <div
           className={cn(
-            'motion-essential absolute inset-y-0 w-2/5 rounded-full bg-accent',
+            'motion-essential absolute inset-y-0 w-2/5 rounded-full bg-[image:var(--brand-bar)]',
             '[animation:ud-sweep_1.25s_ease-in-out_infinite]',
           )}
         />
@@ -42,11 +48,21 @@ export function Progress({ value, className, label }: ProgressProps) {
             // indeterminate bar is: the interpolation is not decoration, it is
             // how a sample taken three times a second is drawn as a rate. Frozen,
             // the bar steps, and a stepping bar is harder to read, not calmer.
-            'motion-essential h-full w-full origin-left',
-            'bg-accent transition-transform duration-300 ease-linear',
+            'motion-essential relative h-full w-full origin-left overflow-hidden',
+            'transition-transform duration-300 ease-linear',
+            tone === 'muted' ? 'bg-fg-faint/60' : 'bg-[image:var(--brand-bar)]',
           )}
           style={{ transform: `scaleX(${Math.min(100, Math.max(0, value)) / 100})` }}
-        />
+        >
+          {/* Not exempt: the sheen is only a reminder that the bar is alive,
+              and the numbers beside it say the same without moving. */}
+          {tone === 'live' && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-1/3 bg-[linear-gradient(90deg,transparent,rgb(255_255_255/0.55),transparent)] [animation:ud-sheen_2.2s_ease-in-out_infinite]"
+            />
+          )}
+        </div>
       )}
     </div>
   );

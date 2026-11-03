@@ -263,6 +263,8 @@ export const findDownloaded = (urls: string[]) => invoke<KnownLink[]>('find_down
 export const shareFile = (path: string) => invoke<void>('share_file', { path });
 /** The desktop's logs folder, with the current log selected in it. */
 export const openLogDir = () => invoke<void>('open_log_dir');
+/** The folder in the settings, opened in the system's file manager (desktop). */
+export const openDownloadDir = () => invoke<void>('open_download_dir');
 
 // -- mobile platform -------------------------------------------------------
 //

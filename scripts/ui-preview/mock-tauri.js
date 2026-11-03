@@ -1019,7 +1019,8 @@
 
     detect_platform: ({ url }) => detect(url),
     analyze_url: async ({ url }) => {
-      await wait(900);
+      // `?slow` holds the reading for a minute, to look at the loading state.
+      await wait(params.has('slow') ? 60_000 : 900);
       if (needsTiktokSignIn(url)) throw tiktokSignIn();
       if (url.includes('fail')) {
         throw {
@@ -1497,6 +1498,7 @@
     reveal_file: ({ path }) => fileAnswer(path),
     share_file: ({ path }) => fileAnswer(path),
     open_log_dir: () => null,
+    open_download_dir: () => null,
 
     platform_open_app_settings: () => null,
     // What the Android picker hands back once it has copied the choice into

@@ -81,7 +81,7 @@ export function GalleryPicker({ items, picked, onChange }: GalleryPickerProps) {
           card would otherwise clip at its edges. */}
       <div
         ref={scroller}
-        className="max-h-[360px] overflow-y-auto rounded-[var(--radius-card)] border border-card-edge bg-surface p-1.5"
+        className="max-h-[360px] overflow-y-auto rounded-[var(--radius-card)] surface-card p-1.5"
       >
         <div
           role="group"

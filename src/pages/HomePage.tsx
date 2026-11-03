@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { readText } from '@tauri-apps/plugin-clipboard-manager';
-import { RotateCcw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleCheck, Clock, Link2, ListVideo, RotateCcw, type LucideIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { AnalyzingCard } from '@/components/home/AnalyzingCard';
 import { ClipboardSuggestion } from '@/components/home/ClipboardSuggestion';
@@ -39,8 +39,31 @@ import type { AppErrorInfo, DownloadRequest, KnownLink, Settings } from '@/types
 /** The result arrives as one object: the preview and its options together. */
 const READY = rise(10);
 
+/**
+ * Something a shortcut asked of Home from wherever the user was. `id` tells
+ * one request from the next, so the same kind asked twice is done twice.
+ *
+ *   focus    put the caret in the address field
+ *   paste    take the link on the clipboard and analyse it
+ *   primary  Home's next step: Download when a result is ready, Analyze when
+ *            a link is waiting in the field, and the field otherwise
+ */
+export interface HomeRequest {
+  kind: 'focus' | 'paste' | 'primary';
+  id: number;
+}
+
+/**
+ * The last request carried out. Kept outside the screen, which is unmounted
+ * whenever another is open, so coming back to Home does not do again what was
+ * already done before it left.
+ */
+let lastRequest = 0;
+
 interface HomePageProps {
   settings: Settings;
+  /** The latest request a shortcut made of Home; see `HomeRequest`. */
+  request?: HomeRequest | null;
   onGoToDownloads: () => void;
   /** Settings, opened at `section` when there is one to point at. */
   onOpenSettings: (section?: SettingsSection) => void;
@@ -49,6 +72,7 @@ interface HomePageProps {
 
 export function HomePage({
   settings,
+  request,
   onGoToDownloads,
   onOpenSettings,
   inputRef,
@@ -56,6 +80,7 @@ export function HomePage({
   const { t, language } = useTranslation();
 
   const url = useAnalysisStore((state) => state.url);
+  const analyzedUrl = useAnalysisStore((state) => state.analyzedUrl);
   const phase = useAnalysisStore((state) => state.phase);
   const platform = useAnalysisStore((state) => state.platform);
   const metadata = useAnalysisStore((state) => state.metadata);
@@ -76,6 +101,7 @@ export function HomePage({
   const { install: installEngine, error: engineInstallError } = useToolInstall('engine');
 
   const [submitting, setSubmitting] = useState(false);
+  const downloadButtonRef = useRef<HTMLButtonElement | null>(null);
   const [dragging, setDragging] = useState(false);
   // Why the last press of Download did not queue anything.
   const [enqueueError, setEnqueueError] = useState<string | null>(null);
@@ -206,15 +232,18 @@ export function HomePage({
 
   const clearAll = () => reset();
 
+  /** Resolves to whether the clipboard held a link to take. */
   const pasteFromClipboard = useCallback(async () => {
     try {
       const text = await readText();
       const normalized = text ? normalizeUrl(text) : null;
-      if (!normalized) return;
+      if (!normalized) return false;
       setUrl(normalized);
       startAnalysis(normalized);
+      return true;
     } catch {
       // Clipboard can be unavailable; the field is still usable by typing.
+      return false;
     }
   }, [setUrl, startAnalysis]);
 
@@ -329,6 +358,45 @@ export function HomePage({
     startAnalysis(clipboardSuggestion);
   };
 
+  // The field was edited after the result came in: the card on screen is
+  // about another link now, and Download would fetch that one. It stays in
+  // view, but nothing is downloaded from it until the new text is analysed.
+  // Both sides normalised: a link handed over by the extension or shared in
+  // from another app is analysed as it came, and only reads the same as the
+  // field once both are put in one form.
+  const stale =
+    phase === 'ready' && url !== analyzedUrl && normalizeUrl(url) !== normalizeUrl(analyzedUrl);
+
+  // A shortcut's request, carried out once Home is on screen (see App).
+  const latest = useRef({ phase, stale, url, startAnalysis, pasteFromClipboard });
+  latest.current = { phase, stale, url, startAnalysis, pasteFromClipboard };
+  useEffect(() => {
+    if (!request || request.id <= lastRequest) return;
+    lastRequest = request.id;
+    const now = latest.current;
+    const focusField = () => inputRef.current?.focus();
+
+    if (request.kind === 'paste') {
+      void now.pasteFromClipboard().then((took) => {
+        if (!took) focusField();
+      });
+      return;
+    }
+    if (request.kind === 'primary') {
+      const button = downloadButtonRef.current;
+      if (now.phase === 'ready' && !now.stale && button && !button.disabled) {
+        button.click();
+        return;
+      }
+      const typed = normalizeUrl(now.url);
+      if (typed && now.phase !== 'analyzing' && (now.phase !== 'ready' || now.stale)) {
+        now.startAnalysis(typed);
+        return;
+      }
+    }
+    focusField();
+  }, [request, inputRef]);
+
   // What the user can do about a failure, beyond trying again. A TikTok post
   // behind a sign-in is answered by the browser's session, and the place that
   // says whether one is lent is Connection -- on the desktop, the only build a
@@ -380,7 +448,7 @@ export function HomePage({
           onChange={setUrl}
           onSubmit={startAnalysis}
           onClear={clearAll}
-          onPaste={pasteFromClipboard}
+          onPaste={() => void pasteFromClipboard()}
           // A held link is already on its way as far as the user is concerned,
           // so the field says so rather than sitting there looking ignored.
           analyzing={phase === 'analyzing' || heldTarget !== null}
@@ -423,7 +491,7 @@ export function HomePage({
           variants={RISE}
           initial="initial"
           animate="animate"
-          className="mt-4 rounded-[var(--radius-card)] border border-card-edge bg-surface p-4"
+          className="mt-4 rounded-[var(--radius-card)] surface-card p-4"
         >
           <h3 className="text-[14px] font-semibold text-fg">{t('setup.title')}</h3>
           <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">
@@ -479,20 +547,24 @@ export function HomePage({
               <MediaPreviewCard metadata={metadata} />
 
               {metadata.listUrl && !metadata.listing && (
-                <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
-                  <span className="text-[13px] text-fg-muted">{t('preview.inList')}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const list = metadata.listUrl!;
-                      setUrl(list);
-                      startAnalysis(list);
-                    }}
-                  >
-                    {t('preview.openList')}
-                  </Button>
-                </div>
+                <NoteRow
+                  icon={ListVideo}
+                  action={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const list = metadata.listUrl!;
+                        setUrl(list);
+                        startAnalysis(list);
+                      }}
+                    >
+                      {t('preview.openList')}
+                    </Button>
+                  }
+                >
+                  {t('preview.inList')}
+                </NoteRow>
               )}
 
               {tracks.length > 0 && (
@@ -507,24 +579,28 @@ export function HomePage({
               )}
 
               {alreadyHave && (
-                <div className="flex items-center justify-between gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-2.5">
-                  <span className="text-[13px] text-fg-muted">
-                    {alreadyHave.queued
-                      ? t('preview.alreadyQueued')
-                      : t('preview.alreadyDownloaded', {
-                          date: formatDay(alreadyHave.downloadedAt ?? 0, language),
-                        })}
-                  </span>
-                  {alreadyHave.filePath && !alreadyHave.queued && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void ipc.revealFile(alreadyHave.filePath!)}
-                    >
-                      {t('downloads.showInFolder')}
-                    </Button>
-                  )}
-                </div>
+                <NoteRow
+                  icon={alreadyHave.queued ? Clock : CircleCheck}
+                  tone={alreadyHave.queued ? 'accent' : 'success'}
+                  action={
+                    alreadyHave.filePath &&
+                    !alreadyHave.queued && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void ipc.revealFile(alreadyHave.filePath!)}
+                      >
+                        {t('downloads.showInFolder')}
+                      </Button>
+                    )
+                  }
+                >
+                  {alreadyHave.queued
+                    ? t('preview.alreadyQueued')
+                    : t('preview.alreadyDownloaded', {
+                        date: formatDay(alreadyHave.downloadedAt ?? 0, language),
+                      })}
+                </NoteRow>
               )}
 
               {/* Closes rather than vanishes when a mode leaves nothing to pick
@@ -555,6 +631,8 @@ export function HomePage({
                 defaultDownloadDir={settings.downloadDir}
                 submitting={submitting}
                 onDownload={() => void startDownload()}
+                downloadRef={downloadButtonRef}
+                stale={stale}
                 downloadError={enqueueError}
                 downloadLabel={
                   tracks.length > 0
@@ -592,19 +670,59 @@ export function HomePage({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: T.microOut }}
             transition={T.micro}
-            className="fixed inset-0 z-[700] flex items-center justify-center bg-scrim backdrop-blur-sm"
+            className="fixed inset-0 z-[700] flex items-center justify-center bg-scrim p-10 backdrop-blur-sm"
           >
+            {/* A frame round the whole window says the drop lands anywhere. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-4 rounded-[28px] border-2 border-dashed border-[var(--accent)] opacity-60"
+            />
             <motion.div
               initial={{ scale: 0.94, y: 8 }}
               animate={{ scale: 1, y: 0 }}
               transition={T.spatial}
-              className="rounded-[var(--radius-panel)] border border-card-edge bg-surface px-8 py-6 text-[13.5px] font-medium text-fg shadow-floating"
+              className="surface-card flex flex-col items-center gap-3 rounded-[var(--radius-panel)] px-10 py-7 text-[14px] font-medium text-fg shadow-floating"
             >
+              <span className="brand-fill flex size-12 items-center justify-center rounded-2xl">
+                <Link2 size={22} />
+              </span>
               {t('input.dropHint')}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * A line about the result rather than part of it -- the list it belongs to,
+ * that it was fetched before -- with what to do about it at its end.
+ */
+function NoteRow({
+  icon: Icon,
+  tone = 'accent',
+  action,
+  children,
+}: {
+  icon: LucideIcon;
+  tone?: 'accent' | 'success';
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="surface-card flex items-center gap-3 rounded-[var(--radius-card)] py-2 pl-2.5 pr-2">
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex size-8 shrink-0 items-center justify-center rounded-[9px]',
+          tone === 'success' ? 'bg-success-soft text-success' : 'bg-accent-soft text-accent',
+        )}
+      >
+        <Icon size={15} strokeWidth={2.2} />
+      </span>
+      <span className="min-w-0 flex-1 text-[13px] leading-snug text-fg-muted">{children}</span>
+      {action}
     </div>
   );
 }

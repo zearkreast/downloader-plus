@@ -11,7 +11,7 @@ import type { MediaMetadata } from '@/types';
 /** A fact laid over the thumbnail: the running time, "live", the item count.
  *  Also the running time on a tile of the grid a carousel is picked from. */
 export const CHIP =
-  'absolute flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[12px] font-medium text-white';
+  'absolute flex items-center gap-1 rounded-[7px] bg-black/60 px-1.5 py-0.5 text-[12px] font-semibold text-white backdrop-blur-md';
 
 export function MediaPreviewCard({ metadata }: { metadata: MediaMetadata }) {
   const { t, language } = useTranslation();
@@ -30,7 +30,7 @@ export function MediaPreviewCard({ metadata }: { metadata: MediaMetadata }) {
   const songs = metadata.tracks.length;
 
   return (
-    <article className="overflow-hidden rounded-[var(--radius-card)] border border-card-edge bg-surface">
+    <article className="overflow-hidden rounded-[var(--radius-card)] surface-card">
       <div className="relative aspect-video w-full overflow-hidden bg-surface-sunken">
         {loading && <div aria-hidden="true" className="skeleton absolute inset-0" />}
 
@@ -74,7 +74,7 @@ export function MediaPreviewCard({ metadata }: { metadata: MediaMetadata }) {
         ) : songs > 0 ? (
           <span className={cn(CHIP, 'left-2.5 top-2.5')}>
             <Music size={12} />
-            {t('preview.songs', { n: songs })}
+            {songs === 1 ? t('preview.song') : t('preview.songs', { n: songs })}
           </span>
         ) : (
           metadata.entryCount != null &&
@@ -88,7 +88,7 @@ export function MediaPreviewCard({ metadata }: { metadata: MediaMetadata }) {
       </div>
 
       <div className="p-4">
-        <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-fg">
+        <h3 className="line-clamp-2 text-[16px] font-semibold leading-snug tracking-[-0.015em] text-fg">
           {metadata.title}
         </h3>
 

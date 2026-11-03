@@ -272,7 +272,7 @@ export function ConvertPage({ settings }: { settings: Settings }) {
             exit="exit"
             className="overflow-hidden"
           >
-            <div className="mb-5 flex items-center gap-3 rounded-[var(--radius-card)] border border-card-edge bg-surface px-4 py-3">
+            <div className="mb-5 flex items-center gap-3 rounded-[var(--radius-card)] surface-card px-4 py-3">
               <CircleAlert size={16} aria-hidden="true" className="shrink-0 text-warning" />
               <div className="min-w-0 flex-1">
                 <p className="text-[13.5px] font-medium text-fg">{t('convert.ffmpegRequired')}</p>
@@ -304,7 +304,7 @@ export function ConvertPage({ settings }: { settings: Settings }) {
         {files.length === 0 ? (
           <div
             className={cn(
-              'flex flex-col items-center rounded-[var(--radius-card)] border border-card-edge px-6 py-9 text-center',
+              'flex flex-col items-center rounded-[var(--radius-card)] border-[1.5px] border-dashed border-[var(--border-strong)] px-6 py-9 text-center',
               DROP_TRANSITION,
               dragging ? 'bg-accent-soft ring-2 ring-accent' : 'bg-surface',
             )}

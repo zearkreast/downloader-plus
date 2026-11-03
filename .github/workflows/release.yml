@@ -1,0 +1,333 @@
+# Builds UMD+ for Windows, Android and Arch Linux, and publishes the files to
+# the rolling `latest` release.
+#
+# The app's updater (src-tauri/src/updater.rs) reads releases a particular way,
+# and this workflow keeps to it:
+#
+#   * There is one release, on the tag `latest`, and its files are replaced in
+#     place under fixed names. There are no version numbers.
+#   * A build knows the commit it was made from. The Windows and Android apps
+#     compare it with the commit `latest` points at, so the tag is moved only
+#     once every new file is up. Moved earlier, a PC or phone would fetch the
+#     old file believing it to be the new one, and do it again on every start.
+#   * For the same reason Windows and Android are always built together: a run
+#     that refreshed one of them and moved the tag would leave the other
+#     offering an update that changes nothing, for ever. If either build
+#     fails, nothing is published and the tag stays where it was.
+#   * Only the default branch is released. The desktop app installs a build
+#     only when its commit comes after its own (GitHub's compare), and a tag
+#     on a side branch would stop that from ever being true again.
+#
+# Run it from the Actions tab: Release -> Run workflow. The secrets it needs,
+# and how to make them, are in docs/RELEASING.md.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Release notes (optional; replaces the release's text when given)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# One release at a time; a second run waits rather than racing the first to
+# the tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: 22
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    if: github.ref_name == github.event.repository.default_branch
+    steps:
+      # Before an hour of builds rather than after them.
+      - name: The Android signing secrets are set
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}. See docs/RELEASING.md."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Type-check and build the interface
+        run: npm run build
+      - name: Interface tests
+        run: npm run test:web
+      - name: Extension tests
+        run: node --test scripts/extension/
+
+  windows:
+    name: Windows (x64)
+    needs: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: windows
+      - run: npm ci
+
+      # NSIS and MSI, as tauri.conf.json lists them. The bundler fetches NSIS
+      # and WiX itself when the runner has none.
+      - name: Build the installers
+        run: npx tauri build
+
+      - name: Name them as the updater looks for them
+        shell: pwsh
+        run: |
+          $bundle = 'src-tauri/target/release/bundle'
+          $nsis = @(Get-ChildItem "$bundle/nsis/*-setup.exe")
+          $msi = @(Get-ChildItem "$bundle/msi/*.msi")
+          if ($nsis.Count -ne 1 -or $msi.Count -ne 1) {
+            throw "Expected one installer of each kind, found $($nsis.Count) NSIS and $($msi.Count) MSI."
+          }
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item $nsis[0] out/UMD-Plus_x64-setup.exe
+          Copy-Item $msi[0] out/UMD-Plus_x64.msi
+          Get-ChildItem out | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: out/*
+          if-no-files-found: error
+
+  android:
+    name: Android (arm64, armv7, x86_64)
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v4
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r29
+          add-to-path: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android
+      - run: npm ci
+
+      # The Gradle build signs from keystore.properties (see
+      # src-tauri/gen/android/app/build.gradle.kts). Without it the APKs come
+      # out unsigned, and an unsigned APK neither installs nor updates.
+      - name: Put the signing key in place
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          {
+            echo "storeFile=$keystore"
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+          } > src-tauri/gen/android/keystore.properties
+
+      # The wrapper was committed from Windows without its executable bit.
+      - name: Build the APKs
+        env:
+          NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          chmod +x src-tauri/gen/android/gradlew
+          npm run android:build
+
+      - name: Name them as the updater looks for them
+        run: |
+          apk=src-tauri/gen/android/app/build/outputs/apk
+          mkdir -p out
+          # Gradle flavour, then the name the release gives it.
+          for pair in arm64:arm64 arm:armv7 x86_64:x86_64; do
+            flavour=${pair%%:*}
+            file="$apk/$flavour/release/app-$flavour-release.apk"
+            if [ ! -f "$file" ]; then
+              echo "::error::$file was not built. An unsigned build is named -unsigned.apk instead."
+              find "$apk" -name '*.apk'
+              exit 1
+            fi
+            cp "$file" "out/UMD-Plus_android_${pair##*:}.apk"
+          done
+          ls -l out
+
+      - name: Check the signatures
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          for file in out/*.apk; do
+            echo "== $file"
+            "$apksigner" verify --print-certs "$file" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          done
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" src-tauri/gen/android/keystore.properties
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android
+          path: out/*
+          if-no-files-found: error
+
+  arch:
+    name: Arch Linux (CachyOS)
+    needs: check
+    runs-on: ubuntu-latest
+    # Built on Arch itself, against Arch's own WebKitGTK and glibc, so the
+    # package runs on a rolling system. GitHub's registry rather than Docker
+    # Hub, which rate-limits anonymous pulls.
+    container: ghcr.io/archlinux/archlinux:base-devel
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # git before the checkout, or it falls back to a tarball and the build
+      # cannot record its commit.
+      - name: Install the build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git nodejs npm rust \
+            webkit2gtk-4.1 gtk3 libayatana-appindicator librsvg openssl xdotool
+      - uses: actions/checkout@v7
+      - name: Let git read the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: arch
+      - run: npm ci
+
+      - name: Build
+        run: npx tauri build --bundles deb
+
+      # makepkg refuses to run as root, and only packages here: the runtime
+      # dependencies are the installing machine's business, hence --nodeps.
+      - name: Package for pacman
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          pkgver="${version}.r${GITHUB_RUN_NUMBER}.g${GITHUB_SHA::7}"
+          cp src-tauri/target/release/bundle/deb/*.deb packaging/arch/
+          sed -i "s/^pkgver=.*/pkgver=${pkgver}/" packaging/arch/PKGBUILD
+          useradd --create-home builder
+          chown -R builder: packaging/arch
+          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --force --nodeps --noconfirm"
+          mkdir -p out
+          cp packaging/arch/umd-plus-*.pkg.tar.zst out/UMD-Plus_x86_64.pkg.tar.zst
+          pacman -Qip out/UMD-Plus_x86_64.pkg.tar.zst
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arch
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [windows, android, arch]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Pack the browser extension
+        run: |
+          node scripts/pack-extension.mjs --full
+          node scripts/pack-extension.mjs --firefox
+          mv extension-full.zip extension-firefox.zip release/
+
+      - name: Checksums
+        working-directory: release
+        run: |
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload the files
+        run: |
+          if ! gh release view latest > /dev/null 2>&1; then
+            gh release create latest \
+              --title 'UMD+' \
+              --notes 'The current build of UMD+. The files are replaced in place whenever a new build goes out.' \
+              --target "$GITHUB_SHA" \
+              --latest
+          fi
+          gh release upload latest release/* --clobber
+
+      # Last, and only once everything above is up: this is what tells the
+      # installed apps that there is something new.
+      - name: Point the tag at this build
+        run: |
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/latest" \
+            -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          echo "latest -> $GITHUB_SHA"
+
+      - name: Release notes
+        if: inputs.notes != ''
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: gh release edit latest --notes "$NOTES"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published $(git rev-parse --short HEAD) to \`latest\`"
+            echo
+            echo '```'
+            cat release/SHA256SUMS.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

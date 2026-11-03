@@ -36,12 +36,12 @@ export function PageHeader({ title, subtitle, actions, className }: PageHeaderPr
   }
 
   return (
-    <header className={cn('flex items-end justify-between gap-4 pb-5 pt-9', className)}>
+    <header className={cn('flex items-end justify-between gap-4 pb-6 pt-10', className)}>
       <div className="min-w-0">
-        <h1 className="truncate text-[26px] font-semibold leading-[1.2] tracking-[-0.022em] text-fg">
+        <h1 className="truncate text-[28px] font-semibold leading-[1.15] tracking-[-0.026em] text-fg">
           {title}
         </h1>
-        {subtitle && <p className="mt-1 text-[13.5px] text-fg-muted">{subtitle}</p>}
+        {subtitle && <p className="mt-1.5 text-[13.5px] text-fg-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
     </header>

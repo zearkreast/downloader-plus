@@ -68,7 +68,13 @@ export function HotkeyRecorder({
             icon={<RotateCcw size={14} />}
             label={t('settings.hotkeyReset')}
             size="sm"
-            onClick={() => onChange(defaultValue)}
+            // The default may have been given to another action since; a
+            // reset is held to the same rule as a recording.
+            onClick={() => {
+              const clash = findConflict(defaultValue);
+              setConflict(clash);
+              if (!clash) onChange(defaultValue);
+            }}
           />
         )}
 

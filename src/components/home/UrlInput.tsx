@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { ClipboardPaste, CornerDownLeft, X } from 'lucide-react';
+import { ClipboardPaste, CornerDownLeft, Link2, X } from 'lucide-react';
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 
 import { Spinner } from '@/components/ui/Spinner';
@@ -57,23 +57,31 @@ export const UrlInput = forwardRef<UrlInputHandle, UrlInputProps>(function UrlIn
 
   return (
     <div className="w-full">
-      {/* The edge and the focus ring are both box-shadows, so going from one to
-          the other moves nothing: at rest the card's hairline (light theme
-          only), focused a 2px ring in the accent, or in red while the text is
-          not an address. */}
+      {/* The edge and the focus ring are all box-shadows, so going from one to
+          the other moves nothing: at rest the card's hairline and its lift,
+          focused a ring in the accent with a halo of it and a glow beneath,
+          or in red while the text is not an address. */}
       <div
         className={cn(
-          'rounded-[var(--radius-card)] bg-surface transition-shadow duration-150 ease-out-quint',
+          'rounded-[18px] bg-surface transition-shadow duration-250 ease-out-quint',
           focused
             ? invalid
-              ? 'shadow-[0_0_0_2px_var(--error)]'
-              : 'shadow-[0_0_0_2px_var(--accent)]'
+              ? 'shadow-[0_0_0_1.5px_var(--error),0_0_0_5px_var(--error-soft)]'
+              : 'shadow-[0_0_0_1.5px_var(--accent),0_0_0_5px_var(--accent-soft),0_18px_48px_-22px_var(--accent-glow)]'
             : invalid
               ? 'shadow-[inset_0_0_0_1px_var(--error)]'
-              : 'shadow-[inset_0_0_0_1px_var(--card-edge)]',
+              : 'shadow-[inset_0_0_0_1px_var(--card-edge),var(--card-shadow)]',
         )}
       >
-        <div className="flex h-[52px] items-center gap-2 pl-4 pr-2">
+        <div className="flex h-14 items-center gap-2 pl-4 pr-2">
+          <Link2
+            size={17}
+            aria-hidden="true"
+            className={cn(
+              'shrink-0 transition-colors duration-150 ease-out-quint',
+              focused && !invalid ? 'text-accent' : 'text-fg-faint',
+            )}
+          />
           <input
             ref={inputRef}
             type="text"
@@ -94,7 +102,10 @@ export const UrlInput = forwardRef<UrlInputHandle, UrlInputProps>(function UrlIn
               setTouched(true);
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
+              // Ctrl+Enter is left to the Start download shortcut, which
+              // downloads the result already showing rather than reading the
+              // link again and throwing away the choices made for it.
+              if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey) {
                 event.preventDefault();
                 submit();
               } else if (event.key === 'Escape' && value) {
@@ -136,9 +147,9 @@ export const UrlInput = forwardRef<UrlInputHandle, UrlInputProps>(function UrlIn
               type="button"
               onClick={onPaste}
               className={cn(
-                'pressable flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] px-3',
+                'pressable flex h-10 shrink-0 items-center gap-1.5 rounded-[12px] bg-fill px-3.5',
                 'text-[13px] font-medium text-fg-muted',
-                'hover:bg-fill hover:text-fg disabled:pointer-events-none',
+                'hover:bg-fill-hover hover:text-fg disabled:pointer-events-none',
               )}
             >
               <ClipboardPaste size={15} />
@@ -149,10 +160,10 @@ export const UrlInput = forwardRef<UrlInputHandle, UrlInputProps>(function UrlIn
               type="button"
               onClick={submit}
               disabled={analyzing}
+              aria-busy={analyzing || undefined}
               className={cn(
-                'pressable flex h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] px-3.5',
-                'bg-accent text-[13px] font-medium text-accent-fg',
-                'hover:bg-accent-hover',
+                'brand-fill pressable flex h-10 shrink-0 items-center gap-1.5 rounded-[12px] px-4',
+                'text-[13px] font-semibold',
                 'disabled:pointer-events-none disabled:opacity-60',
               )}
             >
