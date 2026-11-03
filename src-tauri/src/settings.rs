@@ -69,6 +69,11 @@ pub struct Settings {
     pub max_concurrent_downloads: u32,
     pub auto_retry_count: u32,
     pub filename_template: String,
+    /// Connections one download may open on a host that allows it. See
+    /// `downloader::segmented`. `serde(default)` so a settings file written
+    /// before this existed still loads.
+    #[serde(default = "default_connections")]
+    pub connections_per_download: u32,
 
     // Appearance
     pub theme: ThemePreference,
@@ -132,6 +137,7 @@ impl Default for Settings {
             max_concurrent_downloads: 3,
             auto_retry_count: 2,
             filename_template: DEFAULT_FILENAME_TEMPLATE.to_string(),
+            connections_per_download: default_connections(),
 
             // A phone opens in the phone's own theme, so a light phone's first
             // run is not a dark film. The desktop keeps the dark it has had.
@@ -176,6 +182,9 @@ impl Settings {
         self.auto_retry_count = self.auto_retry_count.min(10);
         self.network_timeout_sec = self.network_timeout_sec.clamp(5, 600);
         self.cache_limit_mb = self.cache_limit_mb.clamp(32, 8192);
+        self.connections_per_download = self
+            .connections_per_download
+            .clamp(1, crate::downloader::segmented::MAX_CONNECTIONS);
 
         if self.filename_template.trim().is_empty() {
             self.filename_template = DEFAULT_FILENAME_TEMPLATE.to_string();
@@ -206,6 +215,12 @@ impl Settings {
 /// rather than a preference that could never take effect.
 fn default_browser_link() -> bool {
     cfg!(windows)
+}
+
+/// Eight is what download managers have long settled on: enough to fill most
+/// lines, few enough that hosts rarely object.
+fn default_connections() -> u32 {
+    8
 }
 
 fn normalize_optional(value: &mut Option<String>) {

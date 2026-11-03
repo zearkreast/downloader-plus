@@ -75,6 +75,7 @@
     maxConcurrentDownloads: 3,
     autoRetryCount: 2,
     filenameTemplate: '{creator} - {title}',
+    connectionsPerDownload: 8,
     theme: params.get('theme') ?? 'dark',
     language: params.get('lang') ?? 'tr',
     reduceMotion: false,

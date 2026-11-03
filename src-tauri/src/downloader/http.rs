@@ -11,6 +11,11 @@
 //! kB/s sustained versus 3.3 MB/s when the same bytes are requested in chunks).
 //! A server that ignores `Range` simply answers 200 with the whole body, which
 //! is handled as the single-request case.
+//!
+//! A large file on a host that honours `Range` is fetched over several
+//! connections at once instead; see [`super::segmented`]. What is here is the
+//! single-connection path, and the fallback for everything that cannot be
+//! split.
 
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -23,7 +28,9 @@ use reqwest::StatusCode;
 
 use crate::downloader::control::TaskControl;
 use crate::downloader::speed::SpeedTracker;
+use crate::downloader::segmented;
 use crate::error::{AppError, AppResult};
+use crate::model::SegmentProgress;
 use crate::{log_debug, log_warn};
 
 /// Bytes requested per ranged request. Large enough that per-request overhead
@@ -44,7 +51,7 @@ const MAX_STALL_RETRIES: u32 = 4;
 const _: () = assert!(LOW_RESOURCE_CHUNK_BYTES < CHUNK_BYTES);
 const _: () = assert!(LOW_RESOURCE_BUFFER_BYTES < BUFFER_BYTES);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ProgressSample {
     pub received: u64,
     pub total: Option<u64>,
@@ -52,6 +59,9 @@ pub struct ProgressSample {
     pub eta_sec: Option<f64>,
     pub percent: Option<f64>,
     pub resumable: bool,
+    /// The pieces of a split transfer and how far each has got; empty for one
+    /// fetched over a single connection.
+    pub segments: Vec<SegmentProgress>,
 }
 
 pub struct FetchOptions<'a> {
@@ -61,6 +71,9 @@ pub struct FetchOptions<'a> {
     /// success.
     pub target: &'a Path,
     pub low_resource: bool,
+    /// How many connections the transfer may open. One keeps it on the
+    /// single-connection path.
+    pub connections: u32,
 }
 
 /// Outcome of one ranged request.
@@ -82,6 +95,12 @@ pub async fn fetch(
     control: Arc<TaskControl>,
     on_progress: &mut (dyn FnMut(ProgressSample) + Send),
 ) -> AppResult<u64> {
+    if let Some(written) =
+        segmented::fetch(client, &options, options.connections, &control, on_progress).await?
+    {
+        return Ok(written);
+    }
+
     let part_path = part_path(options.target);
     let chunk_size = if options.low_resource {
         LOW_RESOURCE_CHUNK_BYTES
@@ -170,7 +189,7 @@ pub async fn fetch(
     Ok(written)
 }
 
-fn is_retryable(err: &AppError) -> bool {
+pub(crate) fn is_retryable(err: &AppError) -> bool {
     matches!(err, AppError::Network(_) | AppError::Io(_))
 }
 
@@ -330,6 +349,7 @@ fn emit(
         eta_sec: tracker.eta_sec(total),
         percent: tracker.percent(total),
         resumable,
+        segments: Vec::new(),
     });
 }
 
@@ -348,7 +368,7 @@ pub fn part_path(target: &Path) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn finalize(part_path: &Path, target: &Path) -> AppResult<()> {
+pub(crate) fn finalize(part_path: &Path, target: &Path) -> AppResult<()> {
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -362,6 +382,7 @@ fn finalize(part_path: &Path, target: &Path) -> AppResult<()> {
 /// Drop the partial file for a download the user cancelled outright.
 pub fn discard_partial(target: &Path) {
     let _ = std::fs::remove_file(part_path(target));
+    let _ = std::fs::remove_file(segmented::state_path(target));
 }
 
 #[cfg(test)]

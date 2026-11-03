@@ -13,6 +13,7 @@ pub mod control;
 pub mod engine_dl;
 pub mod http;
 pub mod plan;
+pub mod segmented;
 pub mod speed;
 
 use std::path::{Path, PathBuf};
@@ -115,6 +116,9 @@ impl Aggregator {
             stage_index: self.stage_index,
             stage_count: self.stage_count,
             resumable: sample.resumable,
+            // The current stream's own pieces; the detail window draws them
+            // against that stream, not against the whole download.
+            segments: sample.segments.clone(),
         }
     }
 
@@ -136,6 +140,7 @@ impl Aggregator {
             stage_index: self.stage_count,
             stage_count: self.stage_count,
             resumable: false,
+            segments: Vec::new(),
         }
     }
 }
@@ -748,6 +753,7 @@ async fn fetch_format(
             headers: &headers,
             target,
             low_resource: settings.low_resource_mode,
+            connections: settings.connections_per_download,
         },
         Arc::clone(control),
         &mut sink,
