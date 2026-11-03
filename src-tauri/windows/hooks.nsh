@@ -11,9 +11,28 @@
 ; answers from files and exits -- so ending it costs at most one push, which
 ; the extension sends again at the next cookie change.
 
+; A copy from before the app was renamed has a folder and an uninstall entry
+; under its old name, so nothing replaces it: it would stay beside this one, and
+; both would answer for the same data folder and browser link. Its uninstaller
+; removes the program and leaves the data, which this one carries on from.
+!macro RemoveOldName
+  ReadRegStr $R1 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Universal Downloader" "InstallLocation"
+  ${If} $R1 != ""
+    StrCpy $R1 $R1 -1 1 ; written in quotes
+    ${If} ${FileExists} "$R1\uninstall.exe"
+      ; `_?=` stops it copying itself away, so this waits for it. It cannot
+      ; delete itself while running, which is why the file is removed here.
+      ExecWait '"$R1\uninstall.exe" /S _?=$R1'
+      Delete "$R1\uninstall.exe"
+      RMDir "$R1"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
   nsis_tauri_utils::KillProcessCurrentUser "ud-bridge.exe"
   Pop $R0
+  !insertmacro RemoveOldName
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL

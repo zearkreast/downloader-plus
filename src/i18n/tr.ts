@@ -1,7 +1,8 @@
 import type { TranslationKey } from './en';
 
 export const tr: Record<TranslationKey, string> = {
-  'app.name': 'Universal Downloader',
+  'app.name': 'UMD+',
+  'app.fullName': 'Universal Media Downloader+',
 
   'nav.home': 'Ana sayfa',
   'nav.downloads': 'İndirmeler',
@@ -24,7 +25,7 @@ export const tr: Record<TranslationKey, string> = {
   'input.suggestion': 'Panodaki bağlantı',
   'input.suggestionDismiss': 'Öneriyi kapat',
   'input.dropHint': 'Analiz etmek için bir bağlantı bırak',
-  'input.shareHint': 'İpucu: herhangi bir uygulamadan bağlantıyı Universal Downloader ile paylaş.',
+  'input.shareHint': 'İpucu: herhangi bir uygulamadan bağlantıyı UMD+ ile paylaş.',
 
   'analyze.analyzing': 'Bağlantı analiz ediliyor…',
   'analyze.retry': 'Tekrar dene',
@@ -329,7 +330,7 @@ export const tr: Record<TranslationKey, string> = {
   'settings.linkConnected': '{browser} üzerinden oturum açık',
   'settings.linkConnectedProfile': '{browser} üzerinden oturum açık, "{profile}" profili',
   'settings.linkConnectedHint':
-    "Bunun için Universal Downloader'ın açık olması gerekmez. Tarayıcı oturumu küçük bir yardımcıya verir; uygulama ekranda olsa da, tepside bekliyor olsa da, büsbütün kapalı olsa da yardımcı oturumu saklar.",
+    "Bunun için UMD+'nın açık olması gerekmez. Tarayıcı oturumu küçük bir yardımcıya verir; uygulama ekranda olsa da, tepside bekliyor olsa da, büsbütün kapalı olsa da yardımcı oturumu saklar.",
   'settings.linkNoProfileName': 'Tarayıcı bu profile bir ad vermemiş.',
   'settings.linkAccount': '{account} gibi görünüyor',
   'settings.linkRefreshed': 'Son yenileme {when}',
@@ -445,7 +446,7 @@ export const tr: Record<TranslationKey, string> = {
   'about.externalTools': 'Harici araçlar',
   'about.system': 'Sistem',
 
-  'welcome.title': "Universal Downloader'a hoş geldin",
+  'welcome.title': "Universal Media Downloader+'a hoş geldin",
   'welcome.subtitle': 'Hızlı. Gizli. Reklamsız.',
   'welcome.getStarted': 'Başla',
   'welcome.pointPrivacy': 'Hiçbir şey cihazından çıkmaz',
@@ -472,9 +473,9 @@ export const tr: Record<TranslationKey, string> = {
 
   'setup.title': 'Tek seferlik kurulum',
   'setup.body':
-    'Universal Downloader, medya bilgilerini okumak ve akışları birleştirmek için iki açık kaynak araç kullanır. Bir kez indirilir ve tamamen bu bilgisayarda çalışır.',
+    'UMD+, medya bilgilerini okumak ve akışları birleştirmek için iki açık kaynak araç kullanır. Bir kez indirilir ve tamamen bu bilgisayarda çalışır.',
   'setup.bodyMobile':
-    'Universal Downloader, medya bilgilerini açık kaynaklı yt-dlp aracıyla okur. Bir kez indirilir (yaklaşık 3 MB) ve tamamen telefonunda çalışır. FFmpeg zaten uygulamanın içinde.',
+    'UMD+, medya bilgilerini açık kaynaklı yt-dlp aracıyla okur. Bir kez indirilir (yaklaşık 3 MB) ve tamamen telefonunda çalışır. FFmpeg zaten uygulamanın içinde.',
   'setup.installNow': 'Şimdi kur',
   'setup.ffmpegOptional':
     'FFmpeg isteğe bağlıdır, ancak onsuz ayrı video ve ses akışları birleştirilemez.',
@@ -601,7 +602,7 @@ export const tr: Record<TranslationKey, string> = {
 
   'update.title': 'Güncelleme var',
   'update.body':
-    "Universal Downloader'ın yeni bir sürümü yayınlandı. İndirmelerin, geçmişin ve ayarların olduğu gibi kalır.",
+    "UMD+'nın yeni bir sürümü yayınlandı. İndirmelerin, geçmişin ve ayarların olduğu gibi kalır.",
   'update.size': 'Boyut',
   'update.later': 'Sonra',
   'update.install': 'Güncelle',
@@ -611,7 +612,7 @@ export const tr: Record<TranslationKey, string> = {
   'update.installerOpened': "Yükleyici açıldı. Görünmediyse Güncelle'ye tekrar bas.",
   'update.failed': 'Güncelleme indirilemedi. Bağlantını kontrol edip tekrar dene.',
   'update.permission':
-    "Güncellemeyi kurmak için Android izin istiyor. Universal Downloader için \"Bilinmeyen uygulamaları yükle\" iznini ver, sonra Tekrar dene'ye bas.",
+    "Güncellemeyi kurmak için Android izin istiyor. UMD+ için \"Bilinmeyen uygulamaları yükle\" iznini ver, sonra Tekrar dene'ye bas.",
   'update.check': 'Güncellemeleri denetle',
   'update.checkFailed': 'Güncellemeler denetlenemedi',
   'update.build': 'Derleme {commit}',
@@ -631,16 +632,16 @@ export const tr: Record<TranslationKey, string> = {
   'error.network.message': 'Bağlantını kontrol edip tekrar dene.',
   'error.offline.title': 'İnternet bağlantısı yok',
   'error.offline.message': "Wi-Fi'ye veya mobil veriye bağlanıp tekrar dene.",
-  'error.networkBlocked.title': 'Universal Downloader internete çıkamıyor',
+  'error.networkBlocked.title': 'UMD+ internete çıkamıyor',
   'error.networkBlocked.message':
-    "Telefonun bağlı ama bu uygulama bağlantıyı kullanamıyor. Ayarlardan Universal Downloader'ın Wi-Fi ve mobil veri kullanmasına izin ver; varsa VPN, güvenlik duvarı veya reklam engelleyiciyi kontrol edip tekrar dene.",
+    "Telefonun bağlı ama bu uygulama bağlantıyı kullanamıyor. Ayarlardan UMD+'nın Wi-Fi ve mobil veri kullanmasına izin ver; varsa VPN, güvenlik duvarı veya reklam engelleyiciyi kontrol edip tekrar dene.",
   'error.networkBlocked.action': 'Uygulama ayarlarını aç',
   'error.forbidden.title': 'Bu medyaya erişemedik',
   'error.forbidden.message':
     'Kaynak oturum açmayı gerektiriyor olabilir veya şu anda herkese açık indirmeyi desteklemiyor olabilir.',
   'error.membershipRequired.title': 'Bu video kanal üyelerine özel',
   'error.membershipRequired.message':
-    "YouTube bu videoyu yalnızca kanalın üyeliğine sahip bir hesaba veriyor. Ayarlar'dan tarayıcını bağla; Universal Downloader bu bağlantıyı bir dahaki denemende o oturumu kullanarak açsın.",
+    "YouTube bu videoyu yalnızca kanalın üyeliğine sahip bir hesaba veriyor. Ayarlar'dan tarayıcını bağla; UMD+ bu bağlantıyı bir dahaki denemende o oturumu kullanarak açsın.",
   'error.membershipRequired.messageMobile':
     'YouTube bu videoyu yalnızca kanalın üyeliğine sahip bir hesaba veriyor. Telefonda bu oturum kullanılamıyor; bilgisayardaki uygulamayla indirebilirsin.',
   'error.tiktokSignIn.title': "Bu gönderi için TikTok'ta oturum açmak gerekiyor",

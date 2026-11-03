@@ -160,7 +160,7 @@ fn handle(mut request: Request) -> Response {
     if version > protocol::WIRE_VERSION {
         return Response::err(
             ErrorCode::Version,
-            "this extension is newer than the installed app; update Universal Downloader",
+            "this extension is newer than the installed app; update UMD+",
         );
     }
 
@@ -294,9 +294,9 @@ fn accept(state: &LinkState, push: &Push, site: Site) -> Response {
         return Response::err(
             ErrorCode::Unpaired,
             if state.bound.is_some() {
-                "another browser profile is connected to Universal Downloader"
+                "another browser profile is connected to UMD+"
             } else {
-                "no browser is connected to Universal Downloader yet"
+                "no browser is connected to UMD+ yet"
             },
         );
     }
@@ -438,7 +438,7 @@ fn runtime() -> Option<&'static tokio::runtime::Runtime> {
 fn disabled() -> Response {
     Response::err(
         ErrorCode::Disabled,
-        "the browser link is turned off in Universal Downloader",
+        "the browser link is turned off in UMD+",
     )
 }
 

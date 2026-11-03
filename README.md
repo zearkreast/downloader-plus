@@ -1,19 +1,28 @@
-# Universal Downloader
+<p align="center">
+  <img src="docs/logo.png" width="148" alt="">
+</p>
 
-[![Download for Windows](https://img.shields.io/badge/Download-Windows_10%2F11-ff8a4c?style=flat-square&logo=windows)](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64-setup.exe)
-[![Browser extension](https://img.shields.io/badge/Browser_extension-1.0.9-3c3c40?style=flat-square)](#browser-extension)
-[![MIT License](https://img.shields.io/badge/License-MIT-3c3c40?style=flat-square)](LICENSE)
+<h1 align="center">Universal Media Downloader+</h1>
 
-Download video, audio and photos from a link, or send what a tab is playing from
-your browser. The app reads what the source publishes, shows the real qualities
-on offer, and downloads the one you pick. No ads, no account, no telemetry.
+<p align="center">
+  <b>UMD+</b> &middot; Download video, audio and photos from a link, or send what a tab is playing from your browser.
+</p>
+
+<p align="center">
+  <a href="https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Download-Windows_10%2F11-ff7a3d?style=flat-square&logo=windows"></a>
+  <a href="#browser-extension"><img alt="Browser extension" src="https://img.shields.io/badge/Browser_extension-2.0-3c3c40?style=flat-square"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-3c3c40?style=flat-square"></a>
+</p>
+
+The app reads what the source publishes, shows the real qualities on offer, and
+downloads the one you pick. No ads, no account, no telemetry.
 
 ![The Home screen with a video ready to download](docs/home.png)
 
 Built on [unsalable/downloader](https://github.com/unsalable/downloader) by
-Melih. This repository adds [streams whose links work only inside their
-player](#download-from-a-page) and publishes its own Windows builds. Made with
-Tauri 2, React 19, TypeScript and Rust.
+Melih. UMD+ adds [streams whose links work only inside their
+player](#download-from-a-page), downloads split over several connections, and its
+own Windows builds. Made with Tauri 2, React 19, TypeScript and Rust.
 
 ## Download
 
@@ -21,11 +30,13 @@ Everything is on the [releases page](https://github.com/zearkreast/downloader-pl
 
 ### Windows
 
-- [`UniversalDownloader_x64-setup.exe`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64-setup.exe) -- normal install, per user, no admin rights needed.
-- [`UniversalDownloader_x64.msi`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UniversalDownloader_x64.msi) -- for managed or scripted deployment.
+- [`UMD-Plus_x64-setup.exe`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64-setup.exe) -- normal install, per user, no admin rights needed.
+- [`UMD-Plus_x64.msi`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x64.msi) -- for managed or scripted deployment.
 
 These links always point at the current build. Installing over an existing copy
-updates it in place; settings, history and the downloaded tools are kept.
+updates it in place; settings, history and the downloaded tools are kept. A copy
+installed under the old name, Universal Downloader, is removed by the installer
+and carries its settings across.
 
 The app looks for a newer release when it starts, and again when its window is
 brought back six hours or more after the last look. When there is one it
@@ -125,7 +136,7 @@ pick Universal Downloader.
   them into one file, cut against a waveform and a strip of frames. It can
   fetch just the piece of a link that is wanted, and lay a sound under the
   picture.
-- **Takes a video from the browser** (Windows). The Universal Downloader
+- **Takes a video from the browser** (Windows). The UMD+
   Connector extension for Chrome and Firefox lists what a tab is playing and
   hands one to the app, which opens it on Home. Its picker lets the user click
   the video, sound or picture they mean on the page itself, as an eyedropper
@@ -442,12 +453,13 @@ with `PW_RENDERFULLCONTENT`, which a plain screen copy would render black).
 
 ```bash
 python scripts/generate_icon.py       # the mark, flat on transparency, at 1024
+node extension/make-icons.mjs         # the extension's toolbar icons
 npx tauri icon src-tauri/icons/app-icon.json -o src-tauri/icons
 python scripts/generate_licenses.py   # third-party licence list for About
 ```
 
-The mark is a six-blade aperture and nothing else: no tile, no plate, no
-backing. It is the same shape in three hands — `scripts/generate_icon.py`,
+The mark is an eight-blade aperture with a plus in its opening and nothing
+else: no tile, no plate, no backing. It is the same shape in three hands — `scripts/generate_icon.py`,
 `src/components/layout/Logo.tsx` and `extension/make-icons.mjs` — which have to
 be changed together.
 
@@ -503,7 +515,7 @@ the playlists a page's player receives, is listed in
 
 ## Licences
 
-Universal Downloader is released under the [MIT License](LICENSE).
+UMD+ is released under the [MIT License](LICENSE).
 
 Third-party licences are listed in the app's About screen, generated into
 `src-tauri/resources/licenses.json`. Inter is used under the SIL Open Font

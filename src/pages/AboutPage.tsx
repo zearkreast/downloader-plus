@@ -51,7 +51,7 @@ export function AboutPage({ onPlayIntro }: { onPlayIntro?: () => void }) {
             {/* English whatever the interface language, and marked as such so
                 it is read out -- and cased -- as English. */}
             <div lang="en" className="min-w-0 truncate text-[15px] font-semibold text-fg">
-              {t('app.name')}
+              {t('app.fullName')}
             </div>
           </div>
           <UpdateRow />

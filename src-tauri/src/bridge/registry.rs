@@ -73,7 +73,7 @@ struct FirefoxManifest {
 }
 
 const DESCRIPTION: &str =
-    "Lets this browser send videos to Universal Downloader, and lend it your YouTube and TikTok sessions if you turn them on.";
+    "Lets this browser send videos to UMD+, and lend it your YouTube and TikTok sessions if you turn them on.";
 
 fn manifest_path() -> AppResult<PathBuf> {
     Ok(super::dir()?.join("host-manifest.json"))

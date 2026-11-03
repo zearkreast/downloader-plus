@@ -107,7 +107,7 @@ class BackgroundWorkService : Service() {
 
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_mark)
-                .setContentTitle("Universal Downloader")
+                .setContentTitle("UMD+")
                 .setContentText(text)
                 .setContentIntent(open)
                 .setOngoing(true)
