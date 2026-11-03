@@ -921,6 +921,19 @@ describe('payload, titles and formats', () => {
     assert.equal(pageChoice(undefined), null);
   });
 
+  test('an entity in a manifest is decoded once', () => {
+    const manifest = `<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" mediaPresentationDuration="PT10S">
+  <Period><AdaptationSet mimeType="video/mp4">
+    <Representation id="1" bandwidth="1" width="1280" height="720"><BaseURL>a.mp4?x=1&amp;lt;y</BaseURL></Representation>
+  </AdaptationSet></Period>
+</MPD>`;
+    const info = parseDash(manifest, 'https://cdn.example/a.mpd');
+    assert.equal(info.height, 720);
+    // Read as the manifest wrote it, "&lt;", and not decoded a second time into "<".
+    assert.deepEqual(info.variants, ['https://cdn.example/a.mp4?x=1&lt;y']);
+  });
+
   test("PROTECTED mirrors the app's list in detect.rs", () => {
     const source = readFileSync(join(repo, 'src-tauri', 'src', 'providers', 'detect.rs'), 'utf8');
     const block = /const PROTECTED: &\[\(&str, &str\)\] = &\[([\s\S]*?)\];/.exec(source);
