@@ -47,6 +47,7 @@ import {
   normalisePick,
   parseDash,
   parseHls,
+  pageChoice,
   pickedRow,
   protectedService,
   rows,
@@ -1411,6 +1412,15 @@ async function showSendResult(tabId, word) {
   }, SEND_RESULT_MS);
 }
 
+// The page as the popup would offer it: the video its player is playing,
+// where there is one, rather than an address the app cannot read it from.
+async function pagePayload(tab) {
+  if (!Number.isInteger(tab?.id) || !tab.url) return contextPayload({ menuItemId: 'send-page' }, tab);
+  const { frames, page } = await readPage(tab.id, tab.url, tab.title ?? '');
+  return pageChoice(rows(page, frames, { userAgent: navigator.userAgent }))
+    ?? contextPayload({ menuItemId: 'send-page' }, tab);
+}
+
 async function sendFromBrowser(payload, tab) {
   if (!payload || unlisted(payload.url) || protectedService(payload.url)) {
     await showSendResult(tab?.id, '!');
@@ -1557,15 +1567,16 @@ chrome.tabs.onRemoved.addListener((tabId) => dropTab(tabId));
 // window position; what was recorded for the hidden one is not what is shown.
 chrome.tabs.onReplaced.addListener((_added, removed) => dropTab(removed));
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  void sendFromBrowser(contextPayload(info, tab), tab);
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const payload = info.menuItemId === 'send-page' ? await pagePayload(tab) : contextPayload(info, tab);
+  void sendFromBrowser(payload, tab);
 });
 
 // Firefox can leave the tab out, and it is the one in front.
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command !== 'send-page') return;
   const [active] = tab ? [tab] : await chrome.tabs.query({ active: true, currentWindow: true });
-  void sendFromBrowser(contextPayload({ menuItemId: command }, active), active);
+  void sendFromBrowser(await pagePayload(active), active);
 });
 
 chrome.runtime.onInstalled.addListener((details) => {

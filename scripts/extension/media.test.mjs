@@ -19,6 +19,7 @@ import {
   classify,
   cleanTitle,
   contextPayload,
+  pageChoice,
   dedupeKey,
   formatDuration,
   formatEstimate,
@@ -905,6 +906,19 @@ describe('payload, titles and formats', () => {
     assert.equal(contextPayload({ menuItemId: 'send-page' }, tab).url, page);
     assert.equal(contextPayload({ menuItemId: 'send-page' }, { url: 'chrome://settings' }), null);
     assert.equal(contextPayload({ menuItemId: 'send-page' }, undefined), null);
+  });
+
+  test("sending a page sends the video its player is playing, as the popup lists it first", () => {
+    const stream = { kind: 'stream', protected: false, payload: { url: 'https://cdn.example/master.m3u8', kind: 'stream' } };
+    const locked = { kind: 'video', protected: true, payload: { url: 'https://drm.example/a.mpd', kind: 'stream' } };
+    const site = { kind: 'page', protected: false, payload: { url: 'https://www.youtube.com/watch?v=1', kind: 'page' } };
+
+    assert.equal(pageChoice([stream, site]).url, 'https://cdn.example/master.m3u8');
+    assert.equal(pageChoice([locked, stream]).url, 'https://cdn.example/master.m3u8', 'a protected player is passed over');
+    assert.equal(pageChoice([site]).url, 'https://www.youtube.com/watch?v=1');
+    assert.equal(pageChoice([locked]), null);
+    assert.equal(pageChoice([]), null);
+    assert.equal(pageChoice(undefined), null);
   });
 
   test("PROTECTED mirrors the app's list in detect.rs", () => {
