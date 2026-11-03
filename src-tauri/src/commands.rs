@@ -17,7 +17,7 @@ use crate::range::RangeFetchManager;
 use crate::model::{
     BridgeStatus, CacheStats, ConvertFormatInfo, ConvertJob, ConvertRequest, DiagnosticsSnapshot,
     DownloadMode, DownloadRequest, DownloadTask, ExportRequest, ExportState, FetchState, HistoryEntry,
-    HistoryRange, MediaMetadata, MediaProbe, PlatformId, QualityPreference, RangeFetchRequest, SourceContext,
+    HistoryRange, KnownLink, MediaMetadata, MediaProbe, PlatformId, QualityPreference, RangeFetchRequest, SourceContext,
     TimelineRequest, TimelineState, ToolInstallProgress, ToolKind, ToolUpdateCheck, ToolsState,
 };
 use crate::queue::QueueManager;
@@ -417,6 +417,41 @@ pub fn list_downloads(state: State<'_, AppState>) -> Vec<DownloadTask> {
 #[tauri::command]
 pub fn enqueue_download(state: State<'_, AppState>, request: DownloadRequest) -> DownloadTask {
     state.queue.enqueue(request)
+}
+
+/// Which of `urls` the app already has: finished, with the file still there,
+/// or in the queue right now. Asked as a link is shown, so the screen can say
+/// so before anyone presses Download a second time.
+#[tauri::command]
+pub fn find_downloaded(state: State<'_, AppState>, urls: Vec<String>) -> AppResult<Vec<KnownLink>> {
+    let mut known: Vec<KnownLink> = state
+        .db
+        .history_files(&urls)?
+        .into_iter()
+        .map(|(url, file_path, downloaded_at)| KnownLink {
+            url,
+            queued: false,
+            file_path: Some(file_path),
+            downloaded_at: Some(downloaded_at),
+        })
+        .collect();
+
+    for task in state.queue.list() {
+        if task.status == crate::model::DownloadStatus::Queued || task.status.is_active() {
+            if let Some(url) = urls.iter().find(|url| **url == task.url || **url == task.request.url) {
+                match known.iter_mut().find(|link| link.url == *url) {
+                    Some(link) => link.queued = true,
+                    None => known.push(KnownLink {
+                        url: url.clone(),
+                        queued: true,
+                        file_path: None,
+                        downloaded_at: None,
+                    }),
+                }
+            }
+        }
+    }
+    Ok(known)
 }
 
 /// Queue every item of a carousel, gallery or album as its own task.

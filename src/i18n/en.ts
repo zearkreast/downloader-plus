@@ -42,6 +42,8 @@ export const en = {
   'preview.videos': '{n} videos',
   'preview.inList': 'This video is part of a playlist',
   'preview.openList': 'Open the playlist',
+  'preview.alreadyDownloaded': 'You downloaded this on {date}',
+  'preview.alreadyQueued': 'This is already in your downloads',
   'preview.startOver': 'New link',
   'preview.warningGeneric':
     'No provider recognised this site, so this is the media the page itself advertises. It may not be the item you meant.',
@@ -91,6 +93,7 @@ export const en = {
 
   'tracks.title': 'Songs',
   'tracks.videos': 'Videos',
+  'tracks.downloaded': 'Downloaded',
   'tracks.limited': 'Showing the first {shown} of {total}.',
   'tracks.selectAll': 'Select all',
   'tracks.selectNone': 'Deselect all',

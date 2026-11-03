@@ -368,6 +368,7 @@ fn parse_collection(entity: &Value, kind: Kind, id: &str) -> Option<MediaMetadat
             title: song.title.clone(),
             artists: song.artist_line(),
             duration_sec: song.duration_sec,
+            url: None,
         })
         .collect();
     let entries: Vec<MediaMetadata> = songs.into_iter().map(pending_song).collect();

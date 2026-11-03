@@ -274,6 +274,21 @@ pub struct TrackSummary {
     pub title: String,
     pub artists: String,
     pub duration_sec: Option<f64>,
+    /// Its own address, for an item that has one.
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+/// A link the app has met before. See `commands::find_downloaded`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnownLink {
+    pub url: String,
+    /// Waiting or running right now, rather than finished.
+    pub queued: bool,
+    /// The finished file, which is still there.
+    pub file_path: Option<String>,
+    pub downloaded_at: Option<i64>,
 }
 
 /// One item of a carousel or gallery, as the interface shows it to be picked

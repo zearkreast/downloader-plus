@@ -40,6 +40,10 @@ loaded it -- the same request the page made, often answered from the browser's
 cache. The popup shows the page's preview images, loaded from the site that
 serves them.
 
+**What you right-click.** When you choose one of the extension's items in the
+right-click menu, or press its shortcut, the address of that link, media or
+page goes to the app with the page it is on. Nothing is read before you do.
+
 **The element you pick on the page.** When you press **Pick from the page**
 in the popup, the extension outlines the video, sound or picture under your
 pointer, in that tab only, until you click one or press Esc. Of the one you

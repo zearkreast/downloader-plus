@@ -193,6 +193,34 @@ impl Database {
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
+    /// The newest finished file of each of `urls` that is still on disk, as
+    /// address, path and time. Files get moved and deleted outside the app, and
+    /// one that has gone is no reason not to download it again.
+    pub fn history_files(&self, urls: &[String]) -> AppResult<Vec<(String, String, i64)>> {
+        let conn = self.lock()?;
+        let mut found: Vec<(String, String, i64)> = Vec::new();
+        // SQLite takes only so many parameters to one statement.
+        for part in urls.chunks(500) {
+            let marks = vec!["?"; part.len()].join(",");
+            let sql = format!(
+                "SELECT url, file_path, created_at FROM downloads
+                 WHERE status = 'completed' AND url IN ({marks})
+                 ORDER BY created_at DESC"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(part), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?))
+            })?;
+            for row in rows {
+                let row = row?;
+                if !found.iter().any(|(url, _, _)| *url == row.0) && Path::new(&row.1).exists() {
+                    found.push(row);
+                }
+            }
+        }
+        Ok(found)
+    }
+
     /// How many entries were recorded at or after `since` (ms since the epoch),
     /// or in all, when it is `None`. Two fixed statements rather than one with
     /// `?1 IS NULL OR ...`, as `history_list` does it: both forms are answered
@@ -512,6 +540,33 @@ mod tests {
             status: "completed".into(),
             request: None,
         }
+    }
+
+    #[test]
+    fn a_link_is_known_by_its_newest_file_that_is_still_there() {
+        let dir = scratch("history-files");
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = Database::open(&dir.join("library.db")).unwrap();
+        let kept = dir.join("kept.mp4");
+        let older = dir.join("older.mp4");
+        std::fs::write(&kept, b"x").unwrap();
+        std::fs::write(&older, b"x").unwrap();
+        let path = |file: &Path| file.to_string_lossy().into_owned();
+
+        let entry_for = |url: &str, created_at: i64, file: String, status: &str| HistoryEntry {
+            url: url.into(),
+            status: status.into(),
+            ..entry(created_at, &file)
+        };
+        let (a, b, c) = ("https://a.example/1", "https://a.example/2", "https://a.example/3");
+        db.history_insert(&entry_for(a, 10, path(&older), "completed")).unwrap();
+        db.history_insert(&entry_for(a, 20, path(&kept), "completed")).unwrap();
+        db.history_insert(&entry_for(b, 30, path(&dir.join("gone.mp4")), "completed")).unwrap();
+        db.history_insert(&entry_for(c, 40, path(&kept), "failed")).unwrap();
+
+        let urls = [a, b, c, "https://a.example/4"].map(str::to_string);
+        assert_eq!(db.history_files(&urls).unwrap(), vec![(a.to_string(), path(&kept), 20)]);
+        assert!(db.history_files(&[]).unwrap().is_empty());
     }
 
     #[test]

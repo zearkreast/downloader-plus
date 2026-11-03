@@ -125,6 +125,18 @@ export interface TrackSummary {
   title: string;
   artists: string;
   durationSec: number | null;
+  /** Its own address, for an item that has one. */
+  url?: string | null;
+}
+
+/** A link the app has met before. */
+export interface KnownLink {
+  url: string;
+  /** Waiting or running right now, rather than finished. */
+  queued: boolean;
+  /** The finished file, which is still there. */
+  filePath: string | null;
+  downloadedAt: number | null;
 }
 
 /** One item of a carousel or gallery, for the grid it is picked from. */

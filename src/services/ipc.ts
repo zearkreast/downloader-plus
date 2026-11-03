@@ -22,6 +22,7 @@ import type {
   MediaMetadata,
   MediaProbe,
   PlatformId,
+  KnownLink,
   QueueOutlook,
   Settings,
   SourceContext,
@@ -257,6 +258,7 @@ export const sweepTempFiles = () => invoke<number>('sweep_temp_files');
 export const openFile = (path: string) => invoke<void>('open_file', { path });
 /** Selects it in its folder; a phone opens its Downloads view instead. */
 export const revealFile = (path: string) => invoke<void>('reveal_file', { path });
+export const findDownloaded = (urls: string[]) => invoke<KnownLink[]>('find_downloaded', { urls });
 /** The system's share sheet: Windows' own, or Android's chooser. */
 export const shareFile = (path: string) => invoke<void>('share_file', { path });
 /** The desktop's logs folder, with the current log selected in it. */

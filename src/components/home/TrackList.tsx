@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/format';
 import { IS_MOBILE } from '@/lib/platform';
-import type { TrackSummary } from '@/types';
+import type { KnownLink, TrackSummary } from '@/types';
 
 interface TrackListProps {
   tracks: TrackSummary[];
@@ -17,6 +17,8 @@ interface TrackListProps {
   title?: string;
   /** How many the source has, when that is more than are listed. */
   totalCount?: number | null;
+  /** What the app already has of these, to mark in the list. */
+  known?: readonly KnownLink[];
 }
 
 /**
@@ -24,8 +26,9 @@ interface TrackListProps {
  * own button; the list scrolls inside its card so a hundred songs do not push
  * the download button off the screen.
  */
-export function TrackList({ tracks, picked, onChange, title, totalCount }: TrackListProps) {
+export function TrackList({ tracks, picked, onChange, title, totalCount, known = [] }: TrackListProps) {
   const { t } = useTranslation();
+  const have = new Set(known.map((link) => link.url));
   const all = picked.size === tracks.length;
 
   // From the latest choice rather than the one this render saw, so two quick
@@ -90,6 +93,10 @@ export function TrackList({ tracks, picked, onChange, title, totalCount }: Track
                   <span className="block truncate text-[12.5px] text-fg-muted">{track.artists}</span>
                 )}
               </span>
+
+              {track.url && have.has(track.url) && (
+                <span className="shrink-0 text-[12.5px] text-fg-faint">{t('tracks.downloaded')}</span>
+              )}
 
               {track.durationSec != null && (
                 <span className="tabular shrink-0 text-[12.5px] text-fg-faint">

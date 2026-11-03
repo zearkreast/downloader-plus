@@ -39,6 +39,8 @@ export const tr: Record<TranslationKey, string> = {
   'preview.videos': '{n} video',
   'preview.inList': 'Bu video bir oynatma listesinde',
   'preview.openList': 'Listeyi aç',
+  'preview.alreadyDownloaded': 'Bunu {date} tarihinde indirdin',
+  'preview.alreadyQueued': 'Bu zaten indirmelerinde',
   'preview.startOver': 'Yeni bağlantı',
   'preview.warningGeneric':
     'Bu site tanınmadı; gösterilen, sayfanın kendi öne çıkardığı medya. Aradığın bu olmayabilir.',
@@ -87,6 +89,7 @@ export const tr: Record<TranslationKey, string> = {
 
   'tracks.title': 'Şarkılar',
   'tracks.videos': 'Videolar',
+  'tracks.downloaded': 'İndirildi',
   'tracks.limited': '{total} videonun ilk {shown} tanesi gösteriliyor.',
   'tracks.selectAll': 'Tümünü seç',
   'tracks.selectNone': 'Seçimi kaldır',

@@ -249,6 +249,7 @@ pub fn run() {
             commands::get_thumbnail,
             commands::summarize_plan,
             commands::list_downloads,
+            commands::find_downloaded,
             commands::enqueue_download,
             commands::enqueue_gallery,
             commands::pause_download,

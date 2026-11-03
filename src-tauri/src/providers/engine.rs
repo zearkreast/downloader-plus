@@ -775,16 +775,15 @@ pub fn parse_result(root: &Value, requested_url: &str) -> AppResult<MediaMetadat
 /// A playlist or channel as the flat listing gives it: links, each with what
 /// the listing happens to say of it. Each is read when its own download starts.
 fn parse_listing(root: &Value, requested_url: &str) -> AppResult<MediaMetadata> {
-    let rows: Vec<MediaMetadata> = root
-        .get("entries")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| listed_row(entry, requested_url))
-        .collect();
+    let entries = root.get("entries").and_then(Value::as_array).map_or(&[][..], Vec::as_slice);
+    let rows: Vec<MediaMetadata> = entries.iter().filter_map(|entry| listed_row(entry, requested_url)).collect();
     if rows.is_empty() {
         return Err(AppError::Unsupported("the source returned no media".into()));
     }
+    // The source's own count takes in videos gone private, so it only says
+    // more than the rows do where the list really was cut short.
+    let stated = root.get("playlist_count").and_then(Value::as_u64).map(|count| count as u32);
+    let entry_count = stated.filter(|_| entries.len() >= LIST_LIMIT as usize).unwrap_or(rows.len() as u32);
 
     let text = |key: &str| root.get(key).and_then(Value::as_str).filter(|value| !value.trim().is_empty());
     let tracks = rows
@@ -795,6 +794,7 @@ fn parse_listing(root: &Value, requested_url: &str) -> AppResult<MediaMetadata> 
             title: row.title.clone(),
             artists: row.creator.clone().unwrap_or_default(),
             duration_sec: row.duration_sec,
+            url: Some(row.canonical_url.clone()),
         })
         .collect();
 
@@ -804,7 +804,7 @@ fn parse_listing(root: &Value, requested_url: &str) -> AppResult<MediaMetadata> 
         title: text("title").unwrap_or("Untitled").to_string(),
         creator: ["uploader", "channel"].iter().find_map(|key| text(key)).map(str::to_string),
         thumbnail_url: pick_thumbnail(root).or_else(|| rows.iter().find_map(|row| row.thumbnail_url.clone())),
-        entry_count: Some(root.get("playlist_count").and_then(Value::as_u64).map_or(rows.len() as u32, |n| n as u32)),
+        entry_count: Some(entry_count),
         listing: true,
         tracks,
         entries: rows,
@@ -2240,7 +2240,7 @@ mod tests {
         assert!(list.formats.is_empty());
         assert_eq!(list.title, "Google Search Stories");
         assert_eq!(list.media_kind, MediaKind::Gallery);
-        assert_eq!(list.entry_count, Some(13), "what the source counts, not what is listed");
+        assert_eq!(list.entry_count, Some(2), "what can be had, not what the source counts");
         assert_eq!(list.thumbnail_url.as_deref(), Some("https://i.ytimg.com/vi/GvgqDSnpRQM/hq720.jpg"));
 
         // The two the listing cannot name are gone, and the numbering closes up.
@@ -2268,6 +2268,20 @@ mod tests {
         assert_eq!(list.creator.as_deref(), Some("Forss"));
         assert_eq!(list.canonical_url, "https://soundcloud.com/forss/sets/soulhack");
         assert_eq!(list.entry_count, Some(1));
+    }
+
+    #[test]
+    fn a_list_longer_than_the_limit_says_how_long_it_really_is() {
+        let rows: Vec<Value> = (0..LIST_LIMIT)
+            .map(|index| serde_json::json!({
+                "_type": "url", "title": format!("Video {index}"),
+                "url": format!("https://www.youtube.com/watch?v={index}"),
+            }))
+            .collect();
+        let channel = serde_json::json!({ "_type": "playlist", "title": "Big", "playlist_count": 4200, "entries": rows });
+        let list = parse_result(&channel, "https://www.youtube.com/@big/videos").unwrap();
+        assert_eq!(list.tracks.len(), LIST_LIMIT as usize);
+        assert_eq!(list.entry_count, Some(4200));
     }
 
     #[test]

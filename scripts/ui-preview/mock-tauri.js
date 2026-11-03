@@ -556,6 +556,7 @@
       title: `Episode ${index + 1}: the long way round`,
       artists: 'Trail Notes',
       durationSec: 540 + index * 37,
+      url: `https://www.youtube.com/watch?v=episode${index + 1}`,
     })),
   });
 
@@ -1187,6 +1188,15 @@
       tasks = tasks.filter((entry) => entry.id !== id);
       changed();
     },
+    find_downloaded: ({ urls }) =>
+      params.has('known')
+        ? urls.slice(0, 2).map((url) => ({
+            url,
+            queued: false,
+            filePath: 'C:\\Users\\melik\\Downloads\\Daha önce.mp4',
+            downloadedAt: Date.now() - 3 * 86_400_000,
+          }))
+        : [],
     host_limit_count: () => (params.has('hosts') ? 3 : 0),
     forget_host_limits: () => null,
     queue_outlook: () => outlook,
