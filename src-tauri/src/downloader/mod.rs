@@ -420,13 +420,21 @@ async fn download_analyzed(
         }
         None => None,
     };
-    let (produced, subtitle) = match subtitle {
-        Some(subtitle) if request.embed_subtitles => {
-            on_update(aggregate.processing(DownloadStage::Finalizing, Some(97.0)));
-            embed_subtitle(task_id, produced, subtitle, &control, temp_dir).await?
-        }
-        subtitle => (produced, subtitle),
-    };
+    on_update(aggregate.processing(DownloadStage::Finalizing, Some(97.0)));
+    // A song was written with its own tags above, and a picture is its own file.
+    let describe = settings.embed_metadata && metadata.music.is_none() && plan.image.is_none();
+    let (produced, subtitle) = embed_extras(
+        task_id,
+        produced,
+        describe.then_some(&metadata),
+        subtitle,
+        request.embed_subtitles,
+        plan.video.is_some(),
+        settings,
+        &control,
+        temp_dir,
+    )
+    .await?;
 
     // Move into place last, so the user's folder never holds a partial file.
     on_update(aggregate.processing(DownloadStage::Finalizing, Some(99.0)));
@@ -816,13 +824,21 @@ async fn fetch_subtitle(
     })
 }
 
-/// Write subtitles into the video, or hand them back to go beside it: where
-/// the container takes none, where there is no FFmpeg, and where the attempt
-/// fails, since a file next to the video is nearly as good.
-async fn embed_subtitle(
+/// Write a file's tags, cover and chapters and, when asked, its subtitles into
+/// it, or hand the subtitles back to go beside it: where the container takes
+/// none, where there is no FFmpeg, and where the attempt fails.
+///
+/// All in one pass, since each is a whole copy of the file. None of it is worth
+/// failing over: anything short of a cancel keeps the file as it is.
+#[allow(clippy::too_many_arguments)]
+async fn embed_extras(
     task_id: &str,
     produced: PathBuf,
-    subtitle: FetchedSubtitle,
+    describe: Option<&MediaMetadata>,
+    subtitle: Option<FetchedSubtitle>,
+    embed_subtitle: bool,
+    has_picture: bool,
+    settings: &Settings,
     control: &Arc<TaskControl>,
     temp_dir: &Path,
 ) -> AppResult<(PathBuf, Option<FetchedSubtitle>)> {
@@ -831,29 +847,95 @@ async fn embed_subtitle(
         .and_then(|extension| extension.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    if ffmpeg::subtitle_codec(&container).is_none() || crate::tools::ffmpeg_path().is_none() {
-        return Ok((produced, Some(subtitle)));
+    let inside = subtitle
+        .as_ref()
+        .filter(|_| embed_subtitle && ffmpeg::subtitle_codec(&container).is_some());
+    if crate::tools::ffmpeg_path().is_none() || (describe.is_none() && inside.is_none()) {
+        return Ok((produced, subtitle));
     }
 
-    let output = ffmpeg::intermediate_path(temp_dir, task_id, "s", &container);
-    let args = ffmpeg::subtitle_args(&produced, &subtitle.path, &output, &subtitle.language);
+    let tags = describe.map(file_tags).unwrap_or_default();
+    let chapters = describe
+        .filter(|metadata| !metadata.file_tags.chapters.is_empty())
+        .and_then(|metadata| {
+            let path = temp_dir.join(format!("{task_id}.chapters"));
+            std::fs::write(&path, ffmpeg::chapter_file(&metadata.file_tags.chapters)).ok()?;
+            Some(path)
+        });
+    let cover = match describe.and_then(|metadata| metadata.thumbnail_url.as_deref()) {
+        Some(url) if ffmpeg::holds_cover(&container) => {
+            fetch_cover(url, &temp_dir.join(format!("{task_id}.cover")), settings).await
+        }
+        _ => None,
+    };
+
+    let output = ffmpeg::intermediate_path(temp_dir, task_id, "x", &container);
+    let args = ffmpeg::embed_args(
+        &produced,
+        &output,
+        &ffmpeg::Embedding {
+            has_picture,
+            tags: &tags,
+            chapters: chapters.as_deref(),
+            cover: cover.as_ref().map(|(path, art)| (path.as_path(), *art)),
+            subtitle: inside.map(|subtitle| (subtitle.path.as_path(), subtitle.language.as_str())),
+        },
+    );
     let mut quiet = |_: ffmpeg::FfmpegProgress| {};
-    match ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut quiet).await {
+    let result = ffmpeg::run_with_progress(&args, None, Arc::clone(control), &mut quiet).await;
+    for path in [chapters, cover.map(|(path, _)| path)].into_iter().flatten() {
+        let _ = std::fs::remove_file(path);
+    }
+
+    match result {
         Ok(()) => {
             let _ = std::fs::remove_file(&produced);
-            let _ = std::fs::remove_file(&subtitle.path);
-            Ok((output, None))
+            match (inside.is_some(), subtitle) {
+                (true, Some(subtitle)) => {
+                    let _ = std::fs::remove_file(&subtitle.path);
+                    Ok((output, None))
+                }
+                (_, subtitle) => Ok((output, subtitle)),
+            }
         }
         Err(AppError::Canceled) => {
             let _ = std::fs::remove_file(&output);
             Err(AppError::Canceled)
         }
         Err(err) => {
-            log_info!("downloader", "task {task_id}: subtitles could not be embedded: {err}");
+            log_info!("downloader", "task {task_id}: nothing could be written into the file: {err}");
             let _ = std::fs::remove_file(&output);
-            Ok((produced, Some(subtitle)))
+            Ok((produced, subtitle))
         }
     }
+}
+
+/// The tags a download is written with. The address goes in as the comment, so
+/// a file can always be traced to where it came from.
+fn file_tags(metadata: &MediaMetadata) -> Vec<(&'static str, String)> {
+    let credits = &metadata.file_tags;
+    let mut tags = vec![
+        ("title", credits.track.clone().unwrap_or_else(|| metadata.title.clone())),
+        ("comment", metadata.canonical_url.clone()),
+    ];
+    if let Some(artist) = credits.artist.as_ref().or(metadata.creator.as_ref()) {
+        tags.push(("artist", artist.clone()));
+    }
+    if let Some(album) = &credits.album {
+        tags.push(("album", album.clone()));
+    }
+    if let Some(description) = &metadata.description {
+        tags.push(("description", description.clone()));
+    }
+    if let Some(day) = metadata.upload_date.as_deref().and_then(dashed_date) {
+        tags.push(("date", day));
+    }
+    tags
+}
+
+/// `20260103` as `2026-01-03`.
+fn dashed_date(raw: &str) -> Option<String> {
+    (raw.len() == 8 && raw.is_ascii()).then(|| format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]))
 }
 
 /// Write a song's tags and cover into the file that was downloaded for it.
@@ -1028,9 +1110,7 @@ fn target_path(
     let date = metadata
         .upload_date
         .as_deref()
-        .and_then(|raw| {
-            (raw.len() == 8).then(|| format!("{}-{}-{}", &raw[0..4], &raw[4..6], &raw[6..8]))
-        })
+        .and_then(dashed_date)
         .unwrap_or_else(|| chrono::Local::now().format("%Y-%m-%d").to_string());
 
     filename::build_output_path(
@@ -1110,6 +1190,31 @@ pub fn platform_of(request: &DownloadRequest) -> PlatformId {
 mod tests {
     use super::*;
     use crate::model::FormatKind;
+
+    #[test]
+    fn a_files_tags_prefer_the_credits_over_the_upload() {
+        let mut metadata = providers::tests_support::blank();
+        metadata.title = "Song (Official Video)".into();
+        metadata.creator = Some("Label".into());
+        metadata.upload_date = Some("20260103".into());
+        metadata.description = Some("About it".into());
+
+        let tags = file_tags(&metadata);
+        assert!(tags.contains(&("title", "Song (Official Video)".to_string())));
+        assert!(tags.contains(&("artist", "Label".to_string())));
+        assert!(tags.contains(&("date", "2026-01-03".to_string())));
+        assert!(tags.contains(&("description", "About it".to_string())));
+        assert!(tags.contains(&("comment", "https://example.test/x".to_string())));
+
+        metadata.file_tags.track = Some("Song".into());
+        metadata.file_tags.artist = Some("Singer".into());
+        metadata.file_tags.album = Some("Album".into());
+        let tags = file_tags(&metadata);
+        assert!(tags.contains(&("title", "Song".to_string())));
+        assert!(tags.contains(&("artist", "Singer".to_string())));
+        assert!(tags.contains(&("album", "Album".to_string())));
+        assert!(!tags.contains(&("artist", "Label".to_string())));
+    }
 
     #[test]
     fn a_list_gathers_in_a_folder_of_its_name() {

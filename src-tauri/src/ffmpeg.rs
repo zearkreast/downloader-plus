@@ -396,43 +396,116 @@ fn subtitle_language_tag(language: &str) -> Option<&'static str> {
     })
 }
 
-/// Copy a video and its sound as they are, with subtitles beside them.
+/// What goes into a finished file alongside its streams.
+#[derive(Default)]
+pub struct Embedding<'a> {
+    /// A picture stream comes first in the file, which decides where a cover
+    /// falls among the streams.
+    pub has_picture: bool,
+    pub tags: &'a [(&'a str, String)],
+    /// A file written by [`chapter_file`].
+    pub chapters: Option<&'a Path>,
+    pub cover: Option<(&'a Path, CoverArt)>,
+    /// The file, and the language it is in.
+    pub subtitle: Option<(&'a Path, &'a str)>,
+}
+
+/// Copy a file's streams as they are, with `extras` added.
 ///
 /// Picture and sound are named rather than taking all of the input, because a
 /// data stream some sources leave in the file is one that MP4 refuses to copy.
-pub fn subtitle_args(input: &Path, subtitle: &Path, output: &Path, language: &str) -> Vec<String> {
+pub fn embed_args(input: &Path, output: &Path, extras: &Embedding<'_>) -> Vec<String> {
     let target = output
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+    let cover = extras.cover.filter(|_| holds_cover(&target));
+    let subtitle = extras.subtitle.filter(|_| subtitle_codec(&target).is_some());
 
     let mut args = base_args();
-    args.extend([
-        "-i".into(),
-        input.to_string_lossy().into_owned(),
-        "-i".into(),
-        subtitle.to_string_lossy().into_owned(),
-        "-map".into(),
-        "0:v?".into(),
-        "-map".into(),
-        "0:a?".into(),
-        "-map".into(),
-        "1:0".into(),
-        "-c".into(),
-        "copy".into(),
-    ]);
-    if let Some(codec) = subtitle_codec(&target) {
-        args.extend(["-c:s".into(), codec.into()]);
+    args.extend(["-i".into(), input.to_string_lossy().into_owned()]);
+    let mut inputs = 1;
+    let mut add_input = |args: &mut Vec<String>, path: &Path| {
+        args.extend(["-i".into(), path.to_string_lossy().into_owned()]);
+        inputs += 1;
+        inputs - 1
+    };
+    let chapters_at = extras.chapters.map(|path| add_input(&mut args, path));
+    let cover_at = cover.map(|(path, _)| add_input(&mut args, path));
+    let subtitle_at = subtitle.map(|(path, _)| add_input(&mut args, path));
+
+    if extras.has_picture {
+        args.extend(["-map".into(), "0:v?".into()]);
     }
-    if let Some(tag) = subtitle_language_tag(language) {
-        args.extend(["-metadata:s:s:0".into(), format!("language={tag}")]);
+    args.extend(["-map".into(), "0:a?".into()]);
+    if let Some(at) = cover_at {
+        args.extend(["-map".into(), format!("{at}:v:0")]);
     }
-    if target == "mp4" {
+    if let Some(at) = subtitle_at {
+        args.extend(["-map".into(), format!("{at}:0")]);
+    }
+    args.extend(["-c".into(), "copy".into()]);
+
+    if let Some((_, art)) = cover {
+        let stream = u32::from(extras.has_picture);
+        if art == CoverArt::Encode {
+            args.extend([format!("-c:v:{stream}"), "mjpeg".into(), format!("-q:v:{stream}"), "2".into()]);
+        }
+        args.extend([format!("-disposition:v:{stream}"), "attached_pic".into()]);
+    }
+    if let Some((_, language)) = subtitle {
+        if let Some(codec) = subtitle_codec(&target) {
+            args.extend(["-c:s".into(), codec.into()]);
+        }
+        if let Some(tag) = subtitle_language_tag(language) {
+            args.extend(["-metadata:s:s:0".into(), format!("language={tag}")]);
+        }
+    }
+
+    args.extend(["-map_metadata".into(), "0".into()]);
+    if let Some(at) = chapters_at {
+        args.extend(["-map_chapters".into(), at.to_string()]);
+    }
+    for (key, value) in extras.tags {
+        if !value.trim().is_empty() {
+            args.extend(["-metadata".into(), format!("{key}={value}")]);
+        }
+    }
+    if target == "mp3" {
+        args.extend(["-id3v2_version".into(), "3".into()]);
+    }
+    if matches!(target.as_str(), "m4a" | "mp4") {
         args.extend(["-movflags".into(), "+faststart".into()]);
     }
     args.push(output.to_string_lossy().into_owned());
     args
+}
+
+/// Chapters in the text form FFmpeg reads metadata from.
+pub fn chapter_file(chapters: &[crate::model::Chapter]) -> String {
+    // The format's own special characters, backslash first.
+    fn escaped(text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        for ch in text.chars() {
+            if matches!(ch, '\\' | '=' | ';' | '#' | '\n') {
+                out.push('\\');
+            }
+            out.push(ch);
+        }
+        out
+    }
+
+    let mut text = String::from(";FFMETADATA1\n");
+    for chapter in chapters {
+        text.push_str(&format!(
+            "[CHAPTER]\nTIMEBASE=1/1000\nSTART={}\nEND={}\ntitle={}\n",
+            (chapter.start_sec * 1000.0).round() as u64,
+            (chapter.end_sec * 1000.0).round() as u64,
+            escaped(&chapter.title),
+        ));
+    }
+    text
 }
 
 fn is_image_target(target: &str) -> bool {
@@ -1742,18 +1815,78 @@ mod tests {
 
     #[test]
     fn subtitles_are_added_to_a_copy_in_the_form_the_container_keeps() {
-        let args = subtitle_args(Path::new("v.mp4"), Path::new("s.srt"), Path::new("o.mp4"), "en-GB");
-        let text = args.join(" ");
+        let with = |language| Embedding {
+            has_picture: true,
+            subtitle: Some((Path::new("s.srt"), language)),
+            ..Embedding::default()
+        };
+        let text = embed_args(Path::new("v.mp4"), Path::new("o.mp4"), &with("en-GB")).join(" ");
         assert!(text.contains("-map 0:v? -map 0:a? -map 1:0 -c copy -c:s mov_text"), "{text}");
         assert!(text.contains("-metadata:s:s:0 language=eng"), "{text}");
         assert!(text.ends_with("-movflags +faststart o.mp4"), "{text}");
 
-        let text = subtitle_args(Path::new("v.webm"), Path::new("s.srt"), Path::new("o.webm"), "xx").join(" ");
+        let text = embed_args(Path::new("v.webm"), Path::new("o.webm"), &with("xx")).join(" ");
         assert!(text.contains("-c:s webvtt"), "{text}");
         assert!(!text.contains("language="), "{text}");
 
+        let text = embed_args(Path::new("v.avi"), Path::new("o.avi"), &with("en")).join(" ");
+        assert!(!text.contains("s.srt"), "this container takes none: {text}");
+
         assert_eq!(subtitle_codec("mkv"), Some("srt"));
         assert_eq!(subtitle_codec("avi"), None);
+    }
+
+    #[test]
+    fn a_cover_falls_after_the_picture_and_is_only_for_a_file_that_takes_one() {
+        let tags = [("title", "Başlık".to_string()), ("album", "  ".to_string())];
+        let sound = Embedding {
+            tags: &tags,
+            cover: Some((Path::new("c.jpg"), CoverArt::Copy)),
+            ..Embedding::default()
+        };
+        let text = embed_args(Path::new("a.m4a"), Path::new("o.m4a"), &sound).join(" ");
+        assert!(text.contains("-i a.m4a -i c.jpg -map 0:a? -map 1:v:0 -c copy -disposition:v:0 attached_pic"), "{text}");
+        assert!(text.contains("-map_metadata 0 -metadata title=Başlık -movflags"), "{text}");
+        assert!(!text.contains("album"), "{text}");
+
+        let film = Embedding {
+            has_picture: true,
+            cover: Some((Path::new("c.webp"), CoverArt::Encode)),
+            ..Embedding::default()
+        };
+        let text = embed_args(Path::new("v.mp4"), Path::new("o.mp4"), &film).join(" ");
+        assert!(text.contains("-map 0:v? -map 0:a? -map 1:v:0 -c copy -c:v:1 mjpeg -q:v:1 2 -disposition:v:1 attached_pic"), "{text}");
+
+        let text = embed_args(Path::new("v.webm"), Path::new("o.webm"), &film).join(" ");
+        assert!(!text.contains("c.webp"), "{text}");
+    }
+
+    #[test]
+    fn every_extra_finds_its_own_input() {
+        let all = Embedding {
+            has_picture: true,
+            chapters: Some(Path::new("c.txt")),
+            cover: Some((Path::new("c.jpg"), CoverArt::Copy)),
+            subtitle: Some((Path::new("s.srt"), "tr")),
+            ..Embedding::default()
+        };
+        let text = embed_args(Path::new("v.mp4"), Path::new("o.mp4"), &all).join(" ");
+        assert!(text.contains("-i v.mp4 -i c.txt -i c.jpg -i s.srt"), "{text}");
+        assert!(text.contains("-map 2:v:0 -map 3:0"), "{text}");
+        assert!(text.contains("-map_chapters 1"), "{text}");
+    }
+
+    #[test]
+    fn chapters_are_written_in_milliseconds_with_their_titles_escaped() {
+        let text = chapter_file(&[crate::model::Chapter {
+            start_sec: 1.5,
+            end_sec: 90.0,
+            title: "Part #1; a=b".into(),
+        }]);
+        assert_eq!(
+            text,
+            ";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=1500\nEND=90000\ntitle=Part \\#1\\; a\\=b\n"
+        );
     }
 
     fn args_for(target: &str, copy_only: bool, hw: bool) -> Vec<String> {

@@ -312,6 +312,9 @@ export const tr: Record<TranslationKey, string> = {
   'settings.connections': 'İndirme başına bağlantı',
   'settings.connectionsHint':
     'Sunucu izin verirse büyük dosyalar parçalara bölünüp aynı anda indirilir. Daha çok bağlantı genelde daha hızlıdır.',
+  'settings.embedMetadata': 'Bilgileri dosyaya yaz',
+  'settings.embedMetadataHint':
+    'Başlık, kanal, bölümler ve biçim izin veriyorsa kapak eklenir. FFmpeg gerekir.',
   'settings.autoRetry': 'Otomatik yeniden deneme',
   'settings.autoRetryHint':
     'Başarısız bir indirme vazgeçilmeden önce kaç kez tekrar denensin.',

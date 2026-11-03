@@ -22,8 +22,8 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 use crate::model::{
-    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, SubtitleTrack, TrackSummary,
-    WatermarkSupport,
+    Chapter, FileTags, FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext, SubtitleTrack,
+    TrackSummary, WatermarkSupport,
 };
 use crate::providers::{self, captured, detect};
 use crate::settings::Settings;
@@ -874,6 +874,7 @@ fn listed(requested_url: &str, canonical_url: &str) -> MediaMetadata {
         listing: false,
         list_url: None,
         subtitles: Vec::new(),
+        file_tags: Default::default(),
     }
 }
 
@@ -1001,7 +1002,42 @@ pub fn parse_metadata(node: &Value, requested_url: &str) -> AppResult<MediaMetad
         listing: false,
         list_url: None,
         subtitles: parse_subtitles(node),
+        file_tags: parse_file_tags(node),
     })
+}
+
+/// What the engine says of a recording beyond its title. Only music sources
+/// fill the first three, and only some videos have chapters.
+fn parse_file_tags(node: &Value) -> FileTags {
+    let text = |key: &str| {
+        node.get(key)
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string)
+    };
+    let artists = node
+        .get("artists")
+        .and_then(Value::as_array)
+        .map(|names| names.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "))
+        .filter(|names| !names.is_empty());
+
+    FileTags {
+        artist: artists.or_else(|| text("artist")),
+        album: text("album"),
+        track: text("track"),
+        chapters: node
+            .get("chapters")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|chapter| {
+                let start_sec = chapter.get("start_time").and_then(Value::as_f64)?;
+                let end_sec = chapter.get("end_time").and_then(Value::as_f64)?;
+                let title = chapter.get("title").and_then(Value::as_str).unwrap_or_default().to_string();
+                (end_sec > start_sec).then_some(Chapter { start_sec, end_sec, title })
+            })
+            .collect(),
+    }
 }
 
 /// The subtitles a video offers, people's ahead of machines'. Where both exist
@@ -2300,6 +2336,35 @@ mod tests {
             vec![
                 SubtitleTrack { language: "tr".into(), name: Some("Türkçe".into()), automatic: false },
                 SubtitleTrack { language: "en-orig".into(), name: Some("English (Original)".into()), automatic: true },
+            ]
+        );
+    }
+
+    #[test]
+    fn a_recordings_credits_and_chapters_are_kept_for_the_file() {
+        let video = serde_json::json!({
+            "title": "Song (Official Video)",
+            "track": "Song",
+            "artists": ["One", "Two"],
+            "artist": "ignored",
+            "album": "Album",
+            "formats": [{ "format_id": "18", "url": "https://cdn.test/v.mp4", "ext": "mp4",
+                          "vcodec": "avc1", "acodec": "mp4a", "height": 360 }],
+            "chapters": [
+                { "start_time": 0, "end_time": 5, "title": "Intro" },
+                { "start_time": 5, "end_time": 5, "title": "Nothing" },
+                { "start_time": 5, "end_time": 17.5, "title": "The cool thing" },
+            ],
+        });
+        let tags = parse_result(&video, "https://www.youtube.com/watch?v=a").unwrap().file_tags;
+        assert_eq!(tags.artist.as_deref(), Some("One, Two"));
+        assert_eq!(tags.album.as_deref(), Some("Album"));
+        assert_eq!(tags.track.as_deref(), Some("Song"));
+        assert_eq!(
+            tags.chapters,
+            vec![
+                Chapter { start_sec: 0.0, end_sec: 5.0, title: "Intro".into() },
+                Chapter { start_sec: 5.0, end_sec: 17.5, title: "The cool thing".into() },
             ]
         );
     }

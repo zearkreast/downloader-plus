@@ -552,6 +552,13 @@ function DownloadsSection({ settings, update }: { settings: Settings; update: Up
           }
         />
 
+        <ToggleRow
+          title={t('settings.embedMetadata')}
+          description={t('settings.embedMetadataHint')}
+          checked={settings.embedMetadata}
+          onChange={(checked) => void update({ embedMetadata: checked })}
+        />
+
         <SettingRow
           title={t('settings.autoRetry')}
           description={t('settings.autoRetryHint')}

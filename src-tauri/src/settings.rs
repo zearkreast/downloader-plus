@@ -74,6 +74,9 @@ pub struct Settings {
     /// before this existed still loads.
     #[serde(default = "default_connections")]
     pub connections_per_download: u32,
+    /// Write tags, a cover and chapters into a finished file.
+    #[serde(default = "default_true")]
+    pub embed_metadata: bool,
 
     // Appearance
     pub theme: ThemePreference,
@@ -138,6 +141,7 @@ impl Default for Settings {
             auto_retry_count: 2,
             filename_template: DEFAULT_FILENAME_TEMPLATE.to_string(),
             connections_per_download: default_connections(),
+            embed_metadata: default_true(),
 
             // A phone opens in the phone's own theme, so a light phone's first
             // run is not a dark film. The desktop keeps the dark it has had.
@@ -221,6 +225,10 @@ fn default_browser_link() -> bool {
 /// lines, few enough that hosts rarely object.
 fn default_connections() -> u32 {
     8
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn normalize_optional(value: &mut Option<String>) {

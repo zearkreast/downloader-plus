@@ -220,6 +220,26 @@ pub struct MediaMetadata {
     /// The subtitles it offers.
     #[serde(default)]
     pub subtitles: Vec<SubtitleTrack>,
+    /// What the source says of it for the finished file to carry.
+    #[serde(skip)]
+    pub file_tags: FileTags,
+}
+
+/// A recording's credits and chapters, as the source gives them.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FileTags {
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    /// The song's own name, where the title is that of the upload.
+    pub track: Option<String>,
+    pub chapters: Vec<Chapter>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chapter {
+    pub start_sec: f64,
+    pub end_sec: f64,
+    pub title: String,
 }
 
 impl MediaMetadata {

@@ -317,6 +317,9 @@ export const en = {
   'settings.connections': 'Connections per download',
   'settings.connectionsHint':
     'Large files are split into pieces fetched in parallel when the host allows it. More connections are usually faster.',
+  'settings.embedMetadata': 'Write details into the file',
+  'settings.embedMetadataHint':
+    'Adds the title, creator, chapters and, where the format allows, a cover. Needs FFmpeg.',
   'settings.autoRetry': 'Automatic retries',
   'settings.autoRetryHint': 'Retry a failed download this many times before giving up.',
   'settings.filenameTemplate': 'File name template',

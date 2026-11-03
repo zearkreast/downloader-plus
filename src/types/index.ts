@@ -651,6 +651,8 @@ export interface Settings {
   filenameTemplate: string;
   /** Connections one download may open on a host that allows splitting. */
   connectionsPerDownload: number;
+  /** Write tags, a cover and chapters into a finished file. */
+  embedMetadata: boolean;
 
   // Appearance
   theme: ThemePreference;

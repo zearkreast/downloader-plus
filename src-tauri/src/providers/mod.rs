@@ -554,6 +554,7 @@ pub(crate) mod tests_support {
             listing: false,
             list_url: None,
             subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 }
@@ -609,6 +610,7 @@ mod tests {
             listing: false,
             list_url: None,
             subtitles: Vec::new(),
+            file_tags: Default::default(),
         }
     }
 

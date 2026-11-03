@@ -76,6 +76,7 @@
     autoRetryCount: 2,
     filenameTemplate: '{creator} - {title}',
     connectionsPerDownload: 8,
+    embedMetadata: true,
     theme: params.get('theme') ?? 'dark',
     language: params.get('lang') ?? 'tr',
     reduceMotion: false,
