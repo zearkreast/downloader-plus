@@ -470,14 +470,11 @@ function xmlAttr(tag, name) {
   return match ? match[1] : null;
 }
 
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+// In one pass: decoding &amp; first would turn "&amp;lt;" into "<".
 function xmlText(value) {
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .trim();
+  return value.replace(/&(amp|lt|gt|quot|apos);/g, (_, name) => XML_ENTITIES[name]).trim();
 }
 
 // Smooth Streaming: the same three facts, in Microsoft's spelling. Duration is
@@ -613,9 +610,10 @@ export function cleanTitle(value) {
 
 // "Clip | Facebook", and Vimeo's own "Concert on Vimeo".
 function stripSiteName(title, site) {
-  if (!site) return title;
-  const escaped = site.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return title.replace(new RegExp(`\\s+(?:[-|•·–—/]|on)\\s+${escaped}$`, 'i'), '').trim();
+  if (!site || title.slice(-site.length).toLowerCase() !== site.toLowerCase()) return title.trim();
+  const before = title.slice(0, title.length - site.length);
+  const separator = /\s+(?:[-|•·–—/]|on)\s+$/i.exec(before);
+  return (separator ? before.slice(0, separator.index) : title).trim();
 }
 
 // Whether the page's og: tags still describe the page. They do when there is

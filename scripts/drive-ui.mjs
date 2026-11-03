@@ -73,10 +73,19 @@ async function evaluate(socket, expression) {
  * of the sidebar's "Downloads", and the loose form will match that instead.
  * Anything without a `text` prefix is treated as a CSS selector.
  */
+/** A string as a JavaScript literal, with nothing in it that could end the
+ * string or the code around it. */
+function literal(value) {
+  return JSON.stringify(value).replace(
+    /[<>/\u2028\u2029]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
 function locatorExpression(locator) {
   const strict = locator.startsWith('text==');
   if (strict || locator.startsWith('text=')) {
-    const needle = JSON.stringify(locator.slice(strict ? 6 : 5));
+    const needle = literal(locator.slice(strict ? 6 : 5));
     return `(() => {
       const needle = ${needle};
       const nodes = [...document.querySelectorAll('button, a, [role="option"], [role="radio"], label')];
@@ -86,9 +95,10 @@ function locatorExpression(locator) {
       return match;
     })()`;
   }
+  const selector = literal(locator);
   return `(() => {
-    const match = document.querySelector(${JSON.stringify(locator)});
-    if (!match) throw new Error('no element matching ${locator}');
+    const match = document.querySelector(${selector});
+    if (!match) throw new Error('no element matching ' + ${selector});
     return match;
   })()`;
 }
