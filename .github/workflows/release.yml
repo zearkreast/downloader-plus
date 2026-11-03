@@ -50,16 +50,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref_name == github.event.repository.default_branch
     steps:
-      # Before an hour of builds rather than after them.
+      # Before an hour of builds rather than after them. The key's alias and
+      # its own password may be left out; see the Android job.
       - name: The Android signing secrets are set
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           missing=()
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD; do
             [ -n "${!name}" ] || missing+=("$name")
           done
           if [ ${#missing[@]} -gt 0 ]; then
@@ -154,6 +153,11 @@ jobs:
       # The Gradle build signs from keystore.properties (see
       # src-tauri/gen/android/app/build.gradle.kts). Without it the APKs come
       # out unsigned, and an unsigned APK neither installs nor updates.
+      #
+      # A JKS or a PKCS12 file (.p12 or .pfx, as Windows exports one) both
+      # do. Without ANDROID_KEY_ALIAS the alias is read from the keystore,
+      # which must then hold exactly one key. Without ANDROID_KEY_PASSWORD the
+      # key's password is the keystore's, which a PKCS12 file always has.
       - name: Put the signing key in place
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -162,12 +166,32 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           keystore="$RUNNER_TEMP/release.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          # Pasted text may carry line breaks or spaces; base64 has neither.
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d ' \r\n' | base64 --decode > "$keystore"
+
+          if ! keytool -list -keystore "$keystore" -storepass:env ANDROID_KEYSTORE_PASSWORD > /dev/null 2>&1; then
+            echo "::error::The keystore does not open with ANDROID_KEYSTORE_PASSWORD, or ANDROID_KEYSTORE_BASE64 is not a whole keystore."
+            exit 1
+          fi
+
+          alias="$ANDROID_KEY_ALIAS"
+          if [ -z "$alias" ]; then
+            alias=$(keytool -list -keystore "$keystore" -storepass:env ANDROID_KEYSTORE_PASSWORD \
+              | awk -F', ' '/PrivateKeyEntry/ {print $1}')
+            if [ "$(printf '%s' "$alias" | grep -c .)" != 1 ]; then
+              echo "::error::The keystore holds more than one key, or none. Set ANDROID_KEY_ALIAS to the one to sign with."
+              exit 1
+            fi
+            echo "Signing with the keystore's only key, \"$alias\"."
+          fi
+
+          # A properties file reads a backslash as the start of an escape.
+          escape() { printf '%s' "${1//\\/\\\\}"; }
           {
             echo "storeFile=$keystore"
-            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
-            echo "keyAlias=$ANDROID_KEY_ALIAS"
-            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+            echo "storePassword=$(escape "$ANDROID_KEYSTORE_PASSWORD")"
+            echo "keyAlias=$(escape "$alias")"
+            echo "keyPassword=$(escape "${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}")"
           } > src-tauri/gen/android/keystore.properties
 
       # The wrapper was committed from Windows without its executable bit.

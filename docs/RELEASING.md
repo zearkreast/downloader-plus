@@ -43,39 +43,66 @@ release (`GITHUB_TOKEN`) by itself.
 Add them under **Settings → Secrets and variables → Actions → New repository
 secret**:
 
-| Secret | What it is |
-| --- | --- |
-| `ANDROID_KEYSTORE_BASE64` | The release keystore file, base64-encoded on one line |
-| `ANDROID_KEYSTORE_PASSWORD` | The keystore's password |
-| `ANDROID_KEY_ALIAS` | The key's alias in the keystore |
-| `ANDROID_KEY_PASSWORD` | The key's password; the same as the keystore's for a PKCS12 keystore |
+| Secret | Needed | What it is |
+| --- | --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | yes | The keystore file (JKS, or PKCS12 as `.p12` or `.pfx`), base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | yes | The keystore's password |
+| `ANDROID_KEY_ALIAS` | no | The key to sign with. Left out, the keystore's only key is used |
+| `ANDROID_KEY_PASSWORD` | no | The key's own password. Left out, the keystore's is used, as it always is for PKCS12 |
 
-### Making the keystore
-
-Do this once and keep the file somewhere safe and backed up. Every APK has to
-be signed with the same key. Android installs an update only when its
-signature matches the installed copy's. A lost key means everyone has to
-uninstall the app and lose their settings and history.
+Keep the keystore file and its password somewhere safe and backed up. Every
+APK has to be signed with the same key, because Android installs an update
+only when its signature matches the installed copy's. A lost key means
+everyone has to uninstall the app and lose their settings and history.
 
 If you already sign APKs by hand with `keystore.properties`, use that keystore
-instead of making a new one.
+rather than making a new one.
+
+Use only English letters and digits in the password. The build reads it from a
+Java properties file, which takes the file as Latin-1, so letters such as ş or
+ı would arrive as something else.
+
+### Making the keystore on Windows, with nothing to install
+
+PowerShell can make the key and export it. Run these one at a time in a normal
+PowerShell window; it does not need to be run as administrator.
+
+```powershell
+$cert = New-SelfSignedCertificate -Subject "CN=UMD Plus" -KeyAlgorithm RSA -KeyLength 4096 -HashAlgorithm SHA256 -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(30) -CertStoreLocation Cert:\CurrentUser\My
+```
+
+```powershell
+$password = Read-Host "Keystore password (English letters and digits)"
+```
+
+```powershell
+$file = Join-Path ([Environment]::GetFolderPath("Desktop")) "umd-plus-release.pfx"
+Export-PfxCertificate -Cert $cert -FilePath $file -Password (ConvertTo-SecureString $password -AsPlainText -Force)
+```
+
+```powershell
+Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -DeleteKey
+```
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes($file)) | Set-Clipboard
+```
+
+The third command writes `umd-plus-release.pfx` to the desktop: that file is
+the keystore, so keep it. The fourth removes the copy Windows kept in its own
+certificate store. The last puts the base64 text on the clipboard: paste it as
+`ANDROID_KEYSTORE_BASE64`, and the password as `ANDROID_KEYSTORE_PASSWORD`.
+The other two secrets are not needed.
+
+### Making the keystore with a JDK
 
 `keytool` comes with any JDK. Android Studio has one in `jbr\bin`.
 
 ```bash
-keytool -genkeypair -v \
-  -keystore umd-plus-release.jks -storetype PKCS12 \
-  -alias umd-plus -keyalg RSA -keysize 4096 -validity 10000
+keytool -genkeypair -v -keystore umd-plus-release.jks -storetype PKCS12 -alias umd-plus -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-It asks for a password and a name. The name can be anything.
-`ANDROID_KEY_ALIAS` is then `umd-plus`, and both password secrets are the
-password you typed.
-
-Avoid backslashes in the password. The build reads it from a Java properties
-file, where a backslash starts an escape.
-
-### Encoding it
+Then encode it.
 
 Linux:
 
@@ -95,17 +122,13 @@ Windows (PowerShell):
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("umd-plus-release.jks")) | Set-Content -NoNewline keystore.b64
 ```
 
-Paste the contents of `keystore.b64` as `ANDROID_KEYSTORE_BASE64`. With the
-GitHub CLI you can set all four from a terminal instead:
+Paste the contents of `keystore.b64` as `ANDROID_KEYSTORE_BASE64`, then delete
+`keystore.b64`. With the GitHub CLI:
 
 ```bash
 gh secret set ANDROID_KEYSTORE_BASE64 < keystore.b64
 gh secret set ANDROID_KEYSTORE_PASSWORD
-gh secret set ANDROID_KEY_ALIAS --body umd-plus
-gh secret set ANDROID_KEY_PASSWORD
 ```
-
-Delete `keystore.b64` afterwards.
 
 ## Repository settings
 
