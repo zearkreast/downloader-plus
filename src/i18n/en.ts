@@ -323,7 +323,7 @@ export const en = {
   'settings.hotkeys': 'Shortcuts',
   'settings.placeShortcuts': 'Go to a section',
   'settings.placeShortcutsHint': 'Ctrl+1 to Ctrl+7 open the sidebar’s sections, top to bottom. A shortcut recorded above for the same keys comes first.',
-  'settings.generalSummary': 'Clipboard, notifications',
+  'settings.generalSummary': 'Clipboard, notifications, updates',
   'settings.downloadsSummary': 'Folder, quality, simultaneous downloads',
   'settings.connectionSummary': 'Browser extension and sign-ins',
   'settings.appearanceSummary': 'Theme, language, motion',
@@ -340,6 +340,11 @@ export const en = {
     'Closing the window does not quit; downloads keep running in the background.',
   'settings.clipboard': 'Clipboard monitoring',
   'settings.clipboardHint': 'Offer to analyze media links you copy elsewhere.',
+  'settings.autoUpdate': 'Update automatically',
+  'settings.autoUpdateHint':
+    'A new version downloads in the background and installs when nothing is running, then the app reopens. When off, update from the About page.',
+  'settings.autoUpdateHintMobile':
+    'When the app opens, it asks if a new version is out. When off, check from the About page.',
   'settings.notifications': 'Notifications',
   'settings.notificationsHint': 'Show a system notification when downloads finish.',
   'settings.notifyComplete': 'Notify on completion',

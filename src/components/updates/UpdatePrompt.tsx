@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/Progress';
 import { useTranslation } from '@/i18n';
 import { formatBytes, formatDate } from '@/lib/format';
 import * as ipc from '@/services/ipc';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useUpdateStore } from '@/stores/useUpdateStore';
 
 /**
@@ -16,7 +17,8 @@ import { useUpdateStore } from '@/stores/useUpdateStore';
 const RECHECK_AFTER_MS = 30 * 60 * 1000;
 
 /**
- * Looks for a newer build each time the phone app is opened, and offers it.
+ * Looks for a newer build each time the phone app is opened, and offers it;
+ * with automatic updates off, only when the About page's check finds one.
  *
  * Nothing is shown while the check runs or when it finds nothing -- the app
  * simply carries on -- so the only visible trace of a check is an update.
@@ -30,8 +32,10 @@ export function UpdatePrompt() {
   const error = useUpdateStore((state) => state.error);
   const install = useUpdateStore((state) => state.install);
   const postpone = useUpdateStore((state) => state.postpone);
+  const autoUpdate = useSettingsStore((state) => state.settings?.autoUpdate);
 
   useEffect(() => {
+    if (autoUpdate !== true) return;
     const { check } = useUpdateStore.getState();
     void check();
 
@@ -41,12 +45,13 @@ export function UpdatePrompt() {
       if (Date.now() - state.lastCheckedAt >= RECHECK_AFTER_MS) void state.check();
     };
     document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [autoUpdate]);
 
+  // Whoever asked for the download, the bar follows it.
+  useEffect(() => {
     const unlisten = ipc.onUpdateProgress((value) => useUpdateStore.getState().setProgress(value));
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      void unlisten.then((off) => off());
-    };
+    return () => void unlisten.then((off) => off());
   }, []);
 
   if (!update) return null;

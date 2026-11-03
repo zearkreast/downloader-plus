@@ -9,8 +9,9 @@ import { useAnalysisStore } from '@/stores/useAnalysisStore';
 import { selectConvertInFlight, useConvertStore } from '@/stores/useConvertStore';
 import { selectEditing, useEditorStore } from '@/stores/useEditorStore';
 import { selectInFlightCount, useQueueStore } from '@/stores/useQueueStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useToolsStore } from '@/stores/useToolsStore';
-import { useUpdateStore } from '@/stores/useUpdateStore';
+import { selectInstallsItself, useUpdateStore } from '@/stores/useUpdateStore';
 
 /**
  * The desktop app can sit in the tray for days, so a launch is not the only
@@ -30,7 +31,9 @@ async function checkAndStage() {
 }
 
 /**
- * Keeps the desktop app current without asking.
+ * Keeps the desktop app current without asking, unless the user turned that
+ * off: then a build is fetched and installed only once they press Update on
+ * the About page.
  *
  * A newer build is downloaded in the background with nothing on screen, and
  * installed at the first moment that interrupts nobody: no download or
@@ -41,7 +44,9 @@ async function checkAndStage() {
 export function DesktopUpdater() {
   const { t } = useTranslation();
   const phase = useUpdateStore((state) => state.phase);
-  const stalled = useUpdateStore((state) => state.stalled);
+  // Undefined until the settings have loaded, which looks for nothing yet.
+  const autoUpdate = useSettingsStore((state) => state.settings?.autoUpdate);
+  const installsItself = useUpdateStore((state) => selectInstallsItself(state, autoUpdate));
   // A list that has not loaded yet is not an empty one: the queue restores
   // itself at launch, which is also when a staged update is first looked at.
   const queueQuiet = useQueueStore(
@@ -67,7 +72,7 @@ export function DesktopUpdater() {
   useEffect(() => {
     // The phone asks first (see `UpdatePrompt`); installing unasked there
     // would throw the system installer at the user out of nowhere.
-    if (IS_MOBILE) return;
+    if (IS_MOBILE || autoUpdate !== true) return;
     void checkAndStage();
 
     const onReturn = () => {
@@ -82,7 +87,7 @@ export function DesktopUpdater() {
       document.removeEventListener('visibilitychange', onReturn);
       window.removeEventListener('focus', onReturn);
     };
-  }, []);
+  }, [autoUpdate]);
 
   // The editor's clips and their cuts live only in memory, and an export or a
   // ranged fetch is a job the window is showing progress for: installing
@@ -103,7 +108,7 @@ export function DesktopUpdater() {
   // Work in flight on any of these screens is deferred, not lost: the next
   // launch starts with an empty store and installs then.
   const idle = queueQuiet && convertQuiet && homeQuiet && toolsQuiet && editorQuiet && nothingAfter;
-  const due = phase === 'ready' && !stalled && idle;
+  const due = installsItself && idle;
 
   // Work that starts while the notice is up takes the turn back.
   useEffect(() => {
