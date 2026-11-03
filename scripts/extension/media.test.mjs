@@ -18,6 +18,7 @@ import {
   UNLISTED_SITES,
   classify,
   cleanTitle,
+  contextPayload,
   dedupeKey,
   formatDuration,
   formatEstimate,
@@ -874,6 +875,36 @@ describe('payload, titles and formats', () => {
     assert.equal(formatDuration(65), '1:05');
     assert.equal(formatDuration(3723), '1:02:03');
     assert.equal(formatDuration(0), '');
+  });
+
+  test('a right click sends what it points at', () => {
+    const page = 'https://blog.example/post/7';
+    const tab = { url: page, title: 'A post' };
+
+    assert.deepEqual(contextPayload({ menuItemId: 'send-link', linkUrl: 'https://vimeo.com/1', pageUrl: page }, tab), {
+      url: 'https://vimeo.com/1',
+      kind: 'page',
+      pageUrl: page,
+      referer: page,
+    });
+
+    const video = { menuItemId: 'send-media', srcUrl: 'https://cdn.example/a.mp4', mediaType: 'video', pageUrl: page };
+    assert.deepEqual(contextPayload(video, tab), {
+      url: 'https://cdn.example/a.mp4',
+      kind: 'video',
+      title: 'A post',
+      pageUrl: page,
+      referer: page,
+    });
+
+    // A player's own address is no use to anyone else, so the page goes.
+    const blob = { menuItemId: 'send-media', srcUrl: 'blob:https://blog.example/1', mediaType: 'video', pageUrl: page };
+    assert.equal(contextPayload(blob, tab).url, page);
+    assert.equal(contextPayload(blob, tab).kind, 'page');
+
+    assert.equal(contextPayload({ menuItemId: 'send-page' }, tab).url, page);
+    assert.equal(contextPayload({ menuItemId: 'send-page' }, { url: 'chrome://settings' }), null);
+    assert.equal(contextPayload({ menuItemId: 'send-page' }, undefined), null);
   });
 
   test("PROTECTED mirrors the app's list in detect.rs", () => {

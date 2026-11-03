@@ -4,6 +4,11 @@
     "message": "Tarayıcınızda oynayan videoları bu bilgisayardaki Universal Media Downloader+ uygulamasına gönderir."
   },
 
+  "menuSendLink": { "message": "Bu bağlantıyı UMD+ ile indir" },
+  "menuSendMedia": { "message": "Bunu UMD+ ile indir" },
+  "menuSendPage": { "message": "Bu sayfayı UMD+'ya gönder" },
+  "commandSendPage": { "message": "Bu sayfayı UMD+'ya gönder" },
+
   "popupTitle": { "message": "Bu sayfada" },
   "btnDownload": { "message": "İndir" },
   "btnSent": { "message": "Gönderildi" },

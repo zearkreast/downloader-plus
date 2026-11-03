@@ -684,6 +684,23 @@ export function toPayload(raw) {
   return out;
 }
 
+/**
+ * What a right click asks the app for: the media under the pointer by its own
+ * address, or a link, or else the page. A player's `blob:` address means
+ * nothing outside its page, so the page stands in for it.
+ */
+export function contextPayload(info, tab) {
+  const pageUrl = [info?.pageUrl, tab?.url].find(isHttpUrl);
+  const around = { pageUrl, referer: pageUrl };
+  if (info?.menuItemId === 'send-link' && isHttpUrl(info.linkUrl)) {
+    return toPayload({ ...around, url: info.linkUrl, kind: 'page' });
+  }
+  if (info?.menuItemId === 'send-media' && isHttpUrl(info.srcUrl)) {
+    return toPayload({ ...around, url: info.srcUrl, kind: info.mediaType, title: tab?.title });
+  }
+  return pageUrl ? toPayload({ ...around, url: pageUrl, kind: 'page', title: tab?.title }) : null;
+}
+
 function num(value) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 }
