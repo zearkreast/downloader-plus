@@ -409,6 +409,7 @@ pub async fn fetch(
         .truncate(false)
         .open(&part_path)?;
     file.set_len(total)?;
+    let syncer = Arc::new(file.try_clone()?);
 
     let board = Mutex::new(Board::new(segments));
     let shared = Shared {
@@ -444,6 +445,7 @@ pub async fn fetch(
     let mut ticker = tokio::time::interval(REPORT_INTERVAL);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut last_saved = Instant::now();
+    let mut saving: Option<tokio::task::JoinHandle<()>> = None;
     let mut failure: Option<AppError> = None;
 
     loop {
@@ -470,17 +472,29 @@ pub async fn fetch(
                 reported = received;
                 emit(on_progress, &tracker, total, map);
 
-                if last_saved.elapsed() >= SAVE_INTERVAL {
+                if last_saved.elapsed() >= SAVE_INTERVAL && saving.as_ref().is_none_or(|job| job.is_finished()) {
+                    // Off this task, which drives every connection: a flush can
+                    // take a hard disk most of a second, and not one of them
+                    // would read a byte meanwhile. Everything this records was
+                    // written before the flush begins, so the flush covers it.
                     let segments = shared.board().segments();
-                    if file.sync_data().is_ok() {
-                        let _ = save_state(&state_path, total, probe.validator.as_deref(), &segments);
-                    }
+                    let (file, path, validator) = (Arc::clone(&syncer), state_path.clone(), probe.validator.clone());
+                    saving = Some(tokio::task::spawn_blocking(move || {
+                        if file.sync_data().is_ok() {
+                            let _ = save_state(&path, total, validator.as_deref(), &segments);
+                        }
+                    }));
                     last_saved = Instant::now();
                 }
             }
         }
     }
     drop(workers);
+    // An older record must not land on top of the last one, nor bring back
+    // the one a finished download removes.
+    if let Some(job) = saving.take() {
+        let _ = job.await;
+    }
 
     // Every connection refused says nothing about how many the host takes:
     // that is a network going down as often as a host saying no.

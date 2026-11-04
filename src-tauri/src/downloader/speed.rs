@@ -3,20 +3,55 @@
 //! A raw "bytes since last tick" figure swings wildly -- TCP delivers in bursts,
 //! and at a 100 ms sampling interval the number visibly flickers. Everything the
 //! user sees comes from an exponential moving average over fixed-length windows,
-//! which settles quickly on a change of pace without jittering on a steady one.
+//! which settles on a change of pace within seconds without jittering on a
+//! steady one.
 
 use std::time::{Duration, Instant};
 
-/// How much weight a new sample carries. Low enough to be steady, high enough
-/// that throttling or a resumed connection shows up within about a second.
-const ALPHA: f64 = 0.22;
+/// How long the average remembers. A home line can stop dead for a few seconds
+/// (measured 2026-11-04: plain single-connection reads stalled for up to four),
+/// and a readout that fell to zero each time read as a download lurching along;
+/// a change that lasts still shows within seconds.
+const MEMORY: Duration = Duration::from_secs(3);
 
 /// Samples shorter than this are folded into the next one, so a burst of small
 /// chunks cannot produce an absurd instantaneous rate.
 const WINDOW: Duration = Duration::from_millis(400);
 
+/// A rate averaged over [`MEMORY`], from readings that come at any pace: each
+/// weighs as much as the time it covers. Until that much time has gone by the
+/// average is over what there is, so a new download's readout does not climb
+/// slowly from zero; readings of nothing before the first data are no part of
+/// it, as a connection's first moments bring none.
+#[derive(Debug, Default, Clone)]
+struct SmoothedRate {
+    sum: f64,
+    weight: f64,
+}
+
+impl SmoothedRate {
+    /// A reading of `bps` that held for `over`.
+    fn push(&mut self, bps: f64, over: Duration) {
+        let bps = if bps.is_finite() { bps.max(0.0) } else { 0.0 };
+        if self.weight == 0.0 && bps == 0.0 {
+            return;
+        }
+        let fresh = 1.0 - (-over.as_secs_f64() / MEMORY.as_secs_f64()).exp();
+        self.sum = fresh * bps + (1.0 - fresh) * self.sum;
+        self.weight = fresh + (1.0 - fresh) * self.weight;
+    }
+
+    fn bps(&self) -> f64 {
+        if self.weight > 0.0 {
+            self.sum / self.weight
+        } else {
+            0.0
+        }
+    }
+}
+
 pub struct SpeedTracker {
-    smoothed_bps: f64,
+    smoothed: SmoothedRate,
     window_bytes: u64,
     window_start: Instant,
     started: Instant,
@@ -30,7 +65,7 @@ impl SpeedTracker {
     pub fn new(baseline_bytes: u64) -> Self {
         let now = Instant::now();
         Self {
-            smoothed_bps: 0.0,
+            smoothed: SmoothedRate::default(),
             window_bytes: 0,
             window_start: now,
             started: now,
@@ -42,41 +77,43 @@ impl SpeedTracker {
     /// Record freshly received bytes. Returns true when a window closed, which
     /// is the signal to emit a progress update.
     pub fn record(&mut self, bytes: u64) -> bool {
+        self.record_at(bytes, Instant::now())
+    }
+
+    pub(crate) fn record_at(&mut self, bytes: u64, now: Instant) -> bool {
         self.total_bytes += bytes;
         self.window_bytes += bytes;
 
-        let elapsed = self.window_start.elapsed();
+        let elapsed = now.saturating_duration_since(self.window_start);
         if elapsed < WINDOW {
             return false;
         }
 
         let instant_bps = self.window_bytes as f64 / elapsed.as_secs_f64();
-        self.smoothed_bps = if self.smoothed_bps <= 0.0 {
-            instant_bps
-        } else {
-            ALPHA * instant_bps + (1.0 - ALPHA) * self.smoothed_bps
-        };
+        self.smoothed.push(instant_bps, elapsed);
 
         self.window_bytes = 0;
-        self.window_start = Instant::now();
+        self.window_start = now;
         true
     }
 
     /// Called when a transfer stalls, so the readout decays toward zero rather
     /// than freezing at the last healthy rate.
     pub fn decay(&mut self) {
-        if self.window_start.elapsed() >= WINDOW * 2 {
-            self.smoothed_bps *= 0.5;
+        let elapsed = self.window_start.elapsed();
+        if elapsed >= WINDOW * 2 {
+            self.smoothed.push(0.0, elapsed);
             self.window_start = Instant::now();
             self.window_bytes = 0;
         }
     }
 
     pub fn speed_bps(&self) -> f64 {
-        if self.smoothed_bps < 1.0 {
+        let bps = self.smoothed.bps();
+        if bps < 1.0 {
             0.0
         } else {
-            self.smoothed_bps
+            bps
         }
     }
 
@@ -186,6 +223,49 @@ mod tests {
         let mut tracker = SpeedTracker::new(0);
         tracker.record(1000);
         assert_eq!(tracker.eta_sec(Some(1000)), Some(0.0));
+    }
+
+    /// What the readout says at the end of each half-second window, given the
+    /// bytes each run of windows brought: `(bytes per window, windows)`.
+    fn readout(runs: &[(u64, u32)]) -> Vec<f64> {
+        let mut tracker = SpeedTracker::new(0);
+        let mut at = tracker.window_start;
+        let mut out = Vec::new();
+        for &(bytes, windows) in runs {
+            for _ in 0..windows {
+                at += Duration::from_millis(500);
+                assert!(tracker.record_at(bytes, at));
+                out.push(tracker.speed_bps());
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn a_two_second_stall_of_the_line_leaves_half_the_rate_showing() {
+        // 3 MB/s for a while, two seconds of nothing, then 3 MB/s again.
+        let shown = readout(&[(1_500_000, 30), (0, 4), (1_500_000, 6)]);
+        let lowest = shown.iter().copied().fold(f64::MAX, f64::min);
+        assert!(lowest >= 1_500_000.0, "fell to {lowest}");
+        let after_three_seconds = *shown.last().unwrap();
+        assert!(after_three_seconds >= 2_400_000.0, "only back to {after_three_seconds}");
+    }
+
+    #[test]
+    fn a_lasting_change_of_pace_shows_within_seconds() {
+        // 3 MB/s, then 1 MB/s for five seconds.
+        let shown = readout(&[(1_500_000, 30), (500_000, 10)]);
+        let settled = *shown.last().unwrap();
+        assert!(settled <= 1_500_000.0, "still at {settled} five seconds in");
+    }
+
+    #[test]
+    fn a_new_download_shows_its_rate_from_the_first_window() {
+        // A first window with nothing in it -- the request on its way -- and
+        // then 3 MB/s from the first window that brings anything.
+        let shown = readout(&[(0, 1), (1_500_000, 3)]);
+        assert_eq!(shown[0], 0.0);
+        assert!(shown[1..].iter().all(|bps| (*bps - 3_000_000.0).abs() < 1.0), "{shown:?}");
     }
 
     #[test]

@@ -22,7 +22,7 @@
 # and the app finds them on PATH.
 
 pkgname=umd-plus
-pkgver=2.5.9
+pkgver=2.6.0
 pkgrel=1
 pkgdesc='Universal Media Downloader+: fast, private and ad-free media downloading'
 arch=('x86_64')
