@@ -25,6 +25,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::downloader::control::TaskControl;
 use crate::downloader::http::ProgressSample;
 use crate::downloader::plan::KeptRange;
+use crate::downloader::speed::SpeedTracker;
 use crate::error::{AppError, AppResult};
 use crate::providers::engine;
 use crate::settings::Settings;
@@ -179,6 +180,7 @@ async fn attempt(
     let mut reader = BufReader::new(stdout).lines();
     let mut last_sample: Option<ProgressSample> = None;
     let mut run_progress = RunProgress::default();
+    let mut rate = Rate::new(fragments_on_disk(options.target));
     let mut finishing = Finishing::default();
     let mut last_emit = Instant::now();
     let mut poll = tokio::time::interval(Duration::from_millis(250));
@@ -189,8 +191,12 @@ async fn attempt(
             line = reader.next_line() => {
                 match line {
                     Ok(Some(line)) => {
-                        if let Some(sample) = parse_progress(&line).or_else(|| already_on_disk(&line)) {
-                            let sample = run_progress.fold(progress_part(&line), sample);
+                        let parsed = parse_progress(&line)
+                            .map(|sample| (sample, true))
+                            .or_else(|| already_on_disk(&line).map(|sample| (sample, false)));
+                        if let Some((sample, moving)) = parsed {
+                            let mut sample = run_progress.fold(progress_part(&line), sample);
+                            rate.read(&mut sample, moving, Instant::now());
                             // Rate-limit the emission, not the parsing: the
                             // engine can print several times a second.
                             if last_emit.elapsed() >= Duration::from_millis(400) {
@@ -223,6 +229,13 @@ async fn attempt(
                     if let Some(percent) = finishing.measure() {
                         on_progress(finishing.sample(Some(percent)));
                         last_emit = Instant::now();
+                    } else if let Some(sample) = last_sample.as_mut().filter(|_| !finishing.started) {
+                        // A stalled transfer prints nothing, and its last
+                        // rate would otherwise stay on screen throughout.
+                        if rate.quiet(sample, Instant::now()) {
+                            on_progress(sample.clone());
+                            last_emit = Instant::now();
+                        }
                     }
                 }
             }
@@ -675,6 +688,83 @@ impl RunProgress {
     }
 }
 
+/// The run's speed, worked out from the bytes it reports and averaged as the
+/// native path's is. The engine's own figure is the current request's, begun
+/// again with each chunk and fragment, and swings with them.
+struct Rate {
+    tracker: Option<SpeedTracker>,
+    last: u64,
+    /// Bytes still to be read back from fragments an earlier run left half
+    /// fetched. The engine counts them as it resumes each, in a burst that is
+    /// no part of the speed (measured 2026-11-04: 9 MB in a third of a second,
+    /// on a line that carries 3 MB in a second).
+    owed: u64,
+}
+
+impl Rate {
+    fn new(owed: u64) -> Self {
+        Self { tracker: None, last: 0, owed }
+    }
+
+    /// `moving`: a transfer's reading, rather than a part found finished on
+    /// disk.
+    fn read(&mut self, sample: &mut ProgressSample, moving: bool, now: Instant) {
+        let fresh = sample.received.saturating_sub(self.last);
+        self.last = self.last.max(sample.received);
+        match &mut self.tracker {
+            // What a run starts from was on disk before it began.
+            None => self.tracker = Some(SpeedTracker::new(sample.received)),
+            Some(tracker) => {
+                let owed = fresh.min(self.owed);
+                self.owed -= owed;
+                tracker.record_at(if moving { fresh - owed } else { 0 }, now);
+            }
+        }
+        self.apply(sample);
+    }
+
+    /// Nothing heard for a while: true when that moved the readout.
+    fn quiet(&mut self, sample: &mut ProgressSample, now: Instant) -> bool {
+        let moved = self.tracker.as_mut().is_some_and(|tracker| tracker.record_at(0, now));
+        if moved {
+            self.apply(sample);
+        }
+        moved
+    }
+
+    fn apply(&self, sample: &mut ProgressSample) {
+        let speed = self.tracker.as_ref().map_or(0.0, SpeedTracker::speed_bps);
+        sample.speed_bps = speed;
+        sample.eta_sec = sample
+            .total
+            .filter(|_| speed > 0.0)
+            .map(|total| total.saturating_sub(sample.received) as f64 / speed);
+    }
+}
+
+/// The bytes in the fragments an earlier run of `target` left half fetched:
+/// `<stem>.….part-Frag<n>.part`, beside it.
+fn fragments_on_disk(target: &Path) -> u64 {
+    let (Some(dir), Some(stem)) = (target.parent(), target.file_stem().and_then(|stem| stem.to_str())) else {
+        return 0;
+    };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let prefix = format!("{stem}.");
+    entries
+        .flatten()
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.starts_with(&prefix) && name.contains(".part-Frag"))
+        })
+        .filter_map(|entry| entry.metadata().ok())
+        .map(|meta| meta.len())
+        .sum()
+}
+
 /// What the engine does once its transfers are over: merge the formats it
 /// fetched, or fix a file it wrote. Each step rewrites the whole download --
 /// minutes for a film on a hard disk -- with nothing printed until it is done,
@@ -785,6 +875,67 @@ fn parse_number(value: &str) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn moved(received: u64) -> ProgressSample {
+        ProgressSample { received, total: Some(100_000_000), ..Default::default() }
+    }
+
+    const STEP: Duration = Duration::from_millis(450);
+
+    #[test]
+    fn a_resumed_run_s_speed_leaves_out_the_fragments_it_reads_back() {
+        // As measured: fragments finished by an earlier run, then 8 MB of
+        // half-fetched ones counted within moments, then 3 MB/s.
+        let start = Instant::now();
+        let mut rate = Rate::new(8_000_000);
+        rate.read(&mut moved(2_000_000), true, start);
+        let mut burst = moved(10_000_000);
+        rate.read(&mut burst, true, start + STEP);
+        assert_eq!(burst.speed_bps, 0.0);
+
+        let mut sample = moved(11_350_000);
+        rate.read(&mut sample, true, start + STEP * 2);
+        assert!((sample.speed_bps - 3_000_000.0).abs() < 1.0, "{}", sample.speed_bps);
+        let eta = sample.eta_sec.unwrap();
+        assert!((eta - 88_650_000.0 / 3_000_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn a_part_found_on_disk_and_a_quiet_engine_read_as_they_are() {
+        let start = Instant::now();
+        let mut rate = Rate::new(0);
+        rate.read(&mut moved(0), true, start);
+        let mut sample = moved(1_350_000);
+        rate.read(&mut sample, true, start + STEP);
+
+        // The other format, finished by an earlier run: no speed in it.
+        let mut found = moved(51_350_000);
+        rate.read(&mut found, false, start + STEP * 2);
+        assert!(found.speed_bps < 3_000_000.0, "{}", found.speed_bps);
+
+        // Then the engine goes quiet, and the readout comes down with it.
+        let before = found.speed_bps;
+        assert!(!rate.quiet(&mut found, start + STEP * 2 + Duration::from_millis(100)));
+        assert!(rate.quiet(&mut found, start + STEP * 3));
+        assert!(found.speed_bps < before && found.speed_bps > 0.0, "{}", found.speed_bps);
+    }
+
+    #[test]
+    fn half_fetched_fragments_are_found_beside_the_target() {
+        let dir = std::env::temp_dir().join(format!("ud-frags-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("task-7.mp4");
+        for (name, size) in [
+            ("task-7.mp4.part-Frag3.part", 1_000),
+            ("task-7.f137.mp4.part-Frag9.part", 500),
+            ("task-7.mp4.part", 9_000),
+            ("task-70.mp4.part-Frag1.part", 7_000),
+        ] {
+            std::fs::write(dir.join(name), vec![0u8; size]).unwrap();
+        }
+        assert_eq!(fragments_on_disk(&target), 1_500);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn the_engine_s_own_lines_name_its_files_and_steps() {
