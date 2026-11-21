@@ -85,6 +85,7 @@
     autoUpdate: true,
     resumeOnLaunch: false,
     quickDownload: false,
+    sessionFirst: false,
     saveCover: false,
     wifiOnly: false,
     skipSponsors: false,

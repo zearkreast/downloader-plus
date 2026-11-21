@@ -274,13 +274,19 @@ pub fn other_lease(settings: &Settings, url: &str, page_url: Option<&str>) -> Op
 }
 
 /// The session a run reading `url` takes from its first attempt, if any: the
-/// site's own, for a site whose session is lent first (`Site::lent_first`),
-/// or else the other-site session as `other_lease` decides.
+/// site's own, for a site whose session is lent first (`Site::lent_first`, or
+/// every site with `session_first` on), or else the other-site session as
+/// `other_lease` decides.
 pub fn first_lease(settings: &Settings, url: &str, page_url: Option<&str>) -> Option<CookieLease> {
     match Site::for_url(url) {
-        Some(site) if site.lent_first() => lease(settings, site),
+        Some(site) if own_first(settings.session_first, site) => lease(settings, site),
         _ => other_lease(settings, url, page_url),
     }
+}
+
+/// Whether `site`'s own session goes to a run's first attempt.
+pub fn own_first(session_first: bool, site: Site) -> bool {
+    session_first || site.lent_first()
 }
 
 /// The other-site session as a `Cookie` header for a request of the app's own
@@ -614,6 +620,15 @@ pub fn is_lease_path(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn session_first_lends_youtube_s_session_from_the_first_attempt_too() {
+        assert!(!own_first(false, Site::Youtube), "off, YouTube waits for a sign-in wall");
+        assert!(own_first(true, Site::Youtube));
+        for site in [Site::Tiktok, Site::Reddit, Site::X] {
+            assert!(own_first(false, site) && own_first(true, site), "{site:?}");
+        }
+    }
+
     use super::*;
 
     const NOW: i64 = 1_900_000_000;

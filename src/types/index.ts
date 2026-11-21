@@ -713,6 +713,7 @@ export interface Settings {
    * queue with the default options, without opening on Home first.
    */
   quickDownload: boolean;
+  sessionFirst: boolean;
   /** Keep a download's cover as a picture beside it. */
   saveCover: boolean;
   /** On a phone, start downloads only off mobile data. */

@@ -209,6 +209,16 @@ export function SettingsPage({ settings, section: openSection, onSectionChange }
       {section === 'connection' && !IS_MOBILE && (
         <BrowserLinkCard settings={settings} update={update} initialStatus={link} />
       )}
+      {section === 'connection' && (
+        <SettingGroup>
+          <ToggleRow
+            title={t('settings.sessionFirst')}
+            description={t('settings.sessionFirstHint')}
+            checked={settings.sessionFirst === true}
+            onChange={(value) => void update({ sessionFirst: value })}
+          />
+        </SettingGroup>
+      )}
       {section === 'appearance' && <AppearanceSection settings={settings} update={update} />}
       {section === 'performance' && <PerformanceSection settings={settings} update={update} />}
       {section === 'shortcuts' && <ShortcutsSection settings={settings} update={update} />}
