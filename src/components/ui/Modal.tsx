@@ -191,7 +191,7 @@ export function Modal({
             {children && <div className="min-h-0 flex-1 overflow-y-auto px-6 py-1">{children}</div>}
 
             {footer && (
-              <footer className="flex items-center justify-end gap-2 px-6 pb-5 pt-4">
+              <footer className="flex flex-wrap items-center justify-end gap-2 px-6 pb-5 pt-4">
                 {footer}
               </footer>
             )}

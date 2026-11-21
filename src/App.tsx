@@ -11,6 +11,8 @@ import { Topbar } from '@/components/layout/Topbar';
 import { DesktopUpdater } from '@/components/updates/DesktopUpdater';
 import { TransferLinkPrompt } from '@/components/settings/TransferLinkPrompt';
 import { transferLinkIn, type TransferLink } from '@/components/settings/phoneTransfer';
+import { PackageMovePrompt } from '@/components/updates/PackageMovePrompt';
+import { packageMove, type PackageMove } from '@/components/updates/packageMove';
 import { UpdatePrompt } from '@/components/updates/UpdatePrompt';
 import type { UrlInputHandle } from '@/components/home/UrlInput';
 import type { HomeRequest } from '@/pages/HomePage';
@@ -568,6 +570,14 @@ export function App() {
   // app, and again whenever it signals that another one came in.
   const settingsReady = settings != null;
   const [transferLink, setTransferLink] = useState<TransferLink | null>(null);
+
+  // Asked on every launch: either copy can be installed or removed meanwhile.
+  const [moving, setMoving] = useState<PackageMove>(null);
+  const [moveSeen, setMoveSeen] = useState(false);
+  useEffect(() => {
+    if (!IS_MOBILE) return;
+    void ipc.platformPackageStatus().then((status) => setMoving(packageMove(status)), () => {});
+  }, []);
   useEffect(() => {
     if (!IS_MOBILE || !settingsReady) return;
     const take = () => {
@@ -957,8 +967,13 @@ export function App() {
           would put the update off instead. One found during a replay opens
           when the film has gone. */}
       {transferLink && <TransferLinkPrompt link={transferLink} onClose={() => setTransferLink(null)} />}
+      {moving && !moveSeen && settings.onboardingComplete && !introShown && (
+        <PackageMovePrompt move={moving} onClose={() => setMoveSeen(true)} />
+      )}
       {IS_MOBILE ? (
-        settings.onboardingComplete && !introShown && <UpdatePrompt />
+        // Once the new copy is installed, the old one would offer it over and
+        // over: Android installs it beside, never over.
+        settings.onboardingComplete && !introShown && moving !== 'moved' && <UpdatePrompt />
       ) : (
         <>
           <DesktopUpdater />

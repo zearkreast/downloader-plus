@@ -629,6 +629,35 @@ pub fn update_dir() -> PathBuf {
     environment().cache_dir.join("updates")
 }
 
+/// Which package this copy runs as, and which of the app's other packages is
+/// installed beside it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageStatus {
+    pub package: String,
+    pub installed: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct PackageArgs {
+    name: String,
+}
+
+pub async fn package_status(app: AppHandle) -> AppResult<PackageStatus> {
+    blocking(app, |bridge| bridge.call::<PackageStatus>("packageStatus", ())).await
+}
+
+pub async fn open_package(app: AppHandle, name: String) -> AppResult<()> {
+    blocking(app, move |bridge| bridge.call::<serde_json::Value>("openPackage", PackageArgs { name }))
+        .await
+        .map(|_| ())
+}
+
+pub async fn uninstall_package(app: AppHandle, name: String) -> AppResult<()> {
+    blocking(app, move |bridge| bridge.call::<serde_json::Value>("uninstallPackage", PackageArgs { name }))
+        .await
+        .map(|_| ())
+}
+
 /// Hand a downloaded APK to the system installer, first sending the user to
 /// allow installs from this app if they have not yet.
 pub async fn install_apk(app: AppHandle, path: String) -> AppResult<()> {

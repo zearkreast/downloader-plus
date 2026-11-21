@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
+import type { PackageStatus } from '@/components/updates/packageMove';
+
 import type {
   AfterQueue,
   AppErrorInfo,
@@ -314,6 +316,9 @@ export const platformSetSystemBars = (dark: boolean) =>
 export const platformSetPortraitLock = (locked: boolean) =>
   invoke<void>('platform_set_portrait_lock', { locked });
 export const platformTakeSharedText = () => invoke<string | null>('platform_take_shared_text');
+export const platformPackageStatus = () => invoke<PackageStatus | null>('platform_package_status');
+export const platformOpenPackage = (name: string) => invoke<void>('platform_open_package', { name });
+export const platformUninstallPackage = (name: string) => invoke<void>('platform_uninstall_package', { name });
 
 /** Dispatched by the Android side when a link is shared into a running app. */
 export const SHARED_TEXT_EVENT = 'ud-shared-text';

@@ -53,7 +53,10 @@ android {
     namespace = "io.universaldownloader.app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "io.universaldownloader.app"
+        // Unlike `namespace` and Tauri's identifier, which stay
+        // io.universaldownloader.app: the Kotlin package and JNI symbols are
+        // built from them.
+        applicationId = "app.umdplus"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

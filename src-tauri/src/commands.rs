@@ -989,6 +989,43 @@ pub async fn platform_set_portrait_lock(app: AppHandle, locked: bool) -> AppResu
     }
 }
 
+/// On the phone, which package this copy runs as and which of the app's
+/// other packages is installed beside it; nothing on the desktop.
+#[tauri::command]
+pub async fn platform_package_status(app: AppHandle) -> AppResult<Option<serde_json::Value>> {
+    #[cfg(target_os = "android")]
+    return crate::android::package_status(app)
+        .await
+        .map(|status| serde_json::to_value(status).ok());
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub async fn platform_open_package(app: AppHandle, name: String) -> AppResult<()> {
+    #[cfg(target_os = "android")]
+    return crate::android::open_package(app, name).await;
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, name);
+        Err(AppError::Other("only the phone app has packages".into()))
+    }
+}
+
+#[tauri::command]
+pub async fn platform_uninstall_package(app: AppHandle, name: String) -> AppResult<()> {
+    #[cfg(target_os = "android")]
+    return crate::android::uninstall_package(app, name).await;
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, name);
+        Err(AppError::Other("only the phone app has packages".into()))
+    }
+}
+
 #[tauri::command]
 pub async fn platform_take_shared_text(app: AppHandle) -> AppResult<Option<String>> {
     #[cfg(target_os = "android")]

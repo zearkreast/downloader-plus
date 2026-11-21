@@ -157,6 +157,16 @@ handful of `IS_MOBILE` branches in the front end.
   `umdplus://transfer` link the app is registered for, so the phone's own
   camera app can open it; because any page could link there too, a code that
   arrives that way waits for the user to confirm (`TransferLinkPrompt`).
+- **The package.** The phone app was published as `io.universaldownloader.app`
+  and moves to `app.umdplus`. Only Gradle's `applicationId` changes: Tauri's
+  `identifier` also names the Kotlin package, the JNI symbols and the
+  Android project's folder, so it stays. Android treats the two packages as
+  two apps, so an old copy's update installs the new app beside it, never
+  over it. The same code runs as either and asks Android which it is and
+  whether the other is installed (`packageMove.ts`): the new app offers to
+  remove the old one, and the old one, once the new is there, sends the user
+  to it and stops offering updates. Settings and history stay with the old
+  copy.
 - **Updates.** A build records the commit it came from (`build.rs`). Releases
   are unversioned, so `src-tauri/src/updater.rs` compares that commit with the
   one the `latest` tag points at; a difference means a newer build. The APK is

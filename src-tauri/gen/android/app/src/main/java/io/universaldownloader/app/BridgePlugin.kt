@@ -41,6 +41,11 @@ class PathArgs {
 }
 
 @InvokeArg
+class PackageArgs {
+    lateinit var name: String
+}
+
+@InvokeArg
 class BackgroundWorkArgs {
     var active: Boolean = false
     var downloads: Int = 0
@@ -379,6 +384,58 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
+    /** Which package this copy is, and which of the app's other two is installed. */
+    @Command
+    fun packageStatus(invoke: Invoke) {
+        val installed = JSArray()
+        MOVE_PACKAGES.filter { it != activity.packageName && isInstalled(it) }.forEach { installed.put(it) }
+        val result = JSObject()
+        result.put("package", activity.packageName)
+        result.put("installed", installed)
+        invoke.resolve(result)
+    }
+
+    @Command
+    fun openPackage(invoke: Invoke) {
+        val args = invoke.parseArgs(PackageArgs::class.java)
+        val launch = args.name.takeIf { it in MOVE_PACKAGES }
+            ?.let { activity.packageManager.getLaunchIntentForPackage(it) }
+        if (launch == null) {
+            invoke.reject("that app is not installed")
+            return
+        }
+        activity.startActivity(launch)
+        invoke.resolve()
+    }
+
+    /** Android asks the user itself; nothing is removed without their yes. */
+    @Command
+    fun uninstallPackage(invoke: Invoke) {
+        val args = invoke.parseArgs(PackageArgs::class.java)
+        if (args.name !in MOVE_PACKAGES) {
+            invoke.reject("not one of this app's packages")
+            return
+        }
+        try {
+            activity.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${args.name}")))
+            invoke.resolve()
+        } catch (ex: ActivityNotFoundException) {
+            invoke.reject(ex.message ?: "the app could not be removed")
+        }
+    }
+
+    private fun isInstalled(name: String): Boolean = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.packageManager.getPackageInfo(name, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            activity.packageManager.getPackageInfo(name, 0)
+        }
+        true
+    } catch (ex: PackageManager.NameNotFoundException) {
+        false
+    }
+
     /**
      * Open the system installer on a downloaded update. Android asks the user
      * to allow installs from this app the first time; that screen is shown
@@ -523,5 +580,11 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
 
         /** Matched by `android.rs`, which reports it as a file that is gone. */
         private const val FILE_MISSING = "FILE_MISSING"
+
+        /**
+         * The package the app was first published under, and the one it moved
+         * to; the same code runs under either (see `packageMove.ts`).
+         */
+        private val MOVE_PACKAGES = listOf("io.universaldownloader.app", "app.umdplus")
     }
 }

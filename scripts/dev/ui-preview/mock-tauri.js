@@ -16,6 +16,8 @@
  *   ?clear=fail         clearing the history is refused
  *   ?tiktok=fresh       the browser lends a TikTok sign-in too (or `stale`;
  *                       default: none)
+ *   ?package=new|old    the phone app's move to app.umdplus: the new app
+ *                       with the old one installed, or the old with the new
  *   ?link=transfer      the phone opens with a Send to phone code from its
  *                       camera app (with ?platform=android)
  *   ?other=fresh        İndir has just lent instagram.com's sign-in through
@@ -907,7 +909,7 @@
 
   /** What the phone's file picker returns (see platform_pick_media_files). */
   const picker = {
-    picked: ['/data/user/0/io.universaldownloader.app/cache/imports/tatil klibi.mp4'],
+    picked: ['/data/user/0/app.umdplus/cache/imports/tatil klibi.mp4'],
   };
 
   /**
@@ -1758,6 +1760,16 @@
     platform_set_system_bars: () => null,
     // `?link=transfer` opens the app as the camera app would with a Send to
     // phone code; only the first ask gets it, as on the phone.
+    // `?package=new` is the new app with the old one still installed beside
+    // it, `?package=old` the old app once the new one is installed.
+    platform_package_status: () =>
+      params.get('package') === 'new'
+        ? { package: 'app.umdplus', installed: ['io.universaldownloader.app'] }
+        : params.get('package') === 'old'
+          ? { package: 'io.universaldownloader.app', installed: ['app.umdplus'] }
+          : { package: 'app.umdplus', installed: [] },
+    platform_open_package: () => null,
+    platform_uninstall_package: () => null,
     platform_take_shared_text: () => {
       if (params.get('link') !== 'transfer' || sharedTaken) return null;
       sharedTaken = true;

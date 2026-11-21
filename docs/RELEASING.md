@@ -150,6 +150,25 @@ gh secret set ANDROID_KEYSTORE_BASE64 < keystore.b64
 gh secret set ANDROID_KEYSTORE_PASSWORD
 ```
 
+## The move to app.umdplus
+
+The phone app's package changes from `io.universaldownloader.app` to
+`app.umdplus` (see `docs/DEVELOPMENT.md`). Release it in this order:
+
+1. A build still under the old package that has the move prompts in it.
+   Installed copies update to it as usual.
+2. The build under the new package. Each old copy's updater installs it as a
+   second app; the old copy then sends the user to the new one, and the new
+   one offers to remove the old.
+
+A copy that skips the first build still gets the new app from its updater,
+and the new app still offers to remove it; it only misses the old copy's
+hand-over.
+
+Keep signing every APK with the same key. Android lets an app remove another
+only with the user's yes, whatever the key, but a later update of the new
+package is refused under a different one.
+
 ## Repository settings
 
 - **Settings → Actions → General → Workflow permissions.** The publish job

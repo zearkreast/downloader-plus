@@ -836,6 +836,17 @@ export const tr: Record<TranslationKey, string> = {
   'update.install': 'Güncelle',
   'update.retry': 'Tekrar dene',
   'update.downloading': 'Güncelleme indiriliyor…',
+  'move.removeOldTitle': 'Eski UMD+ hâlâ yüklü',
+  'move.removeOldBody':
+    'UMD+ yeni bir uygulama olarak taşındı ve bu kopya onun yerini aldı. Telefonunda eski kopya da duruyor; kaldırırsan iki UMD+ karışmaz. Eskisindeki ayarlar ve geçmiş buraya gelmez.',
+  'move.removeOld': 'Eskisini kaldır',
+  'move.later': 'Sonra',
+  'move.movedTitle': 'UMD+ taşındı',
+  'move.movedBody':
+    'UMD+ artık yeni bir uygulama olarak güncelleniyor ve yenisi bu telefonda yüklü. Bu eski kopya bundan sonra güncellenmeyecek; yenisini kullan, bunu kaldırabilirsin.',
+  'move.openNew': 'Yeni UMD+\'yı aç',
+  'move.removeThis': 'Bu kopyayı kaldır',
+  'move.failed': 'Bu yapılamadı. Telefonun Ayarlar › Uygulamalar bölümünden yapabilirsin.',
   'update.preparing': 'Yükleyici açılıyor…',
   'update.installerOpened': "Yükleyici açıldı. Görünmediyse Güncelle'ye tekrar bas.",
   'update.failed': 'Güncelleme indirilemedi. Bağlantını kontrol edip tekrar dene.',

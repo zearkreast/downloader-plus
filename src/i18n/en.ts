@@ -843,6 +843,17 @@ export const en = {
   'update.later': 'Later',
   'update.install': 'Update',
   'update.retry': 'Try again',
+  'move.removeOldTitle': 'The old UMD+ is still installed',
+  'move.removeOldBody':
+    'UMD+ moved to a new app, and this copy took its place. The old copy is still on your phone; remove it so the two do not get mixed up. Its settings and history do not come over.',
+  'move.removeOld': 'Remove the old one',
+  'move.later': 'Later',
+  'move.movedTitle': 'UMD+ has moved',
+  'move.movedBody':
+    'UMD+ now updates as a new app, and the new one is installed on this phone. This old copy will not be updated again; use the new one, and remove this one.',
+  'move.openNew': 'Open the new UMD+',
+  'move.removeThis': 'Remove this copy',
+  'move.failed': 'That did not work. You can do it in your phone\'s Settings › Apps.',
   'update.downloading': 'Downloading the update…',
   'update.preparing': 'Opening the installer…',
   'update.installerOpened': "The installer has opened. If it didn't appear, press Update again.",

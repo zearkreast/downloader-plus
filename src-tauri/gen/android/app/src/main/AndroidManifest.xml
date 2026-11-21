@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Installing an update downloaded from the release page. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- The app moved from io.universaldownloader.app to app.umdplus; each copy
+         looks for the other, and offers to remove the old one. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <queries>
+        <package android:name="io.universaldownloader.app" />
+        <package android:name="app.umdplus" />
+    </queries>
     <!-- Writing to Downloads needs no permission from Android 11 on. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
