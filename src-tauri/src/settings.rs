@@ -76,6 +76,11 @@ pub struct Settings {
     /// is where a link arrives and where Home would otherwise open it.
     #[serde(default)]
     pub quick_download: bool,
+    /// Lend a site's session to the first attempt of every download from it,
+    /// YouTube's too. Off, YouTube's waits for a sign-in wall; TikTok's,
+    /// Reddit's and X's are lent first either way (`Site::lent_first`).
+    #[serde(default)]
+    pub session_first: bool,
     /// Keep a download's cover as a picture beside it, named after it.
     #[serde(default)]
     pub save_cover: bool,
@@ -182,6 +187,7 @@ impl Default for Settings {
             auto_update: default_true(),
             resume_on_launch: false,
             quick_download: false,
+            session_first: false,
             save_cover: false,
             wifi_only: false,
             skip_sponsors: false,
@@ -362,12 +368,13 @@ mod tests {
     fn settings_saved_before_the_schedule_still_load() {
         let mut written = serde_json::to_value(Settings::default()).unwrap();
         let object = written.as_object_mut().unwrap();
-        for key in ["scheduleEnabled", "scheduleStart", "scheduleEnd", "speedLimitKb", "embedMetadata", "autoUpdate", "resumeOnLaunch", "quickDownload", "saveCover", "wifiOnly", "skipSponsors", "subscriptionIntervalHours", "subscriptionAutoDownload", "subscriptionNotify"] {
+        for key in ["scheduleEnabled", "scheduleStart", "scheduleEnd", "speedLimitKb", "embedMetadata", "autoUpdate", "resumeOnLaunch", "quickDownload", "sessionFirst", "saveCover", "wifiOnly", "skipSponsors", "subscriptionIntervalHours", "subscriptionAutoDownload", "subscriptionNotify"] {
             assert!(object.remove(key).is_some(), "{key}");
         }
         let read: Settings = serde_json::from_value(written).unwrap();
         assert!(read.auto_update, "an install from before the switch keeps updating itself");
         assert!(!read.resume_on_launch);
+        assert!(!read.session_first, "an install from before the switch keeps its sessions back");
         assert_eq!(read.subscription_interval_hours, 6);
         assert!(read.subscription_auto_download && read.subscription_notify);
         assert!(!read.schedule_enabled);

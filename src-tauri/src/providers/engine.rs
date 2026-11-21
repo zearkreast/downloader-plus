@@ -109,7 +109,8 @@ impl EngineProvider {
         // here. No refusal from such a site names a sign-in plainly enough to
         // wait for one, and the extension sent that jar for this very link.
         // TikTok, Reddit and X take their own session from the first look
-        // when the browser lends one (`bridge::first_lease`).
+        // when the browser lends one, and so does YouTube with the "use the
+        // session first" setting on (`bridge::first_lease`).
         let other = bridge::first_lease(
             settings,
             url,

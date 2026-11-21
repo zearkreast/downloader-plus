@@ -410,6 +410,9 @@ export const en = {
   'settings.resumeOnLaunchHint':
     'Downloads that were running or waiting continue by themselves when the app opens. Off, they come back paused.',
   'settings.quickDownload': 'Download what the extension sends straight away',
+  'settings.sessionFirst': 'Use the session first on every site',
+  'settings.sessionFirstHint':
+    'On, every download from a site with a session is made with it from the start, YouTube included. Off, the YouTube session is used only when the site asks for a sign-in; TikTok, Reddit and X sessions are always used first.',
   'settings.quickDownloadMobile': 'Download shared links straight away',
   'settings.quickDownloadHint':
     'Every video sent from the browser extension goes into the queue with the default quality and format, without opening on Home. Links pasted on Home are not affected.',

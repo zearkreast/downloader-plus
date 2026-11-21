@@ -402,6 +402,9 @@ export const tr: Record<TranslationKey, string> = {
   'settings.resumeOnLaunchHint':
     'Uygulama açılınca yarım kalan ve bekleyen indirmeler kendiliğinden devam eder. Kapalıyken duraklatılmış gelirler.',
   'settings.quickDownload': 'Uzantıdan gönderileni doğrudan indir',
+  'settings.sessionFirst': 'Oturumu her sitede önce kullan',
+  'settings.sessionFirstHint':
+    'Açıkken oturumu olan her sitede, YouTube dahil, indirme baştan oturumla yapılır. Kapalıyken YouTube oturumu yalnızca site giriş isteyince kullanılır; TikTok, Reddit ve X oturumu her zaman önce kullanılır.',
   'settings.quickDownloadMobile': 'Paylaşılan bağlantıyı doğrudan indir',
   'settings.quickDownloadHint':
     'Tarayıcı uzantısından gönderilen her video, ana sayfada açılmadan varsayılan kalite ve biçimle kuyruğa girer. Ana sayfaya yapıştırdığın bağlantılar bundan etkilenmez.',
