@@ -105,7 +105,8 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
     }
 
     private fun receive(intent: Intent?): Boolean {
-        val text = when (intent?.action) {
+        if (intent == null) return false
+        val text = when (intent.action) {
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
             Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == "umdplus" }?.toString()
             else -> null
