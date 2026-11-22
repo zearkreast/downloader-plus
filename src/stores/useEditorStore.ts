@@ -406,6 +406,16 @@ export const useEditorStore = create<EditorStoreState>((set, get) => {
   };
 
   /**
+   * New cuts for the clip being edited, with the mode moved off lossless in
+   * the same step when a copy could no longer begin where they ask.
+   */
+  const withCuts = (edit: Edit, cuts: Cut[]): Edit => {
+    if (cuts === edit.cuts) return edit;
+    const keyframes = selectActiveClip(get())?.keyframes ?? null;
+    return { ...edit, cuts, options: exactMode(edit.options, edit.cuts, cuts, keyframes) };
+  };
+
+  /**
    * Lay a sound that has been read under the clip being edited, as one step.
    *
    * The file is allowed to the webview here, as a clip's is: the preview plays
@@ -618,17 +628,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => {
     // Both of these can be refused -- a split at the edge of a piece, a delete
     // of the last one -- and a refusal has to reach `commit` as the edit it was
     // handed, or the way back fills up with steps that changed nothing.
-    split: (seconds) =>
-      commit((edit) => {
-        const cuts = splitAt(edit.cuts, seconds);
-        return cuts === edit.cuts ? edit : { ...edit, cuts };
-      }),
+    split: (seconds) => commit((edit) => withCuts(edit, splitAt(edit.cuts, seconds))),
 
-    remove: (id) =>
-      commit((edit) => {
-        const cuts = removeCut(edit.cuts, id);
-        return cuts === edit.cuts ? edit : { ...edit, cuts };
-      }),
+    remove: (id) => commit((edit) => withCuts(edit, removeCut(edit.cuts, id))),
 
     // A step of its own from the keyboard; one beat of a held drag from the
     // pointer, which the drag records as a whole when it ends.
@@ -636,10 +638,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => {
       const clip = selectActiveClip(get());
       const duration = clip?.probe.durationSec ?? 0;
       commit(
-        (edit) => {
-          const cuts = moveEdge(edit.cuts, id, edge, seconds, duration);
-          return cuts === edit.cuts ? edit : { ...edit, cuts };
-        },
+        (edit) => withCuts(edit, moveEdge(edit.cuts, id, edge, seconds, duration)),
         { drag: true, held },
       );
     },
@@ -733,11 +732,19 @@ export const useEditorStore = create<EditorStoreState>((set, get) => {
       if (!clip || clip.keyframes) return;
       try {
         const keyframes = await ipc.mediaKeyframes(clip.path);
-        set((state) => ({
-          pool: state.pool.map((entry) =>
+        set((state) => {
+          // Cuts made before the keyframes were known are held to the same
+          // rule now that they are.
+          const pool = state.pool.map((entry) =>
             entry.id === clip.id ? { ...entry, keyframes } : entry,
-          ),
-        }));
+          );
+          const edit = state.edits[clip.id];
+          if (!edit) return { pool };
+          const whole = wholeFile(clip.probe.durationSec ?? 0);
+          const options = exactMode(edit.options, whole, edit.cuts, keyframes);
+          if (options === edit.options) return { pool };
+          return { pool, edits: { ...state.edits, [clip.id]: { ...edit, options } } };
+        });
       } catch {
         // A file whose keyframes cannot be read is still perfectly cuttable;
         // the interface simply cannot show where a copied cut would land, and
@@ -920,4 +927,54 @@ export function losslessBlocker(options: ExportOptions, probe: MediaProbe): Loss
 export function withLegalMode(options: ExportOptions, probe: MediaProbe | null): ExportOptions {
   if (options.mode !== 'lossless' || !probe) return options;
   return losslessBlocker(options, probe) == null ? options : { ...options, mode: 'reencode' };
+}
+
+/**
+ * How far past a keyframe a cut may begin before a copy is no longer the cut
+ * that was asked for. Below this the difference is a few frames.
+ */
+export const EXACT_CUT_SEC = 0.3;
+
+/**
+ * How much earlier a copied export would begin than the furthest-off mark. A
+ * stream copy can only start on a keyframe, so each start rolls back to the
+ * one at or before it -- on a file with keyframes seconds apart, a cut inside
+ * the first group rolls all the way back to the beginning.
+ */
+export function snapDistance(cuts: Cut[], keyframes: number[] | null): number {
+  if (!keyframes || keyframes.length === 0) return 0;
+  let worst = 0;
+  let lastEnd = -1;
+  for (const cut of [...cuts].sort((a, b) => a.startSec - b.startSec)) {
+    // A piece that carries straight on from the one before is joined to it,
+    // so where it begins is not a start a copy has to find.
+    const joined = Math.abs(cut.startSec - lastEnd) <= 0.001;
+    lastEnd = cut.endSec;
+    if (joined) continue;
+    let landing = 0;
+    for (const mark of keyframes) {
+      if (mark <= cut.startSec + 0.001) landing = mark;
+      else break;
+    }
+    worst = Math.max(worst, cut.startSec - landing);
+  }
+  return worst;
+}
+
+/**
+ * The options once the cuts have moved: a lossless export whose cuts now
+ * begin noticeably off a keyframe becomes a re-encode, which cuts on the frame.
+ * Only on the change that crosses the line, so choosing lossless again after
+ * it is a choice the next nudge of a mark does not undo.
+ */
+export function exactMode(
+  options: ExportOptions,
+  before: Cut[],
+  after: Cut[],
+  keyframes: number[] | null,
+): ExportOptions {
+  if (options.mode !== 'lossless') return options;
+  if (snapDistance(after, keyframes) < EXACT_CUT_SEC) return options;
+  if (snapDistance(before, keyframes) >= EXACT_CUT_SEC) return options;
+  return { ...options, mode: 'reencode' };
 }

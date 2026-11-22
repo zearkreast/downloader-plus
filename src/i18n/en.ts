@@ -830,7 +830,10 @@ export const en = {
   'editor.lossless': 'Lossless',
   'editor.reencode': 'Re-encode',
   'editor.losslessHint': 'Fast, and the picture is untouched.',
-  'editor.losslessSnapped': 'Starts {seconds} s early, at a keyframe.',
+  'editor.losslessSnapped':
+    'Starts {seconds} s early: a copied video can only begin on a keyframe. Re-encode for an exact cut.',
+  'editor.exactCut':
+    'A lossless copy would start {seconds} s early, so this is re-encoded to cut on the frame.',
   'editor.reencodeHint': 'Cuts on the exact frame, but slower.',
   'editor.losslessRuledOut': '{setting} changed; lossless is off.',
   'editor.container': 'Format',

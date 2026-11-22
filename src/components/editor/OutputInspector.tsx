@@ -38,7 +38,9 @@ import {
   selectLosslessBlocker,
   selectOptions,
   selectSound,
+  snapDistance,
   useEditorStore,
+  EXACT_CUT_SEC,
   type LosslessBlocker,
 } from '@/stores/useEditorStore';
 import {
@@ -284,20 +286,10 @@ export const OutputInspector = memo(function OutputInspector({
   // keyframes; this is the same fact as a number, next to the control that
   // decides whether it applies -- because finding it out from the length of
   // the finished file is not finding it out in time.
-  const snappedBy = useMemo(() => {
-    const marks = clip?.keyframes;
-    if (options?.mode !== 'lossless' || !marks || marks.length === 0) return 0;
-    let worst = 0;
-    for (const cut of cuts) {
-      let landing = 0;
-      for (const mark of marks) {
-        if (mark <= cut.startSec + 0.001) landing = mark;
-        else break;
-      }
-      worst = Math.max(worst, cut.startSec - landing);
-    }
-    return worst;
-  }, [clip?.keyframes, cuts, options?.mode]);
+  const snappedBy = useMemo(
+    () => snapDistance(cuts, clip?.keyframes ?? null),
+    [clip?.keyframes, cuts],
+  );
 
   // Where the file lands when no folder is chosen. Beside the source, as a
   // rule -- but a clip brought in from a link sits in the app's own temporary
@@ -427,21 +419,21 @@ export const OutputInspector = memo(function OutputInspector({
   // One line under the mode, and only one: what the mode costs, or -- when a
   // lossless copy would move a cut -- by how much, or what ruled it out.
   let modeLine: string;
+  const seconds = new Intl.NumberFormat(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(snappedBy);
   if (options.mode === 'lossless') {
     modeLine =
       snappedBy >= SNAP_WORTH_SAYING_SEC
-        ? t('editor.losslessSnapped', {
-            seconds: new Intl.NumberFormat(language, {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            }).format(snappedBy),
-          })
+        ? t('editor.losslessSnapped', { seconds })
         : t('editor.losslessHint');
+  } else if (blocker != null) {
+    modeLine = t('editor.losslessRuledOut', { setting: t(BLOCKER_LABELS[blocker]) });
+  } else if (snappedBy >= EXACT_CUT_SEC) {
+    modeLine = t('editor.exactCut', { seconds });
   } else {
-    modeLine =
-      blocker != null
-        ? t('editor.losslessRuledOut', { setting: t(BLOCKER_LABELS[blocker]) })
-        : t('editor.reencodeHint');
+    modeLine = t('editor.reencodeHint');
   }
 
   const notIn = t('editor.notInContainer', { container: containerName });

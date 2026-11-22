@@ -11,6 +11,7 @@ import type { ExportOptions, MediaProbe } from '@/types';
 
 const backend = vi.hoisted(() => ({
   probe: null as unknown as MediaProbe,
+  keyframes: [] as number[],
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -20,7 +21,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@/services/ipc', () => ({
   probeMedia: async () => backend.probe,
   allowMediaPreview: async () => {},
-  mediaKeyframes: async () => [],
+  mediaKeyframes: async () => backend.keyframes,
   requestTimeline: async () => {},
   startExport: async () => {},
   cancelExport: async () => {},
@@ -34,8 +35,15 @@ vi.mock('@/services/ipc', () => ({
   }),
 }));
 
-const { losslessBlocker, selectLosslessBlocker, selectOptions, useEditorStore, withLegalMode } =
-  await import('@/stores/useEditorStore');
+const {
+  losslessBlocker,
+  selectCuts,
+  selectLosslessBlocker,
+  selectOptions,
+  snapDistance,
+  useEditorStore,
+  withLegalMode,
+} = await import('@/stores/useEditorStore');
 
 function probeOf(patch: Partial<MediaProbe> = {}): MediaProbe {
   return {
@@ -71,6 +79,7 @@ function options(): ExportOptions {
 
 beforeEach(() => {
   useEditorStore.getState().closeAll();
+  backend.keyframes = [];
 });
 
 describe('what rules a lossless copy out', () => {
@@ -195,5 +204,68 @@ describe('the mode follows the settings', () => {
     };
     expect(withLegalMode(blocked, probe).mode).toBe('reencode');
     expect(withLegalMode({ ...blocked, fps: null }, probe).mode).toBe('lossless');
+  });
+});
+
+describe('a cut a copy cannot make', () => {
+  // Keyframes ten seconds apart, as a lot of downloaded video has: a copy of
+  // anything that starts inside the first ten seconds starts at zero.
+  async function openSparse(): Promise<void> {
+    backend.keyframes = [0, 10];
+    await openLossless();
+    await useEditorStore.getState().loadKeyframes();
+  }
+
+  function cutAwayTheFront(at: number): void {
+    const store = useEditorStore.getState();
+    store.split(at);
+    store.remove(selectCuts(useEditorStore.getState())[0]!.id);
+  }
+
+  test('cutting the front off inside the first group moves the export to re-encode', async () => {
+    await openSparse();
+    useEditorStore.getState().split(3);
+    // A split alone cuts nothing out, so a copy still does it.
+    expect(options().mode).toBe('lossless');
+    useEditorStore.getState().remove(selectCuts(useEditorStore.getState())[0]!.id);
+    expect(selectCuts(useEditorStore.getState())[0]!.startSec).toBe(3);
+    expect(options().mode).toBe('reencode');
+    // One step: undoing the cut brings the copy back with it.
+    useEditorStore.getState().undo();
+    expect(options().mode).toBe('lossless');
+  });
+
+  test('a cut a few frames past a keyframe stays a copy', async () => {
+    await openSparse();
+    cutAwayTheFront(10.1);
+    expect(options().mode).toBe('lossless');
+  });
+
+  test('choosing lossless again is kept while the marks move', async () => {
+    await openSparse();
+    cutAwayTheFront(3);
+    useEditorStore.getState().setOptions({ mode: 'lossless' });
+    const cut = selectCuts(useEditorStore.getState())[0]!;
+    useEditorStore.getState().drag(cut.id, 'start', 4);
+    expect(options().mode).toBe('lossless');
+  });
+
+  test('cuts made before the keyframes arrive are held to it when they do', async () => {
+    backend.keyframes = [0, 10];
+    await openLossless();
+    cutAwayTheFront(3);
+    expect(options().mode).toBe('lossless');
+    await useEditorStore.getState().loadKeyframes();
+    expect(options().mode).toBe('reencode');
+  });
+
+  test('how far a copy would start early', () => {
+    const cut = (startSec: number) => ({ id: 'c', startSec, endSec: 20 });
+    expect(snapDistance([cut(3)], [0, 10])).toBe(3);
+    expect(snapDistance([cut(10)], [0, 10])).toBe(0);
+    expect(snapDistance([cut(3)], [])).toBe(0);
+    expect(snapDistance([cut(3)], null)).toBe(0);
+    // Two pieces end to end are exported as one, which starts at zero.
+    expect(snapDistance([{ id: 'a', startSec: 0, endSec: 3 }, cut(3)], [0, 10])).toBe(0);
   });
 });

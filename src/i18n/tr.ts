@@ -825,7 +825,10 @@ export const tr: Record<TranslationKey, string> = {
   'editor.lossless': 'Kayıpsız',
   'editor.reencode': 'Yeniden kodla',
   'editor.losslessHint': 'Hızlı, görüntüye dokunmaz.',
-  'editor.losslessSnapped': '{seconds} sn erken başlar (anahtar kare).',
+  'editor.losslessSnapped':
+    '{seconds} sn erken başlar: kopyalanan video ancak bir anahtar karede başlayabilir. Tam kesim için Yeniden kodla.',
+  'editor.exactCut':
+    'Kayıpsız kopya {seconds} sn erken başlardı, bu yüzden tam karede kesmek için yeniden kodlanıyor.',
   'editor.reencodeHint': 'Tam karede keser, daha yavaş.',
   'editor.losslessRuledOut': 'Kayıpsız kapalı: {setting} değişti.',
   'editor.container': 'Biçim',
