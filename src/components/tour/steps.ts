@@ -1,15 +1,17 @@
 import type { TourStep } from '@/components/tour/Tour';
 
-/** The computer's tour: the link field, then each page in the sidebar. */
+/**
+ * The computer's tour: the link field, then each entry in the sidebar. History
+ * and Subscriptions are tabs in Downloads' title, and Convert in Edit's, so
+ * they are told about there rather than pointed at.
+ */
 export const DESKTOP_TOUR: readonly TourStep[] = [
   { title: 'tour.welcomeTitle', body: 'tour.welcomeBody' },
   { target: 'link', title: 'tour.linkTitle', body: 'tour.linkBody' },
   { target: 'nav-downloads', title: 'tour.downloadsTitle', body: 'tour.downloadsBody' },
   { target: 'nav-editor', title: 'tour.editorTitle', body: 'tour.editorBody' },
-  { target: 'nav-convert', title: 'tour.convertTitle', body: 'tour.convertBody' },
-  { target: 'nav-history', title: 'tour.historyTitle', body: 'tour.historyBody' },
-  { target: 'nav-subscriptions', title: 'tour.subscriptionsTitle', body: 'tour.subscriptionsBody' },
   { target: 'nav-settings', title: 'tour.settingsTitle', body: 'tour.settingsBodyDesktop' },
+  { target: 'nav-about', title: 'tour.aboutTitle', body: 'tour.aboutBody' },
   { title: 'tour.doneTitle', body: 'tour.doneBody' },
 ];
 
@@ -22,8 +24,7 @@ export const MOBILE_TOUR: readonly TourStep[] = [
   { target: 'link', title: 'tour.linkTitle', body: 'tour.linkBodyMobile' },
   { title: 'tour.shareTitle', body: 'tour.shareBody' },
   { target: 'nav-downloads', title: 'tour.downloadsTitle', body: 'tour.downloadsBodyMobile' },
-  { target: 'nav-editor', title: 'tour.editorTitle', body: 'tour.editorBody' },
-  { target: 'nav-convert', title: 'tour.convertTitle', body: 'tour.convertBody' },
+  { target: 'nav-editor', title: 'tour.editorTitle', body: 'tour.editorBodyMobile' },
   { target: 'nav-settings', title: 'tour.settingsTitle', body: 'tour.settingsBodyMobile' },
   { title: 'tour.doneTitle', body: 'tour.doneBodyMobile' },
 ];

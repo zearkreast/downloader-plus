@@ -699,6 +699,22 @@ export const tr: Record<TranslationKey, string> = {
 
   'intro.skip': 'Geç',
   'intro.start': 'Başla',
+  'tour.downloadsTitle': 'İndirmeler, Geçmiş ve Abonelikler',
+  'tour.downloadsBody':
+    "Süren ve bekleyen indirmeler burada; bekleyenlerin sırasını sürükleyerek değiştirebilirsin. Başlıktaki sekmelerden Geçmiş'e, yani indirdiğin her şeye, ve Abonelikler'e geçersin.",
+  'tour.downloadsBodyMobile':
+    "Süren ve bekleyen indirmeler burada. Üstteki sekmelerden Geçmiş'e, yani indirdiğin her şeye, ve Abonelikler'e geçersin.",
+  'tour.editorTitle': 'Düzenle ve Dönüştür',
+  'tour.editorBody':
+    'Bir videoyu ya da sesi kes, böl, istemediğin yerleri at; yalnızca sesini MP3 olarak al ya da altına müzik koy. Başlıktaki Dönüştür sekmesi dosyaları başka biçime çevirir.',
+  'tour.editorBodyMobile':
+    'Bir videoyu ya da sesi kes, böl, istemediğin yerleri at; yalnızca sesini MP3 olarak al. Üstteki Dönüştür sekmesi dosyaları başka biçime çevirir.',
+  'tour.settingsBodyDesktop':
+    "İndirme klasörü, varsayılan kalite ve daha fazlası. Tarayıcıda izlediğin videoyu tek tıkla göndermek için Ayarlar › Bağlantı'daki uzantıyı yükle: Chrome, Edge ve Brave için uzantı klasörü uygulamayla birlikte güncellenir, Firefox için imzalı eklenti var.",
+  'tour.aboutTitle': 'Hakkında',
+  'tour.aboutBody':
+    'Sürüm, güncellemeler ve gizlilik. Bu turu istediğin zaman buradan yeniden başlatabilirsin.',
+  'tour.doneBody': 'İlk bağlantını yapıştırabilirsin.',
   'tour.progress': '{current} / {total}',
   'tour.skip': 'Turu atla',
   'tour.back': 'Geri',
@@ -719,31 +735,10 @@ export const tr: Record<TranslationKey, string> = {
   'tour.shareTitle': 'Ya da başka uygulamadan paylaş',
   'tour.shareBody':
     "YouTube, TikTok, Instagram ya da tarayıcıda Paylaş'a bas ve listeden UMD+'yı seç. Bağlantı burada hazır açılır.",
-  'tour.downloadsTitle': 'İndirmeler',
-  'tour.downloadsBody':
-    'Süren, bekleyen ve biten indirmeler burada. Bekleyenlerin sırasını sürükleyerek değiştirebilir, bir indirmeyi duraklatıp sürdürebilirsin.',
-  'tour.downloadsBodyMobile':
-    'Süren, bekleyen ve biten indirmeler burada. İndirdiğin her şeyin geçmişi ve aboneliklerin de bu sekmede.',
-  'tour.editorTitle': 'Düzenle',
-  'tour.editorBody':
-    'Bir videoyu ya da sesi kes, böl, istemediğin yerleri at. Videonun yalnızca sesini MP3 olarak alabilir, altına müzik koyabilirsin.',
-  'tour.convertTitle': 'Dönüştür',
-  'tour.convertBody':
-    'Dosyaları başka biçime çevir: videodan MP3, GIF ya da mesajlaşma uygulamasına sığacak boyutta video.',
-  'tour.historyTitle': 'Geçmiş',
-  'tour.historyBody':
-    'İndirdiğin her şey burada. Ara, türe ya da siteye göre süz, dosyayı aç ya da yeniden indir.',
-  'tour.subscriptionsTitle': 'Abonelikler',
-  'tour.subscriptionsBody':
-    'Bir kanala ya da oynatma listesine abone ol; yeni videolar kendiliğinden insin.',
   'tour.settingsTitle': 'Ayarlar',
-  'tour.settingsBodyDesktop':
-    "İndirme klasörü, varsayılan kalite ve daha fazlası. Tarayıcıda izlediğin videoyu tek tıkla göndermek için Ayarlar › Bağlantı'dan tarayıcı uzantısını kur.",
   'tour.settingsBodyMobile':
     'İndirme klasörü, varsayılan kalite, yalnızca Wi-Fi ile indirme ve daha fazlası.',
   'tour.doneTitle': 'Hazırsın',
-  'tour.doneBody':
-    'İlk bağlantını yapıştırabilirsin. Turu istediğin zaman Hakkında sayfasından yeniden başlatabilirsin.',
   'tour.doneBodyMobile':
     "İlk bağlantını yapıştırabilirsin. Turu istediğin zaman sağ üstteki ⓘ Hakkında düğmesinden yeniden başlatabilirsin.",
   'intro.replay': 'Tanıtımı izle',
