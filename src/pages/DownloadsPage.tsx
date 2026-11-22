@@ -201,11 +201,21 @@ const ENDING_LINES = {
 // -- the downloads themselves ---------------------------------------------------
 
 /**
- * What is downloading, waiting, or finished and not yet cleared away, with the
- * actions that apply to all of it. On the desktop this is the whole screen; on
- * a phone, its first half.
+ * The desktop's History opens with what is still downloading or waiting, and
+ * what failed, above the finished downloads; it shows nothing once the queue
+ * is empty. A completed download is left to the history below, which already
+ * lists it.
  */
-function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
+export function QueueSection({ onGoHome }: { onGoHome: () => void }) {
+  return <CurrentDownloads onGoHome={onGoHome} embedded />;
+}
+
+/**
+ * What is downloading, waiting, or finished and not yet cleared away, with the
+ * actions that apply to all of it. On a phone this is the first half of
+ * Downloads; `embedded`, it is the top of the desktop's History.
+ */
+function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void; embedded?: boolean }) {
   const { t } = useTranslation();
   const tasks = useQueueStore((state) => state.tasks);
 
@@ -214,13 +224,13 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
   // and no row moves.
   const { groups, anyRunning, anyQueued, anyPaused, anyFinished } = useMemo(
     () => ({
-      groups: groupDownloads(tasks),
+      groups: embedded ? withoutCompleted(groupDownloads(tasks)) : groupDownloads(tasks),
       anyRunning: selectActive(tasks).length > 0,
       anyQueued: tasks.some((task) => task.status === 'queued'),
       anyPaused: tasks.some((task) => task.status === 'paused'),
       anyFinished: selectFinished(tasks).length > 0,
     }),
-    [tasks],
+    [tasks, embedded],
   );
   const activity = useMemo(() => summarizeActivity(tasks), [tasks]);
 
@@ -255,18 +265,51 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
             onClick={() => void ipc.resumeAllDownloads()}
           />
         )}
-        {anyFinished && (
+        {/* Beside History's own Clear, this one says what it clears. */}
+        {(embedded ? groups.finished.length > 0 : anyFinished) && (
           <Button
             size="sm"
             variant="ghost"
-            aria-label={t('downloads.clearFinished')}
+            aria-label={t(embedded ? 'downloads.clearUnfinished' : 'downloads.clearFinished')}
             onClick={() => void ipc.clearFinishedDownloads()}
           >
-            {t('downloads.clear')}
+            {t(embedded ? 'downloads.clearUnfinished' : 'downloads.clear')}
           </Button>
         )}
       </>
     ) : undefined;
+
+  if (embedded) {
+    const shown = groups.running.length + groups.pending.length + groups.finished.length;
+    return (
+      <>
+        {shown > 0 && (
+          <div className="mb-8 flex flex-col gap-4">
+            <div className="flex items-center justify-end gap-1.5">{actions}</div>
+            {isBusy(activity) && <QueueSummary activity={activity} tasks={tasks} />}
+            <div className="flex flex-col gap-5">
+              {groups.running.length > 0 && (
+                <DownloadGroup label={t('downloads.active')} count={groups.running.length}>
+                  <Rows tasks={groups.running} />
+                </DownloadGroup>
+              )}
+              {groups.pending.length > 0 && (
+                <DownloadGroup label={t('downloads.pendingGroup')} count={groups.pending.length}>
+                  <PendingRows tasks={groups.pending} />
+                </DownloadGroup>
+              )}
+              {groups.finished.length > 0 && (
+                <DownloadGroup label={t('downloads.unfinishedGroup')} count={groups.finished.length}>
+                  <FinishedRows tasks={groups.finished} />
+                </DownloadGroup>
+              )}
+            </div>
+          </div>
+        )}
+        <DownloadDetailDialog />
+      </>
+    );
+  }
 
   return (
     <>
@@ -327,6 +370,11 @@ function CurrentDownloads({ onGoHome }: { onGoHome: () => void }) {
       <DownloadDetailDialog />
     </>
   );
+}
+
+/** Failed and cancelled downloads stay; completed ones are in the history. */
+function withoutCompleted(groups: ReturnType<typeof groupDownloads>) {
+  return { ...groups, finished: groups.finished.filter((task) => task.status !== 'completed') };
 }
 
 function DownloadGroup({

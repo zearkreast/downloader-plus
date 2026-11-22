@@ -6,8 +6,6 @@ import {
   House,
   Info,
   Film,
-  PanelLeft,
-  Repeat,
   Settings as SettingsIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -41,24 +39,28 @@ interface NavEntry {
 }
 
 /**
- * The places where work happens, in the order the phone's tab bar has them:
- * fetch, look at what is coming in, cut it, convert it. The two used to stand
- * in different orders, so Edit and Convert swapped places between the phone
- * and the desktop.
+ * The places where work happens. History holds the downloads still running
+ * above the finished ones, and Edit holds Convert behind a switch, so neither
+ * of those has an entry of its own.
  */
 const PRIMARY: NavEntry[] = [
   { route: 'home', label: 'nav.home', icon: House },
-  { route: 'downloads', label: 'nav.downloads', icon: Download },
-  { route: 'editor', label: 'nav.editor', icon: Film },
-  { route: 'convert', label: 'nav.convert', icon: Repeat },
   { route: 'history', label: 'nav.history', icon: Clock },
+  { route: 'editor', label: 'nav.editor', icon: Film },
   { route: 'subscriptions', label: 'nav.subscriptions', icon: Bell },
 ];
 
 const SECONDARY: NavEntry[] = [
-  { route: 'settings', label: 'nav.settings', icon: SettingsIcon },
   { route: 'about', label: 'nav.about', icon: Info },
+  { route: 'settings', label: 'nav.settings', icon: SettingsIcon },
 ];
+
+/** The entry a screen is shown under: Downloads under History, Convert under Edit. */
+export function navEntryOf(route: Route): Route {
+  if (route === 'downloads') return 'history';
+  if (route === 'convert') return 'editor';
+  return route;
+}
 
 /**
  * Every place in the order it stands in the sidebar, top to bottom. Ctrl+1 is
@@ -103,6 +105,8 @@ export function Sidebar({
   convertingCount,
 }: SidebarProps) {
   const { t } = useTranslation();
+  const shown = navEntryOf(route);
+  const toggleLabel = collapsed ? t('nav.expand') : t('nav.collapse');
 
   return (
     <nav
@@ -113,18 +117,36 @@ export function Sidebar({
         collapsed ? RAIL : WIDE,
       )}
     >
-      {/* The lockup: the mark over the column of icons, centred in the rail,
-          and the name fading in beside it. */}
-      <div className="flex h-[60px] shrink-0 items-center gap-2.5 pl-5">
-        <Logo size={24} className="shrink-0" />
-        <Wordmark
-          name={t('app.name')}
-          className={cn(
-            'whitespace-nowrap text-[15px] font-bold tracking-[-0.02em] text-fg',
-            'transition-opacity duration-200 ease-out-quint',
-            collapsed ? 'opacity-0' : 'opacity-100 delay-75',
-          )}
-        />
+      {/* The lockup is the collapse button. The ring turns the way the edge
+          moves, around a still plus; a multiple of 45 degrees leaves the
+          blades where they started. */}
+      <div className="flex h-[60px] shrink-0 items-center px-3">
+        <Tooltip label={toggleLabel} side="right">
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label={toggleLabel}
+            aria-expanded={!collapsed}
+            className="pressable-sm flex h-10 w-full items-center gap-2.5 rounded-[10px] pl-2 hover:bg-fill"
+          >
+            <Logo
+              size={24}
+              className="shrink-0"
+              ringClassName={cn(
+                'transition-[rotate] duration-350 ease-out-quint',
+                collapsed ? '-rotate-180' : 'rotate-0',
+              )}
+            />
+            <Wordmark
+              name={t('app.name')}
+              className={cn(
+                'whitespace-nowrap text-[15px] font-bold tracking-[-0.02em] text-fg',
+                'transition-opacity duration-200 ease-out-quint',
+                collapsed ? 'opacity-0' : 'opacity-100 delay-75',
+              )}
+            />
+          </button>
+        </Tooltip>
       </div>
 
       <div className="flex flex-1 flex-col gap-1 px-3 pt-1">
@@ -132,7 +154,7 @@ export function Sidebar({
           <NavButton
             key={entry.route}
             entry={entry}
-            active={route === entry.route}
+            active={shown === entry.route}
             collapsed={collapsed}
             badge={badgeFor(entry.route, activeCount, convertingCount)}
             onClick={() => onNavigate(entry.route)}
@@ -140,7 +162,7 @@ export function Sidebar({
         ))}
       </div>
 
-      <ActivityCard collapsed={collapsed} onOpen={() => onNavigate('downloads')} />
+      <ActivityCard collapsed={collapsed} onOpen={() => onNavigate('history')} />
 
       {/* The app's own pages sit at the foot of the list, apart from the places
           where work happens; the distance does what a rule would. */}
@@ -149,43 +171,21 @@ export function Sidebar({
           <NavButton
             key={entry.route}
             entry={entry}
-            active={route === entry.route}
+            active={shown === entry.route}
             collapsed={collapsed}
             badge={0}
             onClick={() => onNavigate(entry.route)}
           />
         ))}
-
-        <Tooltip label={collapsed ? t('nav.expand') : t('nav.collapse')} side="right">
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
-            aria-expanded={!collapsed}
-            className={cn(
-              'pressable-sm flex h-9 items-center rounded-[10px] text-fg-faint',
-              'hover:bg-fill hover:text-fg-muted',
-              ROW_PAD,
-            )}
-          >
-            <PanelLeft
-              size={18}
-              className={cn(
-                'shrink-0 transition-transform duration-350 ease-out-quint',
-                collapsed && 'rotate-180',
-              )}
-            />
-          </button>
-        </Tooltip>
       </div>
     </nav>
   );
 }
 
-/** Only the two screens that do background work carry a count. */
+/** Only the entries over screens that do background work carry a count. */
 export function badgeFor(route: Route, downloading: number, converting: number): number {
-  if (route === 'downloads') return downloading;
-  if (route === 'convert') return converting;
+  if (route === 'downloads' || route === 'history') return downloading;
+  if (route === 'convert' || route === 'editor') return converting;
   return 0;
 }
 

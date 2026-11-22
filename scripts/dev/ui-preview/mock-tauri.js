@@ -76,14 +76,14 @@
 
   const settings = {
     startWithWindows: false,
-    minimizeToTray: true,
+    minimizeToTray: false,
     closeToTray: true,
     clipboardMonitoring: false,
     notificationsEnabled: true,
     notifyOnComplete: true,
     notifyOnError: true,
     autoUpdate: true,
-    resumeOnLaunch: false,
+    resumeOnLaunch: true,
     quickDownload: false,
     sessionFirst: false,
     saveCover: false,
