@@ -1,5 +1,5 @@
 import { motion, type Variants } from 'motion/react';
-import { Download, Film, House, Repeat, Settings as SettingsIcon, type LucideIcon } from 'lucide-react';
+import { Download, Film, House, Settings as SettingsIcon, type LucideIcon } from 'lucide-react';
 import { memo } from 'react';
 
 import { useTranslation } from '@/i18n';
@@ -12,7 +12,6 @@ const ENTRIES: { route: Route; label: TranslationKey; icon: LucideIcon }[] = [
   { route: 'home', label: 'nav.home', icon: House },
   { route: 'downloads', label: 'nav.downloads', icon: Download },
   { route: 'editor', label: 'nav.editor', icon: Film },
-  { route: 'convert', label: 'nav.convert', icon: Repeat },
   { route: 'settings', label: 'nav.settings', icon: SettingsIcon },
 ];
 
@@ -41,8 +40,8 @@ interface BottomNavProps {
 
 /**
  * The phone's navigation: the places where work happens, along the bottom
- * where a thumb reaches them. History is the second half of Downloads here, and
- * About moves to the top bar, since five is as many as fit.
+ * where a thumb reaches them. History is the second half of Downloads here,
+ * Convert sits behind Edit's switch, and About moves to the top bar.
  *
  * The selected tab sits in a soft pill that glides from tab to tab, so a switch
  * reads as the selection moving rather than one highlight going out and

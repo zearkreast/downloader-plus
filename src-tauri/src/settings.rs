@@ -176,8 +176,10 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             start_with_windows: false,
-            minimize_to_tray: true,
-            close_to_tray: false,
+            // Closing keeps the app in the tray, so downloads carry on; a
+            // minimised window stays on the taskbar like any other.
+            minimize_to_tray: false,
+            close_to_tray: true,
             // Android announces every clipboard read with a banner, and its share
             // sheet is the natural way to hand a link over anyway.
             clipboard_monitoring: !cfg!(target_os = "android"),
@@ -185,7 +187,9 @@ impl Default for Settings {
             notify_on_complete: true,
             notify_on_error: true,
             auto_update: default_true(),
-            resume_on_launch: false,
+            // A new install picks the queue up where it was left. An older one
+            // keeps what it had through `serde(default)`, which reads false.
+            resume_on_launch: true,
             quick_download: false,
             session_first: false,
             save_cover: false,

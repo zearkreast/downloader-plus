@@ -132,6 +132,8 @@ function phoneState(requested: NavRequest, current: NavState): NavState {
     return { route: 'downloads', section: null, tab: 'downloads' };
   }
   if (requested.route === 'about') return { route: 'about', section: null, tab: current.tab };
+  // Convert is the other half of Edit's tab.
+  if (requested.route === 'convert') return { route: 'convert', section: null, tab: 'editor' };
   return {
     route: requested.route,
     section: requested.route === 'settings' ? requested.section : null,
@@ -353,9 +355,10 @@ export function App() {
     const next: NavState = IS_MOBILE
       ? phoneState(requested, current)
       : {
-          route: requested.route,
+          // The desktop's History holds the running downloads too.
+          route: requested.route === 'downloads' ? 'history' : requested.route,
           section: requested.route === 'settings' ? requested.section : null,
-          tab: requested.route,
+          tab: requested.route === 'downloads' ? 'history' : requested.route,
         };
     if (sameScreen(next, current)) return;
     navRef.current = next;
@@ -822,9 +825,11 @@ export function App() {
         />
       )}
       {route === 'downloads' && <DownloadsPage onGoHome={() => setRoute('home')} />}
-      {route === 'convert' && <ConvertPage settings={settings} />}
+      {route === 'convert' && <ConvertPage settings={settings} onSwitch={setRoute} />}
       {/* On a phone it answers the Back gesture itself while a clip is open. */}
-      {route === 'editor' && <EditorPage settings={settings} onBackRef={editorBackRef} />}
+      {route === 'editor' && (
+        <EditorPage settings={settings} onBackRef={editorBackRef} onSwitch={setRoute} />
+      )}
       {/* The desktop's alone: a phone sends History to Downloads. */}
       {route === 'history' && <HistoryPage onGoHome={() => setRoute('home')} />}
       {route === 'subscriptions' && <SubscriptionsPage onGoHome={() => setRoute('home')} />}

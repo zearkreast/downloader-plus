@@ -12,6 +12,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { ListGroup, ListGroupLabel, ROW_LINE } from '@/components/ui/ListGroup';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { MediaSwitch, type MediaRoute } from '@/components/layout/MediaSwitch';
 import { Segmented } from '@/components/ui/Segmented';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { Spinner } from '@/components/ui/Spinner';
@@ -93,7 +94,14 @@ const JOB_HANDLERS = {
   onRemove: (id: string) => void ipc.removeConversion(id),
 };
 
-export function ConvertPage({ settings }: { settings: Settings }) {
+export function ConvertPage({
+  settings,
+  onSwitch,
+}: {
+  settings: Settings;
+  /** Over to Edit, which shares this screen's entry; see MediaSwitch. */
+  onSwitch?: (route: MediaRoute) => void;
+}) {
   const { t } = useTranslation();
 
   const files = useConvertStore((state) => state.files);
@@ -273,7 +281,11 @@ export function ConvertPage({ settings }: { settings: Settings }) {
 
   return (
     <div className={cn('mx-auto w-full max-w-[760px] pb-12', IS_MOBILE ? 'px-4 pt-2' : 'px-6')}>
-      <PageHeader title={t('convert.title')} />
+      {IS_MOBILE && onSwitch && <MediaSwitch current="convert" onSwitch={onSwitch} className="mb-3" />}
+      <PageHeader
+        title={t('convert.title')}
+        actions={!IS_MOBILE && onSwitch ? <MediaSwitch current="convert" onSwitch={onSwitch} /> : undefined}
+      />
 
       <AnimatePresence initial={false}>
         {ffmpeg != null && !ffmpegReady && (

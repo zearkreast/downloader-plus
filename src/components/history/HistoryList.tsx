@@ -83,7 +83,14 @@ async function redownload(entry: HistoryEntry): Promise<AppErrorInfo | null> {
  * title bar; a phone shows it as the second half of Downloads, under the
  * control that switches to it, so there it brings no title.
  */
-export function HistoryList({ onGoHome }: { onGoHome: () => void }) {
+export function HistoryList({
+  onGoHome,
+  queue,
+}: {
+  onGoHome: () => void;
+  /** What is still downloading, under the title and above the history. */
+  queue?: React.ReactNode;
+}) {
 
   const { t, language } = useTranslation();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
@@ -239,6 +246,8 @@ export function HistoryList({ onGoHome }: { onGoHome: () => void }) {
           }
         />
       )}
+
+      {queue}
 
       {/* Shown once there is a history to narrow down, and kept while a
           filter is what emptied the list -- or there would be no way back. */}
