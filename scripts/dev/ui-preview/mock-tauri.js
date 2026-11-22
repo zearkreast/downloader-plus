@@ -1814,8 +1814,11 @@
     if (cmd === 'plugin:dialog|open') {
       const options = args.options ?? {};
       if (options.directory) return 'C:\\Users\\melik\\Videos\\Kesimler';
-      // The editor's sound picker offers audio first.
-      const wantsSound = options.filters?.[0]?.extensions?.includes('mp3');
+      // The editor's sound picker offers audio first; its file picker offers
+      // both, and gives sound when `window.__UD_MOCK__.pickSound` is set.
+      const first = options.filters?.[0]?.extensions ?? [];
+      const wantsSound =
+        (first.includes('mp3') && !first.includes('mp4')) || window.__UD_MOCK__?.pickSound === true;
       const picked = wantsSound
         ? ['C:\\Users\\melik\\Music\\Yaz akşamı.mp3']
         : ['C:\\Users\\melik\\Videos\\tatil klibi.mp4'];

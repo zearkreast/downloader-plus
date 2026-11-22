@@ -23,6 +23,7 @@ import type {
   MediaProbe,
   TimelineState,
 } from '@/types';
+import { isAudioContainer } from '@/types';
 
 /**
  * Everything the editor is holding.
@@ -149,14 +150,23 @@ function sameEdit(a: Edit, b: Edit): boolean {
 }
 
 function defaultOptions(probe: MediaProbe, hardware: boolean): ExportOptions {
+  if (!probe.hasVideo) return soundOptions(probe, hardware);
   // The source's own container, so the quiet path through this screen is a cut
   // and nothing else. Anything the app cannot copy into is landed in MP4 -- and
   // landing it somewhere else is already the decision to re-encode, so the mode
   // says so rather than leaving the screen to contradict itself.
   const copyable = ['mp4', 'mkv', 'webm', 'mov'].includes(probe.container);
   return {
+    ...videoOptions(hardware),
     mode: copyable ? 'lossless' : 'reencode',
     container: copyable ? probe.container : 'mp4',
+  };
+}
+
+function videoOptions(hardware: boolean): ExportOptions {
+  return {
+    mode: 'reencode',
+    container: 'mp4',
     videoCodec: 'h264',
     quality: 'balanced',
     videoBitrateKbps: null,
@@ -172,6 +182,24 @@ function defaultOptions(probe: MediaProbe, hardware: boolean): ExportOptions {
     hardware,
     soundPath: null,
     soundVolume: 1,
+    fadeInSec: 0,
+    fadeOutSec: 0,
+    normalize: false,
+  };
+}
+
+/**
+ * A file of sound alone keeps its own format where the app can write it --
+ * Ogg is written as Opus, the codec it usually carries -- and lands in MP3
+ * otherwise, the one every player opens.
+ */
+function soundOptions(probe: MediaProbe, hardware: boolean): ExportOptions {
+  const own = probe.container === 'ogg' ? 'opus' : probe.container;
+  return {
+    ...videoOptions(hardware),
+    mode: 'reencode',
+    container: isAudioContainer(own) ? own : 'mp3',
+    audioBitrateKbps: 192,
   };
 }
 
@@ -218,9 +246,8 @@ interface EditorStoreState {
   outputDir: string | null;
 
   /**
-   * Open a file. One with a picture is a clip; one with only sound, while a
-   * clip is open, is that clip's sound -- what the user meant by choosing it
-   * there. Resolves to the clip it went into, or null.
+   * Open a file as a clip, with a picture or with sound alone. Resolves to
+   * the clip it went into, or null.
    */
   open: (path: string, hardware: boolean) => Promise<string | null>;
   /** Lay a file's sound under the clip being edited. Resolves to whether it went in. */
@@ -441,20 +468,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => {
       set({ opening: true, openError: null });
       try {
         const probe = await ipc.probeMedia(path);
-        // Sound on its own is not something this screen can cut: it would
-        // open as a black stage over an empty filmstrip. With a clip open it
-        // is something to put under it, which is what choosing a song there
-        // means -- by the add button, a drop, or a link. The phone's picker
-        // offers audio as well and a dropped file can be anything, so the
-        // decision is made here, once, for every way in.
-        if (!probe.hasVideo) {
-          const active = get().activeId;
-          if (probe.hasAudio && active) {
-            set({ opening: false });
-            return (await attach(path, probe)) ? active : null;
-          }
-          const why = probe.hasAudio ? 'editor.soundNeedsVideo' : 'editor.noVideo';
-          set({ opening: false, openError: ownError(translate(why)) });
+        // Sound on its own opens as a clip of its own, to be cut and finished
+        // like any other; putting one under a video is the Add sound button's.
+        if (!probe.hasVideo && !probe.hasAudio) {
+          set({ opening: false, openError: ownError(translate('editor.noVideo')) });
           return null;
         }
         // Some files carry no length at all -- anything muxed to a pipe, which
@@ -879,6 +896,8 @@ export type LosslessBlocker =
  * same rule.
  */
 export function losslessBlocker(options: ExportOptions, probe: MediaProbe): LosslessBlocker | null {
+  // Sound alone is always written afresh; the backend holds the same rule.
+  if (isAudioContainer(options.container) || !probe.hasVideo) return 'container';
   if (options.aspect !== 'source') return 'aspect';
   if (options.fps != null) return 'fps';
   if (options.maxHeight != null) return 'resolution';

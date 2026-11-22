@@ -122,6 +122,8 @@ export interface TimelineDockProps {
   durationSec: number;
   fps: number | null;
   hasAudio: boolean;
+  /** A file of sound alone: its waveform takes the frames' place. */
+  soundOnly?: boolean;
   /** The sound laid under the clip, when it has one. */
   sound?: { name: string; durationSec: number | null } | null;
   cuts: Cut[];
@@ -166,6 +168,7 @@ export const TimelineDock = memo(function TimelineDock({
   durationSec,
   fps,
   hasAudio,
+  soundOnly = false,
   sound = null,
   cuts,
   selectedId,
@@ -828,13 +831,24 @@ export const TimelineDock = memo(function TimelineDock({
             style={{ height: VIDEO_TRACK_H }}
           >
             {GUTTER > 0 && <Extent left={fileLeft} right={fileRight} />}
-            <Filmstrip
-              data={filmstrip}
-              windowStartSec={windowStart}
-              windowEndSec={windowEnd}
-              width={width}
-              height={VIDEO_TRACK_H}
-            />
+            {soundOnly ? (
+              <Waveform
+                data={waveform}
+                windowStartSec={windowStart}
+                windowEndSec={windowEnd}
+                width={width}
+                height={VIDEO_TRACK_H}
+                loading={waveformWorking}
+              />
+            ) : (
+              <Filmstrip
+                data={filmstrip}
+                windowStartSec={windowStart}
+                windowEndSec={windowEnd}
+                width={width}
+                height={VIDEO_TRACK_H}
+              />
+            )}
 
             {/* What is being thrown away is dimmed; what is kept is left alone,
                 so a file with nothing cut out of it looks like a plain track
@@ -871,38 +885,40 @@ export const TimelineDock = memo(function TimelineDock({
                 ))}
           </div>
 
-          {/* The sound. */}
-          <div
-            className={cn(
-              'relative mt-1.5 overflow-hidden',
-              GUTTER === 0 && 'rounded-[6px] bg-surface-sunken',
-            )}
-            style={{ height: AUDIO_TRACK_H }}
-          >
-            {GUTTER > 0 && <Extent left={fileLeft} right={fileRight} />}
-            {hasAudio ? (
-              <>
-                <Waveform
-                  data={waveform}
-                  windowStartSec={windowStart}
-                  windowEndSec={windowEnd}
-                  width={width}
-                  height={AUDIO_TRACK_H}
-                  loading={waveformWorking}
-                />
-                {waveform == null && waveformWorking && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[11.5px] text-fg-faint">
-                    {t('editor.readingAudio')}
-                  </span>
-                )}
-                <Dimming cuts={cuts} durationSec={usable} xOf={xOf} />
-              </>
-            ) : (
-              <span className="absolute inset-0 flex items-center justify-center text-[11.5px] text-fg-faint">
-                {t('editor.noAudio')}
-              </span>
-            )}
-          </div>
+          {/* The sound, unless it is already the track above. */}
+          {!soundOnly && (
+            <div
+              className={cn(
+                'relative mt-1.5 overflow-hidden',
+                GUTTER === 0 && 'rounded-[6px] bg-surface-sunken',
+              )}
+              style={{ height: AUDIO_TRACK_H }}
+            >
+              {GUTTER > 0 && <Extent left={fileLeft} right={fileRight} />}
+              {hasAudio ? (
+                <>
+                  <Waveform
+                    data={waveform}
+                    windowStartSec={windowStart}
+                    windowEndSec={windowEnd}
+                    width={width}
+                    height={AUDIO_TRACK_H}
+                    loading={waveformWorking}
+                  />
+                  {waveform == null && waveformWorking && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[11.5px] text-fg-faint">
+                      {t('editor.readingAudio')}
+                    </span>
+                  )}
+                  <Dimming cuts={cuts} durationSec={usable} xOf={xOf} />
+                </>
+              ) : (
+                <span className="absolute inset-0 flex items-center justify-center text-[11.5px] text-fg-faint">
+                  {t('editor.noAudio')}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* The added sound, under the kept pieces it will play over. */}
           {sound && <SoundLane sound={sound} cuts={cuts} xOf={xOf} />}

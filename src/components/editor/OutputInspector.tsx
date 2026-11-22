@@ -41,14 +41,16 @@ import {
   useEditorStore,
   type LosslessBlocker,
 } from '@/stores/useEditorStore';
-import type {
-  AspectRatio,
-  AudioCodec,
-  ExportMode,
-  ExportQuality,
-  FrameFit,
-  Settings,
-  VideoCodec,
+import {
+  AUDIO_CONTAINERS,
+  isAudioContainer,
+  type AspectRatio,
+  type AudioCodec,
+  type ExportMode,
+  type ExportQuality,
+  type FrameFit,
+  type Settings,
+  type VideoCodec,
 } from '@/types';
 
 /*
@@ -126,7 +128,18 @@ const CONTAINER_NAMES: Record<string, string> = {
   mkv: 'MKV',
   webm: 'WebM',
   mov: 'MOV',
+  mp3: 'MP3',
+  m4a: 'M4A (AAC)',
+  opus: 'Opus',
+  flac: 'FLAC',
+  wav: 'WAV',
 };
+
+/** Formats that are lossless already, and so take no rate. */
+const RATELESS = new Set(['flac', 'wav']);
+
+/** How long a fade may run, in seconds. 0 is none. */
+const FADES = [0, 0.5, 1, 2, 3, 5, 10];
 
 const VIDEO_BY_CONTAINER: Record<string, VideoCodec[]> = {
   mp4: ['h264', 'h265', 'av1'],
@@ -316,6 +329,27 @@ export const OutputInspector = memo(function OutputInspector({
 
   const hasAudio = clip.probe.hasAudio;
   const audible = hasAudio && !options.mute;
+  // Sound alone in, or sound alone out: either way there is no picture to set.
+  const soundClip = !clip.probe.hasVideo;
+  const soundOut = isAudioContainer(options.container);
+  const containers: readonly string[] = soundClip
+    ? AUDIO_CONTAINERS
+    : [...CONTAINERS, ...AUDIO_CONTAINERS];
+  const containerOptions = containers.map((container) => ({
+    value: container,
+    label: CONTAINER_NAMES[container] ?? container,
+    description:
+      !soundClip && isAudioContainer(container) ? t('editor.soundOnlyFormat') : undefined,
+  }));
+  const fadeOptions = FADES.map((seconds) => ({
+    value: String(seconds),
+    label:
+      seconds === 0
+        ? t('editor.fadeNone')
+        : t('editor.fadeSeconds', {
+            value: new Intl.NumberFormat(language).format(seconds),
+          }),
+  }));
   // Whether the file will carry sound at all -- the source's own, or one laid
   // under it -- which is what the audio codec and rate are for.
   const writesAudio = audible || options.soundPath != null;
@@ -448,56 +482,60 @@ export const OutputInspector = memo(function OutputInspector({
     <>
       {clips && <div className="mb-5">{clips}</div>}
 
-      <ListGroup>
-        <Row
-          title={t('editor.aspect')}
-          control={
-            // Six choices, one of them "Original": a segmented control would
-            // give each about 35px and clip most of the labels. A menu spends
-            // one row here and gives every choice a full line when open.
-            <Picker
-              value={options.aspect}
-              options={ASPECTS.map((aspect) => ({
-                value: aspect,
-                label: aspect === 'source' ? t('editor.original') : aspect,
-              }))}
-              onChange={(aspect) => setAspect(aspect, options.fit)}
-            />
-          }
-        >
-          {/* How the picture meets a frame of another shape -- a question
-              that only exists once there is another shape. */}
-          <AnimatePresence initial={false}>
-            {options.aspect !== 'source' && (
-              <motion.div
-                variants={COLLAPSE}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="overflow-hidden"
-              >
-                <div className="pb-1 pr-1.5 pt-2.5">
-                  <Segmented
-                    size="sm"
-                    value={options.fit}
-                    onChange={(fit: FrameFit) => setAspect(options.aspect, fit)}
-                    options={[
-                      { value: 'fill', label: t('editor.fill') },
-                      { value: 'fit', label: t('editor.fit') },
-                    ]}
-                  />
-                  <p className={cn('mt-1.5 leading-snug text-fg-muted', NOTE_TEXT)}>
-                    {t(options.fit === 'fill' ? 'editor.fillHint' : 'editor.fitHint')}
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Row>
-      </ListGroup>
+      {!soundClip && !soundOut && (
+        <div className="mb-5">
+          <ListGroup>
+            <Row
+              title={t('editor.aspect')}
+              control={
+                // Six choices, one of them "Original": a segmented control would
+                // give each about 35px and clip most of the labels. A menu spends
+                // one row here and gives every choice a full line when open.
+                <Picker
+                  value={options.aspect}
+                  options={ASPECTS.map((aspect) => ({
+                    value: aspect,
+                    label: aspect === 'source' ? t('editor.original') : aspect,
+                  }))}
+                  onChange={(aspect) => setAspect(aspect, options.fit)}
+                />
+              }
+            >
+              {/* How the picture meets a frame of another shape -- a question
+                  that only exists once there is another shape. */}
+              <AnimatePresence initial={false}>
+                {options.aspect !== 'source' && (
+                  <motion.div
+                    variants={COLLAPSE}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    className="overflow-hidden"
+                  >
+                    <div className="pb-1 pr-1.5 pt-2.5">
+                      <Segmented
+                        size="sm"
+                        value={options.fit}
+                        onChange={(fit: FrameFit) => setAspect(options.aspect, fit)}
+                        options={[
+                          { value: 'fill', label: t('editor.fill') },
+                          { value: 'fit', label: t('editor.fit') },
+                        ]}
+                      />
+                      <p className={cn('mt-1.5 leading-snug text-fg-muted', NOTE_TEXT)}>
+                        {t(options.fit === 'fill' ? 'editor.fillHint' : 'editor.fitHint')}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Row>
+          </ListGroup>
+        </div>
+      )}
 
       {/* Named for whose sound it is once there are two. */}
-      <ListGroupLabel className="mt-5">
+      <ListGroupLabel className={soundClip || soundOut ? undefined : 'mt-5'}>
         {t(sound ? 'editor.originalSound' : 'editor.audioTrack')}
       </ListGroupLabel>
       <ListGroup className="mt-1.5">
@@ -506,12 +544,15 @@ export const OutputInspector = memo(function OutputInspector({
           disabled={!audible}
           onChange={(volume) => setOptions({ volume })}
         />
-        <SwitchRow
-          title={t('editor.muteAudio')}
-          checked={options.mute}
-          disabled={!hasAudio}
-          onChange={(mute) => setOptions({ mute })}
-        />
+        {/* A file that is nothing but sound has nothing left once it is muted. */}
+        {!soundClip && (
+          <SwitchRow
+            title={t('editor.muteAudio')}
+            checked={options.mute}
+            disabled={!hasAudio}
+            onChange={(mute) => setOptions({ mute })}
+          />
+        )}
       </ListGroup>
       {!hasAudio ? (
         <Footnote>{t('editor.noAudio')}</Footnote>
@@ -519,6 +560,41 @@ export const OutputInspector = memo(function OutputInspector({
         previewCapped &&
         audible &&
         volumePercent > 100 && <Footnote>{t('editor.volumePreviewCapped')}</Footnote>
+      )}
+
+      {soundOut && (
+        <>
+          <ListGroupLabel className="mt-5">{t('editor.soundFinish')}</ListGroupLabel>
+          <ListGroup className="mt-1.5">
+            <Row
+              title={t('editor.fadeIn')}
+              control={
+                <Picker
+                  value={String(options.fadeInSec)}
+                  options={fadeOptions}
+                  onChange={(value) => setOptions({ fadeInSec: Number(value) })}
+                />
+              }
+            />
+            <Row
+              title={t('editor.fadeOut')}
+              control={
+                <Picker
+                  value={String(options.fadeOutSec)}
+                  options={fadeOptions}
+                  onChange={(value) => setOptions({ fadeOutSec: Number(value) })}
+                />
+              }
+            />
+            <SwitchRow
+              title={t('editor.normalize')}
+              description={t('editor.normalizeHint')}
+              checked={options.normalize}
+              onChange={(normalize) => setOptions({ normalize })}
+            />
+          </ListGroup>
+          <Footnote>{t('editor.finishNotPreviewed')}</Footnote>
+        </>
       )}
 
       <ListGroupLabel className="mt-5">{t('editor.addedSound')}</ListGroupLabel>
@@ -590,16 +666,24 @@ export const OutputInspector = memo(function OutputInspector({
     <>
       {/* The root of every other decision on this tab, and so the only
           control above the groups rather than inside one. */}
-      <Segmented
-        size="sm"
-        value={options.mode}
-        onChange={(mode: ExportMode) => setOptions({ mode })}
-        options={[
-          { value: 'lossless', label: t('editor.lossless'), disabled: blocker != null },
-          { value: 'reencode', label: t('editor.reencode') },
-        ]}
-      />
-      <p className={cn('mt-1.5 px-1 leading-snug text-fg-muted', NOTE_TEXT)}>{modeLine}</p>
+      {soundOut ? (
+        <p className={cn('px-1 leading-snug text-fg-muted', NOTE_TEXT)}>
+          {t(soundClip ? 'editor.soundHint' : 'editor.soundOnlyHint')}
+        </p>
+      ) : (
+        <>
+          <Segmented
+            size="sm"
+            value={options.mode}
+            onChange={(mode: ExportMode) => setOptions({ mode })}
+            options={[
+              { value: 'lossless', label: t('editor.lossless'), disabled: blocker != null },
+              { value: 'reencode', label: t('editor.reencode') },
+            ]}
+          />
+          <p className={cn('mt-1.5 px-1 leading-snug text-fg-muted', NOTE_TEXT)}>{modeLine}</p>
+        </>
+      )}
 
       <ListGroup className="mt-4">
         <Row
@@ -607,18 +691,38 @@ export const OutputInspector = memo(function OutputInspector({
           control={
             <Picker
               value={options.container}
-              options={CONTAINERS.map((container) => ({
-                value: container,
-                label: CONTAINER_NAMES[container] ?? container,
-              }))}
+              options={containerOptions}
               onChange={chooseContainer}
             />
           }
         />
       </ListGroup>
 
+      {soundOut && (
+        <>
+          <ListGroupLabel className="mt-5">{t('editor.audioTrack')}</ListGroupLabel>
+          <ListGroup className="mt-1.5">
+            <Row
+              title={t('editor.bitrate')}
+              control={
+                <Picker
+                  value={options.audioBitrateKbps == null ? '' : String(options.audioBitrateKbps)}
+                  options={AUDIO_BITRATES.map((kbps) => ({
+                    value: String(kbps),
+                    label: `${kbps} kbps`,
+                  }))}
+                  onChange={(value) => setOptions({ audioBitrateKbps: Number(value) })}
+                  disabled={RATELESS.has(options.container)}
+                />
+              }
+            />
+          </ListGroup>
+          {RATELESS.has(options.container) && <Footnote>{t('editor.ratelessFormat')}</Footnote>}
+        </>
+      )}
+
       <AnimatePresence initial={false}>
-        {options.mode === 'reencode' && (
+        {options.mode === 'reencode' && !soundOut && (
           <motion.div
             variants={COLLAPSE}
             initial="initial"

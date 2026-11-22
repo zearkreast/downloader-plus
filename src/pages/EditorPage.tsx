@@ -44,7 +44,7 @@ import { Progress } from '@/components/ui/Progress';
 import { useFileActions } from '@/hooks/useFileActions';
 import { errorMessage, useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
-import { VIDEO_EXTENSIONS, isEditableDownload } from '@/lib/editor/files';
+import { AUDIO_EXTENSIONS, VIDEO_EXTENSIONS, isEditableDownload } from '@/lib/editor/files';
 import { cutAt, nextKeptPosition } from '@/lib/editor/segments';
 import { ZOOM_STEP } from '@/lib/editor/zoom';
 import { COLLAPSE, EDITOR, FADE, T } from '@/lib/motion';
@@ -70,7 +70,7 @@ import {
   useEditorStore,
 } from '@/stores/useEditorStore';
 import { useToolsStore } from '@/stores/useToolsStore';
-import type { Settings } from '@/types';
+import { isAudioContainer, type Settings } from '@/types';
 
 /** How many buckets and cells the timeline asks for. */
 const WAVEFORM_BUCKETS = 4000;
@@ -272,7 +272,11 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
       } else {
         const selected = await open({
           multiple: true,
-          filters: [{ name: t('editor.videoFiles'), extensions: VIDEO_EXTENSIONS }],
+          filters: [
+            { name: t('editor.mediaFiles'), extensions: [...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS] },
+            { name: t('editor.videoFiles'), extensions: VIDEO_EXTENSIONS },
+            { name: t('editor.soundFiles'), extensions: AUDIO_EXTENSIONS },
+          ],
         });
         paths = Array.isArray(selected) ? selected : selected ? [selected] : [];
       }
@@ -528,6 +532,8 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
           cellHeight: null,
         })
         .catch(forget);
+      // Sound alone has no frames to lay out; its waveform fills the track.
+      if (!clip.probe.hasVideo) return;
       void ipc
         .requestTimeline({
           ...base,
@@ -789,6 +795,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
         name: entry.name,
         path: entry.path,
         durationSec: entry.probe.durationSec ?? 0,
+        soundOnly: !entry.probe.hasVideo,
       })),
     [pool],
   );
@@ -798,6 +805,13 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
   const summary = useMemo(() => {
     if (!options || !clip) return '';
     const parts: string[] = [];
+    if (isAudioContainer(options.container)) {
+      parts.push(options.container.toUpperCase());
+      if (!['flac', 'wav'].includes(options.container) && options.audioBitrateKbps != null) {
+        parts.push(`${options.audioBitrateKbps} kbps`);
+      }
+      return parts.join(' · ');
+    }
     const height = options.maxHeight ?? clip.probe.height;
     if (height) parts.push(`${height}p`);
     if (options.mode === 'lossless') {
@@ -1089,6 +1103,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
                     playable={playable}
                     onUnplayable={markUnplayable}
                     onCappedChange={setPreviewCapped}
+                    soundOnly={clip.probe.hasVideo ? null : clip.name}
                     className="min-w-0 flex-1"
                   />
                   {soundPreview}
@@ -1132,6 +1147,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
                     durationSec={duration}
                     fps={fps}
                     hasAudio={clip.probe.hasAudio}
+                    soundOnly={!clip.probe.hasVideo}
                     sound={sound}
                     cuts={cuts}
                     selectedId={selected?.id ?? null}
@@ -1378,6 +1394,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
             playable={playable}
             onUnplayable={markUnplayable}
             onCappedChange={setPreviewCapped}
+            soundOnly={clip.probe.hasVideo ? null : clip.name}
             className="min-h-0 flex-1"
           />
           {soundPreview}
@@ -1414,6 +1431,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
           durationSec={duration}
           fps={fps}
           hasAudio={clip.probe.hasAudio}
+          soundOnly={!clip.probe.hasVideo}
           sound={sound}
           cuts={cuts}
           selectedId={selected?.id ?? null}

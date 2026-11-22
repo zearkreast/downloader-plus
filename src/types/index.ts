@@ -527,7 +527,10 @@ export type ExportQuality = 'maximum' | 'high' | 'balanced' | 'small';
 
 export interface ExportOptions {
   mode: ExportMode;
-  /** Target container, lowercased and without the dot: mp4, mkv, webm, mov. */
+  /**
+   * Target container, lowercased and without the dot: mp4, mkv, webm, mov, or
+   * one of `AUDIO_CONTAINERS` for the sound alone.
+   */
   container: string;
   videoCodec: VideoCodec;
   quality: ExportQuality;
@@ -558,6 +561,18 @@ export interface ExportOptions {
   soundPath: string | null;
   /** Linear gain on that sound, on the same scale as `volume`. */
   soundVolume: number;
+  /** Seconds the sound rises at the start and falls at the end. Sound-only exports. */
+  fadeInSec: number;
+  fadeOutSec: number;
+  /** Even the loudness out to a steady level. Sound-only exports. */
+  normalize: boolean;
+}
+
+/** Containers that hold the sound alone, each written in its own codec. */
+export const AUDIO_CONTAINERS = ['mp3', 'm4a', 'opus', 'flac', 'wav'] as const;
+
+export function isAudioContainer(container: string): boolean {
+  return (AUDIO_CONTAINERS as readonly string[]).includes(container);
 }
 
 export interface ExportRequest {
