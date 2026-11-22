@@ -1177,6 +1177,9 @@ fn audio_filter(plan: &AudioPlan<'_>, seek: f64) -> String {
     // Levelled before the fades, so a fade ends at the level that is heard.
     if plan.options.normalize {
         finish.push("loudnorm=I=-16:TP=-1.5:LRA=11".into());
+        // loudnorm works at 192 kHz and hands that rate on, which made a
+        // levelled FLAC or WAV four times the size of the source.
+        finish.push("aresample=48000".into());
     }
     let fade_in = plan.options.fade_in_sec.clamp(0.0, MAX_FADE_SEC).min(kept);
     if fade_in > 0.0 {
@@ -2329,7 +2332,7 @@ mod tests {
         assert!(graph.contains("[acat]volume=1.500[ac];"), "{graph}");
         assert!(
             graph.ends_with(concat!(
-                "[ac]loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=2.000,",
+                "[ac]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,afade=t=in:st=0:d=2.000,",
                 "afade=t=out:st=17.000:d=3.000[aout]"
             )),
             "{graph}"
