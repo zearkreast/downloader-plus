@@ -4,6 +4,8 @@ import { flushSync } from 'react-dom';
 
 import { IntroBoundary } from '@/components/intro/IntroBoundary';
 import { WelcomeScreen } from '@/components/intro/WelcomeScreen';
+import { Tour } from '@/components/tour/Tour';
+import { DESKTOP_TOUR, MOBILE_TOUR, markTour, tourPending } from '@/components/tour/steps';
 import { Background } from '@/components/layout/Background';
 import { BottomNav, PHONE_TABS } from '@/components/layout/BottomNav';
 import { NAV_ORDER, Sidebar, type Route } from '@/components/layout/Sidebar';
@@ -311,6 +313,11 @@ export function App() {
   // the fact: a save that failed would roll it back and start the first run
   // over under the user's hand. A shared link sets only this (see below).
   const [introDone, setIntroDone] = useState(false);
+  // The walk through the app that follows the first run's welcome, and can be
+  // taken again from About.
+  const [touring, setTouring] = useState(false);
+  // A tour the app was closed in the middle of, taken up again at launch.
+  const [resumeTour, setResumeTour] = useState(tourPending);
 
   // A screen always opens at its top. The desktop's scroller outlives the
   // screen inside it, so without this, arriving at Downloads from halfway down
@@ -772,12 +779,24 @@ export function App() {
   // motion -- or the app has been told to -- it is the still welcome instead,
   // the one the desktop shows, which has no film.
   const filmAllowed = IS_MOBILE && !stillScreens && !settings.reduceMotion && !settings.lowResourceMode;
+  // Home is where the tour starts: its first stop is the link field.
+  const startTour = () => {
+    markTour('pending');
+    setRoute('home');
+    setTouring(true);
+  };
+  const endTour = () => {
+    markTour('done');
+    setTouring(false);
+    setResumeTour(false);
+  };
   if (!settings.onboardingComplete && !filmAllowed && !introDone) {
     return (
       <WelcomeScreen
         onStart={() => {
           setIntroDone(true);
           void updateSettings({ onboardingComplete: true });
+          startTour();
         }}
       />
     );
@@ -786,7 +805,10 @@ export function App() {
   const closeIntro = () => {
     setIntroReplay(false);
     setIntroDone(true);
-    if (!settings.onboardingComplete) void updateSettings({ onboardingComplete: true });
+    if (!settings.onboardingComplete) {
+      void updateSettings({ onboardingComplete: true });
+      startTour();
+    }
   };
   // A touch of the film pays for its history entry, so the system Back can
   // reach it (see IntroScreen): the film arrived with no touch to write one.
@@ -838,7 +860,10 @@ export function App() {
       {route === 'about' && (
         // Offered only where the film would play on a first run: with motion
         // turned down, the film is not what the app shows.
-        <AboutPage onPlayIntro={filmAllowed ? () => setIntroReplay(true) : undefined} />
+        <AboutPage
+          onPlayIntro={filmAllowed ? () => setIntroReplay(true) : undefined}
+          onStartTour={startTour}
+        />
       )}
     </>
   );
@@ -992,6 +1017,9 @@ export function App() {
           </IntroBoundary>
         )}
       </AnimatePresence>
+      {(touring || (resumeTour && settings.onboardingComplete)) && !introShown && (
+        <Tour steps={IS_MOBILE ? MOBILE_TOUR : DESKTOP_TOUR} onFinish={endTour} onSkip={endTour} />
+      )}
     </div>
   );
 }

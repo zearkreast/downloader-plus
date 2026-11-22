@@ -690,6 +690,53 @@ export const tr: Record<TranslationKey, string> = {
 
   'intro.skip': 'Geç',
   'intro.start': 'Başla',
+  'tour.progress': '{current} / {total}',
+  'tour.skip': 'Turu atla',
+  'tour.back': 'Geri',
+  'tour.next': 'İleri',
+  'tour.start': 'Başlayalım',
+  'tour.finish': 'Bitir',
+  'tour.replay': 'Uygulama turunu başlat',
+  'tour.welcomeTitle': 'Kısa bir tur',
+  'tour.welcomeBody':
+    'UMD+ bir dakikada nasıl kullanılır, birlikte bakalım. İstediğin an "Turu atla" ile çıkabilirsin.',
+  'tour.welcomeBodyMobile':
+    'UMD+ bir dakikada nasıl kullanılır, birlikte bakalım. İstediğin an "Turu atla" ile çıkabilirsin.',
+  'tour.linkTitle': 'Bağlantıyı buraya yapıştır',
+  'tour.linkBody':
+    "Bir videonun, şarkının ya da gönderinin adresini kopyala, buraya yapıştır. Uygulama açıkken Ctrl+V yeter. Sonra kaliteyi ve biçimi seçip İndir'e bas.",
+  'tour.linkBodyMobile':
+    "Bir videonun, şarkının ya da gönderinin adresini kopyala, buraya yapıştır. Sonra kaliteyi ve biçimi seçip İndir'e bas.",
+  'tour.shareTitle': 'Ya da başka uygulamadan paylaş',
+  'tour.shareBody':
+    "YouTube, TikTok, Instagram ya da tarayıcıda Paylaş'a bas ve listeden UMD+'yı seç. Bağlantı burada hazır açılır.",
+  'tour.downloadsTitle': 'İndirmeler',
+  'tour.downloadsBody':
+    'Süren, bekleyen ve biten indirmeler burada. Bekleyenlerin sırasını sürükleyerek değiştirebilir, bir indirmeyi duraklatıp sürdürebilirsin.',
+  'tour.downloadsBodyMobile':
+    'Süren, bekleyen ve biten indirmeler burada. İndirdiğin her şeyin geçmişi ve aboneliklerin de bu sekmede.',
+  'tour.editorTitle': 'Düzenle',
+  'tour.editorBody':
+    'Bir videoyu ya da sesi kes, böl, istemediğin yerleri at. Videonun yalnızca sesini MP3 olarak alabilir, altına müzik koyabilirsin.',
+  'tour.convertTitle': 'Dönüştür',
+  'tour.convertBody':
+    'Dosyaları başka biçime çevir: videodan MP3, GIF ya da mesajlaşma uygulamasına sığacak boyutta video.',
+  'tour.historyTitle': 'Geçmiş',
+  'tour.historyBody':
+    'İndirdiğin her şey burada. Ara, türe ya da siteye göre süz, dosyayı aç ya da yeniden indir.',
+  'tour.subscriptionsTitle': 'Abonelikler',
+  'tour.subscriptionsBody':
+    'Bir kanala ya da oynatma listesine abone ol; yeni videolar kendiliğinden insin.',
+  'tour.settingsTitle': 'Ayarlar',
+  'tour.settingsBodyDesktop':
+    "İndirme klasörü, varsayılan kalite ve daha fazlası. Tarayıcıda izlediğin videoyu tek tıkla göndermek için Ayarlar › Bağlantı'dan tarayıcı uzantısını kur.",
+  'tour.settingsBodyMobile':
+    'İndirme klasörü, varsayılan kalite, yalnızca Wi-Fi ile indirme ve daha fazlası.',
+  'tour.doneTitle': 'Hazırsın',
+  'tour.doneBody':
+    'İlk bağlantını yapıştırabilirsin. Turu istediğin zaman Hakkında sayfasından yeniden başlatabilirsin.',
+  'tour.doneBodyMobile':
+    "İlk bağlantını yapıştırabilirsin. Turu istediğin zaman sağ üstteki ⓘ Hakkında düğmesinden yeniden başlatabilirsin.",
   'intro.replay': 'Tanıtımı izle',
   'intro.share': 'Her uygulamadan paylaş.',
   'intro.saved': 'Telefonuna kaydedilir.',
