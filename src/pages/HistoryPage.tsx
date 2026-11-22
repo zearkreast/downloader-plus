@@ -1,5 +1,6 @@
 import { HistoryList } from '@/components/history/HistoryList';
-import { QueueSection } from './DownloadsPage';
+import { useQueueStore } from '@/stores/useQueueStore';
+import { QueueSection, queueHasRows } from './DownloadsPage';
 
 /**
  * The desktop's History screen, which is its Downloads screen too: what is
@@ -8,9 +9,10 @@ import { QueueSection } from './DownloadsPage';
  * the app sends anything bound for this screen to that half instead.
  */
 export function HistoryPage({ onGoHome }: { onGoHome: () => void }) {
+  const queued = useQueueStore((state) => queueHasRows(state.tasks));
   return (
     <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
-      <HistoryList onGoHome={onGoHome} queue={<QueueSection onGoHome={onGoHome} />} />
+      <HistoryList onGoHome={onGoHome} queue={queued ? <QueueSection onGoHome={onGoHome} /> : undefined} />
     </div>
   );
 }

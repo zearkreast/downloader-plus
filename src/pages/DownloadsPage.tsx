@@ -20,6 +20,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ListGroup, ListGroupLabel } from '@/components/ui/ListGroup';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { Progress } from '@/components/ui/Progress';
 import { Segmented } from '@/components/ui/Segmented';
 import { useTranslation } from '@/i18n';
@@ -284,27 +285,32 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
     return (
       <>
         {shown > 0 && (
-          <div className="mb-8 flex flex-col gap-4">
-            <div className="flex items-center justify-end gap-1.5">{actions}</div>
-            {isBusy(activity) && <QueueSummary activity={activity} tasks={tasks} />}
-            <div className="flex flex-col gap-5">
-              {groups.running.length > 0 && (
-                <DownloadGroup label={t('downloads.active')} count={groups.running.length}>
-                  <Rows tasks={groups.running} />
-                </DownloadGroup>
-              )}
-              {groups.pending.length > 0 && (
-                <DownloadGroup label={t('downloads.pendingGroup')} count={groups.pending.length}>
-                  <PendingRows tasks={groups.pending} />
-                </DownloadGroup>
-              )}
-              {groups.finished.length > 0 && (
-                <DownloadGroup label={t('downloads.unfinishedGroup')} count={groups.finished.length}>
-                  <FinishedRows tasks={groups.finished} />
-                </DownloadGroup>
-              )}
-            </div>
-          </div>
+          <>
+            <section aria-label={t('downloads.title')} className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <SectionTitle>{t('downloads.title')}</SectionTitle>
+                <div className="flex items-center gap-1.5">{actions}</div>
+              </div>
+              {isBusy(activity) && <QueueSummary activity={activity} tasks={tasks} />}
+              <div className="flex flex-col gap-5">
+                {groups.running.length > 0 && (
+                  <DownloadGroup label={t('downloads.active')} count={groups.running.length}>
+                    <Rows tasks={groups.running} />
+                  </DownloadGroup>
+                )}
+                {groups.pending.length > 0 && (
+                  <DownloadGroup label={t('downloads.pendingGroup')} count={groups.pending.length}>
+                    <PendingRows tasks={groups.pending} />
+                  </DownloadGroup>
+                )}
+                {groups.finished.length > 0 && (
+                  <DownloadGroup label={t('downloads.unfinishedGroup')} count={groups.finished.length}>
+                    <FinishedRows tasks={groups.finished} />
+                  </DownloadGroup>
+                )}
+              </div>
+            </section>
+          </>
         )}
         <DownloadDetailDialog />
       </>
@@ -370,6 +376,11 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
       <DownloadDetailDialog />
     </>
   );
+}
+
+/** Whether History's queue part has anything to show: completed ones are left to the history. */
+export function queueHasRows(tasks: readonly DownloadTask[]): boolean {
+  return tasks.some((task) => task.status !== 'completed');
 }
 
 /** Failed and cancelled downloads stay; completed ones are in the history. */

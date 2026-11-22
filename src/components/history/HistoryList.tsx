@@ -9,6 +9,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { ListGroup, ListGroupLabel, ROW_LINE } from '@/components/ui/ListGroup';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { Segmented } from '@/components/ui/Segmented';
 import { SourceLink } from '@/components/ui/SourceLink';
@@ -212,6 +213,17 @@ export function HistoryList({
     />
   );
 
+  const historyActions = (
+    <>
+      <div className="w-[240px]">{search}</div>
+      {total > 0 && (
+        <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
+          {t('history.clearAll')}
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <>
       {IS_MOBILE ? (
@@ -231,23 +243,20 @@ export function HistoryList({
             </Button>
           )}
         </div>
+      ) : queue ? (
+        // With downloads above, the search and Clear move down to the part
+        // they act on, under a name of their own.
+        <>
+          <PageHeader title={t('history.title')} />
+          {queue}
+          <div className="mb-4 mt-8 flex items-center justify-between gap-3 border-t border-[var(--border)] pt-6">
+            <SectionTitle>{t('downloads.finishedGroup')}</SectionTitle>
+            <div className="flex items-center gap-1.5">{historyActions}</div>
+          </div>
+        </>
       ) : (
-        <PageHeader
-          title={t('history.title')}
-          actions={
-            <>
-              <div className="w-[240px]">{search}</div>
-              {total > 0 && (
-                <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
-                  {t('history.clearAll')}
-                </Button>
-              )}
-            </>
-          }
-        />
+        <PageHeader title={t('history.title')} actions={historyActions} />
       )}
-
-      {queue}
 
       {/* Shown once there is a history to narrow down, and kept while a
           filter is what emptied the list -- or there would be no way back. */}
