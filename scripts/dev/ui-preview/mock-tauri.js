@@ -1191,8 +1191,10 @@
     extension_folder: () => ({
       path: 'C:\\Users\\you\\AppData\\Roaming\\UniversalDownloader\\extension',
       version: '3.1.1',
+      firefoxPath: 'C:\\Users\\you\\AppData\\Roaming\\UniversalDownloader\\extension-firefox.xpi',
     }),
     open_extension_dir: () => null,
+    reveal_firefox_addon: () => null,
     bridge_forget_session: ({ site }) => {
       transfer.phoneSites.delete(site);
       bridge.forgotten = bridge.forgotten ?? new Set();

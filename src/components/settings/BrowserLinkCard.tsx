@@ -744,44 +744,95 @@ function ExtensionFolderRow() {
   };
 
   return (
+    <>
+      <SettingRow
+        stacked
+        title={t('settings.extensionFolder')}
+        description={t('settings.extensionFolderHint')}
+      >
+        {folder && (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <code
+              className="min-w-0 flex-1 truncate rounded-md bg-fill px-2 py-1 font-mono text-[12px] text-fg-muted select-text"
+              title={folder.path}
+            >
+              {folder.path}
+            </code>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={t('settings.extensionFolderCopy')}
+              title={t('settings.extensionFolderCopy')}
+              className="px-2"
+              icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+              onClick={() => void copy()}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<FolderOpen size={13} />}
+              onClick={() => void open()}
+            >
+              {t('settings.extensionFolderOpen')}
+            </Button>
+          </div>
+        )}
+        {folder?.version && (
+          <p className={cn('text-fg-faint', BODY_SIZE)}>
+            {t('settings.extensionFolderVersion', { version: folder.version })}
+          </p>
+        )}
+        {failed && <InlineNotice tone="error">{t('settings.extensionFolderFailed')}</InlineNotice>}
+      </SettingRow>
+      {folder && <FirefoxAddonRow file={folder.firefoxPath ?? null} />}
+    </>
+  );
+}
+
+/**
+ * The Firefox add-on, signed by addons.mozilla.org: release Firefox will not
+ * keep an unpacked one past a restart, so this is a file to install instead
+ * of a folder. Once installed, Firefox fetches each newer signed version
+ * itself from the release.
+ */
+function FirefoxAddonRow({ file }: { file: string | null }) {
+  const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
+
+  const reveal = async () => {
+    setFailed(false);
+    try {
+      await ipc.revealFirefoxAddon();
+    } catch {
+      setFailed(true);
+    }
+  };
+
+  return (
     <SettingRow
       stacked
-      title={t('settings.extensionFolder')}
-      description={t('settings.extensionFolderHint')}
+      title={t('settings.firefoxAddon')}
+      description={t(file ? 'settings.firefoxAddonHint' : 'settings.firefoxAddonMissing')}
     >
-      {folder && (
+      {file && (
         <div className="flex min-w-0 items-center gap-1.5">
           <code
             className="min-w-0 flex-1 truncate rounded-md bg-fill px-2 py-1 font-mono text-[12px] text-fg-muted select-text"
-            title={folder.path}
+            title={file}
           >
-            {folder.path}
+            {file}
           </code>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={t('settings.extensionFolderCopy')}
-            title={t('settings.extensionFolderCopy')}
-            className="px-2"
-            icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-            onClick={() => void copy()}
-          />
           <Button
             size="sm"
             variant="secondary"
             icon={<FolderOpen size={13} />}
-            onClick={() => void open()}
+            onClick={() => void reveal()}
           >
-            {t('settings.extensionFolderOpen')}
+            {t('settings.firefoxAddonShow')}
           </Button>
         </div>
       )}
-      {folder?.version && (
-        <p className={cn('text-fg-faint', BODY_SIZE)}>
-          {t('settings.extensionFolderVersion', { version: folder.version })}
-        </p>
-      )}
-      {failed && <InlineNotice tone="error">{t('settings.extensionFolderFailed')}</InlineNotice>}
+      {failed && <InlineNotice tone="error">{t('settings.firefoxAddonFailed')}</InlineNotice>}
     </SettingRow>
   );
 }

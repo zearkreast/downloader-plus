@@ -1488,4 +1488,6 @@ mod tests {
 pub struct ExtensionFolder {
     pub path: String,
     pub version: Option<String>,
+    /// The signed Firefox add-on beside the folder, when there is one.
+    pub firefox_path: Option<String>,
 }

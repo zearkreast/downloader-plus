@@ -523,6 +523,13 @@ export const en = {
   'settings.extensionFolderHint':
     'In Chrome, Edge or Brave, open the extensions page, turn on Developer mode, press Load unpacked and choose this folder. The app updates the folder whenever it is updated, and the extension reloads itself.',
   'settings.extensionFolderOpen': 'Open folder',
+  'settings.firefoxAddon': 'Firefox add-on',
+  'settings.firefoxAddonHint':
+    'In Firefox, open about:addons, choose Install Add-on From File under the gear and pick this file, or drag the file onto a Firefox window. It is signed by Mozilla, so it stays installed, and Firefox fetches each newer version itself.',
+  'settings.firefoxAddonMissing':
+    'This build carries no signed Firefox add-on. extension-firefox.zip from the release page can be loaded for the session from about:debugging, and is gone when Firefox closes.',
+  'settings.firefoxAddonShow': 'Show file',
+  'settings.firefoxAddonFailed': 'The Firefox add-on could not be shown',
   'settings.extensionFolderCopy': 'Copy the folder path',
   'settings.extensionFolderVersion': 'Version in the folder: {version}',
   'settings.extensionFolderFailed': 'The extension folder could not be opened',

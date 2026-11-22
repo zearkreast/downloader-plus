@@ -18,6 +18,16 @@ static FILES: &[(&str, &[u8])] = include!(concat!(env!("OUT_DIR"), "/extension_f
 #[cfg(target_os = "android")]
 static FILES: &[(&str, &[u8])] = &[];
 
+/// The Firefox add-on as addons.mozilla.org signed it, when this build was
+/// handed one (see `embed_firefox_addon` in build.rs). Release Firefox installs
+/// nothing unsigned, so an unpacked folder is no use to it; this one file is.
+#[cfg(not(target_os = "android"))]
+static FIREFOX_XPI: Option<&[u8]> = include!(concat!(env!("OUT_DIR"), "/firefox_addon.rs"));
+#[cfg(target_os = "android")]
+static FIREFOX_XPI: Option<&[u8]> = None;
+
+const FIREFOX_NAME: &str = "extension-firefox.xpi";
+
 /// What the last sync wrote, so a file a later version drops is removed from
 /// the folder. Kept beside it rather than in it: the folder holds only what
 /// the browser loads.
@@ -25,6 +35,31 @@ const LIST_NAME: &str = "extension-files.json";
 
 pub fn dir() -> AppResult<PathBuf> {
     Ok(paths::root()?.join("extension"))
+}
+
+/// Beside the Chromium folder rather than in it: that folder is the extension
+/// a Chromium browser loads, file for file.
+pub fn firefox_file() -> AppResult<PathBuf> {
+    Ok(paths::root()?.join(FIREFOX_NAME))
+}
+
+/// Whether there is a signed add-on to offer: this build's, or one an earlier
+/// build wrote, which Firefox will update by itself once installed.
+pub fn firefox_on_disk() -> Option<PathBuf> {
+    firefox_file().ok().filter(|path| path.is_file())
+}
+
+/// Write this build's signed add-on beside the folder, when it carries one and
+/// the file there differs. Returns whether it wrote.
+fn sync_firefox(target: &Path, bytes: Option<&[u8]>) -> AppResult<bool> {
+    let Some(bytes) = bytes else { return Ok(false) };
+    if std::fs::read(target).is_ok_and(|held| held == bytes) {
+        return Ok(false);
+    }
+    let staged = target.with_extension("ud-new");
+    std::fs::write(&staged, bytes)?;
+    std::fs::rename(&staged, target)?;
+    Ok(true)
 }
 
 fn version_of(manifest: &[u8]) -> Option<String> {
@@ -62,7 +97,11 @@ pub fn sync() -> AppResult<Synced> {
         return Err(AppError::Other("this build carries no extension".into()));
     }
     let root = dir()?;
-    sync_into(&root, &paths::root()?.join(LIST_NAME), FILES)
+    let mut synced = sync_into(&root, &paths::root()?.join(LIST_NAME), FILES)?;
+    if sync_firefox(&firefox_file()?, FIREFOX_XPI)? {
+        synced.written += 1;
+    }
+    Ok(synced)
 }
 
 fn sync_into(root: &Path, list: &Path, files: &[(&str, &[u8])]) -> AppResult<Synced> {
@@ -146,6 +185,22 @@ mod tests {
         let manifest = std::fs::read(root.join("manifest.json")).unwrap();
         assert_eq!(manifest, br#"{"version":"1.0.1"}"#);
         assert!(!root.join("manifest.ud-new").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn the_signed_firefox_file_is_written_only_when_carried_and_changed() {
+        let base = scratch("firefox");
+        let target = base.join(FIREFOX_NAME);
+        assert!(!sync_firefox(&target, None).unwrap());
+        assert!(!target.exists());
+        assert!(sync_firefox(&target, Some(b"signed 1")).unwrap());
+        assert!(!sync_firefox(&target, Some(b"signed 1")).unwrap());
+        assert!(sync_firefox(&target, Some(b"signed 2")).unwrap());
+        assert_eq!(std::fs::read(&target).unwrap(), b"signed 2");
+        // A build without one leaves the earlier file for Firefox to update.
+        assert!(!sync_firefox(&target, None).unwrap());
+        assert!(target.exists());
         let _ = std::fs::remove_dir_all(&base);
     }
 

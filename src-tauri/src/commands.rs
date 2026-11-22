@@ -910,6 +910,8 @@ pub async fn extension_folder() -> AppResult<crate::model::ExtensionFolder> {
         Ok(crate::model::ExtensionFolder {
             path: crate::extension_copy::dir()?.to_string_lossy().into_owned(),
             version: crate::extension_copy::version_on_disk(),
+            firefox_path: crate::extension_copy::firefox_on_disk()
+                .map(|path| path.to_string_lossy().into_owned()),
         })
     })
     .await
@@ -919,6 +921,11 @@ pub async fn extension_folder() -> AppResult<crate::model::ExtensionFolder> {
 #[tauri::command]
 pub async fn open_extension_dir() -> AppResult<()> {
     crate::files::open_extension_dir().await
+}
+
+#[tauri::command]
+pub async fn reveal_firefox_addon() -> AppResult<()> {
+    crate::files::reveal_firefox_addon().await
 }
 
 #[tauri::command]

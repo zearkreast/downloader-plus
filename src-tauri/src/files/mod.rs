@@ -251,6 +251,29 @@ pub async fn open_extension_dir() -> AppResult<()> {
     }
 }
 
+/// The signed Firefox add-on, selected in its folder, ready to be dragged onto
+/// Firefox. It takes no path either.
+pub async fn reveal_firefox_addon() -> AppResult<()> {
+    #[cfg(not(target_os = "android"))]
+    {
+        on_worker(|| {
+            crate::extension_copy::sync()?;
+            let file = crate::extension_copy::firefox_on_disk().ok_or_else(|| {
+                AppError::Other("this build carries no signed Firefox add-on".into())
+            })?;
+            settle(
+                tauri_plugin_opener::reveal_item_in_dir(&file),
+                "the Firefox add-on could not be shown",
+            )
+        })
+        .await
+    }
+    #[cfg(target_os = "android")]
+    {
+        Err(AppError::Other("the Firefox add-on is only offered on the desktop".into()))
+    }
+}
+
 /// The folder downloads are saved to, for the Downloads screen's folder
 /// button. The caller names no path: it is the one in the settings, so this
 /// cannot be pointed anywhere else either. A folder that is not there yet -- a

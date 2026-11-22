@@ -12,6 +12,7 @@ Linux and publishes the files to the rolling `latest` release. Run it by hand:
 | `UMD-Plus_android_arm64.apk`, `_armv7.apk`, `_x86_64.apk` | `ubuntu-latest` | yes, through Android's installer |
 | `UMD-Plus_x86_64.pkg.tar.zst` | an Arch Linux container | no; pacman replaces it |
 | `extension-full.zip`, `extension-firefox.zip` | `ubuntu-latest` | no |
+| `extension-firefox.xpi`, `firefox-updates.json` | `ubuntu-latest`, signed by addons.mozilla.org | yes; Firefox reads `firefox-updates.json` |
 | `SHA256SUMS.txt` | | |
 
 The names are fixed. The updater (`src-tauri/src/updater.rs`) looks files up
@@ -21,8 +22,11 @@ by name, and the README links to `releases/latest/download/<name>`.
 
 1. **Check.** The Android signing secrets are present, the interface
    type-checks and builds, and the interface and extension tests pass.
-2. **Build.** Windows, Android and Arch build in parallel, all from the same
-   commit.
+2. **Build.** The Firefox add-on is signed first, then Windows, Android and
+   Arch build in parallel, all from the same commit. The Windows and Arch
+   builds carry the signed add-on (`UD_FIREFOX_XPI`, read by `build.rs`), and
+   the app writes it beside the unpacked extension folder. A failed or skipped
+   signing does not stop the run: that release simply has no `.xpi`.
 3. **Publish.** Only if all three built. The files replace the release's old
    ones, and then the `latest` tag is moved to the commit they were built
    from.
@@ -57,8 +61,9 @@ The run also tags the commit `v<version>`, unless that tag already exists.
 
 ## Secrets
 
-Only the Android build needs any. GitHub provides the token that publishes the
-release (`GITHUB_TOKEN`) by itself.
+The Android build needs its own, and the Firefox signing two more that may be
+left out. GitHub provides the token that publishes the release
+(`GITHUB_TOKEN`) by itself.
 
 Add them under **Settings → Secrets and variables → Actions → New repository
 secret**:
@@ -69,7 +74,26 @@ secret**:
 | `ANDROID_KEYSTORE_PASSWORD` | yes | The keystore's password |
 | `ANDROID_KEY_ALIAS` | no | The key to sign with. Left out, the keystore's only key is used |
 | `ANDROID_KEY_PASSWORD` | no | The key's own password. Left out, the keystore's is used, as it always is for PKCS12 |
+| `AMO_JWT_ISSUER` | no | addons.mozilla.org API key ("JWT issuer"). Left out, no signed Firefox add-on is made |
+| `AMO_JWT_SECRET` | no | The secret that goes with it |
 
+### The Firefox signing keys
+
+Release Firefox installs only add-ons Mozilla has signed. The workflow sends
+the Firefox build to addons.mozilla.org as an **unlisted** add-on: it is
+checked automatically and signed, but not shown in the store, and updates come
+from `firefox-updates.json` on this repository's release rather than from AMO.
+
+1. Sign in at <https://addons.mozilla.org/developers/> with a Firefox account.
+2. Open <https://addons.mozilla.org/developers/addon/api/key/> and generate
+   credentials. Put the **JWT issuer** in `AMO_JWT_ISSUER` and the **JWT
+   secret** in `AMO_JWT_SECRET`.
+
+AMO signs each version once. If a run fails after the Firefox job finished, use
+**Re-run failed jobs**, which keeps the signed file; a fresh run of the same
+version is refused by AMO. The add-on's id is `connector@universaldownloader.app`
+(`scripts/extension/pack.mjs`); changing it makes a different add-on, which
+installed copies will not update to.
 Keep the keystore file and its password somewhere safe and backed up. Every
 APK has to be signed with the same key, because Android installs an update
 only when its signature matches the installed copy's. A lost key means

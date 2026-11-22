@@ -4,6 +4,7 @@ use std::process::Command;
 fn main() {
     embed_commit();
     embed_extension();
+    embed_firefox_addon();
     tauri_build::build()
 }
 
@@ -33,6 +34,33 @@ fn embed_extension() {
     let target = out_dir.join("extension_files.rs");
     std::fs::write(target, out).expect("OUT_DIR is writable");
     println!("cargo:rerun-if-changed={}", source.display());
+}
+
+/// The signed Firefox add-on, when the build was handed one: the release
+/// workflow signs it with addons.mozilla.org and names the file in
+/// `UD_FIREFOX_XPI`. A build without it carries none, and says so on the
+/// Connection page. Named by a variable rather than looked for at a fixed path,
+/// because a watched path that does not exist reruns this script every build.
+fn embed_firefox_addon() {
+    println!("cargo:rerun-if-env-changed=UD_FIREFOX_XPI");
+    let file = std::env::var("UD_FIREFOX_XPI")
+        .ok()
+        .filter(|path| !path.trim().is_empty())
+        .map(PathBuf::from);
+    let body = match file {
+        Some(path) => {
+            assert!(
+                path.is_file(),
+                "UD_FIREFOX_XPI names {}, which is not a file",
+                path.display()
+            );
+            println!("cargo:rerun-if-changed={}", path.display());
+            format!("Some(include_bytes!({:?}) as &[u8])", path.display().to_string())
+        }
+        None => "None".to_string(),
+    };
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("cargo sets OUT_DIR"));
+    std::fs::write(out_dir.join("firefox_addon.rs"), body).expect("OUT_DIR is writable");
 }
 
 fn collect(dir: &Path, files: &mut Vec<PathBuf>) {
