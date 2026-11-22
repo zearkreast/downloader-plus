@@ -9,7 +9,6 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { ListGroup, ListGroupLabel, ROW_LINE } from '@/components/ui/ListGroup';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { SectionTitle } from '@/components/ui/SectionTitle';
 import { PlatformBadge } from '@/components/ui/PlatformBadge';
 import { Segmented } from '@/components/ui/Segmented';
 import { SourceLink } from '@/components/ui/SourceLink';
@@ -86,11 +85,11 @@ async function redownload(entry: HistoryEntry): Promise<AppErrorInfo | null> {
  */
 export function HistoryList({
   onGoHome,
-  queue,
+  title,
 }: {
   onGoHome: () => void;
-  /** What is still downloading, under the title and above the history. */
-  queue?: React.ReactNode;
+  /** The desktop's title, when it is more than the word History. */
+  title?: React.ReactNode;
 }) {
 
   const { t, language } = useTranslation();
@@ -243,19 +242,8 @@ export function HistoryList({
             </Button>
           )}
         </div>
-      ) : queue ? (
-        // With downloads above, the search and Clear move down to the part
-        // they act on, under a name of their own.
-        <>
-          <PageHeader title={t('history.title')} />
-          {queue}
-          <div className="mb-4 mt-8 flex items-center justify-between gap-3 border-t border-[var(--border)] pt-6">
-            <SectionTitle>{t('downloads.finishedGroup')}</SectionTitle>
-            <div className="flex items-center gap-1.5">{historyActions}</div>
-          </div>
-        </>
       ) : (
-        <PageHeader title={t('history.title')} actions={historyActions} />
+        <PageHeader title={title ?? t('history.title')} actions={historyActions} />
       )}
 
       {/* Shown once there is a history to narrow down, and kept while a

@@ -162,7 +162,7 @@ export function Sidebar({
         ))}
       </div>
 
-      <ActivityCard collapsed={collapsed} onOpen={() => onNavigate('history')} />
+      <ActivityCard collapsed={collapsed} onOpen={() => onNavigate('downloads')} />
 
       {/* The app's own pages sit at the foot of the list, apart from the places
           where work happens; the distance does what a rule would. */}
