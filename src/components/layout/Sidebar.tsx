@@ -1,7 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell,
-  Clock,
   Download,
   House,
   Info,
@@ -39,15 +37,14 @@ interface NavEntry {
 }
 
 /**
- * The places where work happens. History holds the downloads still running
- * above the finished ones, and Edit holds Convert behind a switch, so neither
- * of those has an entry of its own.
+ * The places where work happens. Downloads holds History and Subscriptions,
+ * and Edit holds Convert, as tabs in their titles, so none of those has an
+ * entry of its own.
  */
 const PRIMARY: NavEntry[] = [
   { route: 'home', label: 'nav.home', icon: House },
-  { route: 'history', label: 'nav.history', icon: Clock },
+  { route: 'downloads', label: 'nav.downloads', icon: Download },
   { route: 'editor', label: 'nav.editor', icon: Film },
-  { route: 'subscriptions', label: 'nav.subscriptions', icon: Bell },
 ];
 
 const SECONDARY: NavEntry[] = [
@@ -55,9 +52,9 @@ const SECONDARY: NavEntry[] = [
   { route: 'settings', label: 'nav.settings', icon: SettingsIcon },
 ];
 
-/** The entry a screen is shown under: Downloads under History, Convert under Edit. */
+/** The entry a screen is shown under: History and Subscriptions under Downloads, Convert under Edit. */
 export function navEntryOf(route: Route): Route {
-  if (route === 'downloads') return 'history';
+  if (route === 'history' || route === 'subscriptions') return 'downloads';
   if (route === 'convert') return 'editor';
   return route;
 }
@@ -90,6 +87,8 @@ const ROW_PAD = 'pl-[11px] pr-2.5';
 interface SidebarProps {
   route: Route;
   onNavigate: (route: Route) => void;
+  /** The activity card's press, which opens the running downloads themselves. */
+  onOpenActivity: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   activeCount: number;
@@ -99,6 +98,7 @@ interface SidebarProps {
 export function Sidebar({
   route,
   onNavigate,
+  onOpenActivity,
   collapsed,
   onToggleCollapsed,
   activeCount,
@@ -162,7 +162,7 @@ export function Sidebar({
         ))}
       </div>
 
-      <ActivityCard collapsed={collapsed} onOpen={() => onNavigate('downloads')} />
+      <ActivityCard collapsed={collapsed} onOpen={onOpenActivity} />
 
       {/* The app's own pages sit at the foot of the list, apart from the places
           where work happens; the distance does what a rule would. */}
@@ -230,6 +230,9 @@ function NavButton({
           // as the selection moving rather than two highlights crossfading.
           // The mark's gradient travels with it as a short bar on its edge.
           layoutId="sidebar-active"
+          // Measured only when the selection moves: the sidebar narrowing
+          // re-renders every row, and the highlight is not to travel for it.
+          layoutDependency={active}
           transition={SPRING.glide}
           className="absolute inset-0 rounded-[10px] bg-fill-active"
         >
@@ -276,9 +279,12 @@ function NavButton({
     </button>
   );
 
-  return collapsed ? (
+  // Wrapped open or closed, so collapsing does not remount the row -- and with
+  // it the highlight, which then flew in from nowhere.
+  return (
     <Tooltip
       side="right"
+      disabled={!collapsed}
       label={
         <span className="flex items-center gap-2">
           {label}
@@ -288,8 +294,6 @@ function NavButton({
     >
       {button}
     </Tooltip>
-  ) : (
-    button
   );
 }
 
@@ -313,21 +317,38 @@ const ActivityCard = memo(function ActivityCard({
   const activity = useMemo(() => summarizeActivity(tasks), [tasks]);
   const busy = isBusy(activity);
 
+  // The card and the ring share one cell and cross-fade, as the labels do.
+  // The card keeps its width while the sidebar narrows over it, rather than
+  // being squeezed into the rail on its way out.
   return (
     <div className="px-3 pb-2">
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence initial={false}>
         {busy && (
           <motion.div
-            key={collapsed ? 'rail' : 'card'}
+            key="activity"
             initial={{ opacity: 0, y: 8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: T.component }}
             exit={{ opacity: 0, scale: 0.97, transition: T.componentOut }}
+            className="grid"
           >
-            {collapsed ? (
-              <ActivityRing activity={activity} onOpen={onOpen} />
-            ) : (
+            <div
+              inert={collapsed}
+              className={cn(
+                '[grid-area:1/1] transition-opacity duration-200 ease-out-quint',
+                collapsed ? 'opacity-0' : 'opacity-100 delay-75',
+              )}
+            >
               <ActivityPanel activity={activity} onOpen={onOpen} />
-            )}
+            </div>
+            <div
+              inert={!collapsed}
+              className={cn(
+                'self-end [grid-area:1/1] transition-opacity duration-200 ease-out-quint',
+                collapsed ? 'opacity-100 delay-150' : 'opacity-0',
+              )}
+            >
+              <ActivityRing activity={activity} onOpen={onOpen} />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

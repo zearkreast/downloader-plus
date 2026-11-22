@@ -214,7 +214,7 @@ export function HistoryList({
 
   const historyActions = (
     <>
-      <div className="w-[240px]">{search}</div>
+      <div className={title ? 'w-[190px]' : 'w-[240px]'}>{search}</div>
       {total > 0 && (
         <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
           {t('history.clearAll')}

@@ -21,6 +21,11 @@ interface TooltipProps {
   label: ReactNode;
   side?: Side;
   delayMs?: number;
+  /**
+   * Kept quiet without leaving the tree: a trigger that is wrapped only some
+   * of the time is remounted each time that changes.
+   */
+  disabled?: boolean;
   children: ReactElement<Record<string, unknown>>;
 }
 
@@ -87,7 +92,7 @@ function resolveSide(side: Side, rect: DOMRect): Side {
  * box back inside the window when the trigger sits near an edge, which is what
  * the layout effect below does before the first paint.
  */
-export function Tooltip({ label, side = 'top', delayMs = 380, children }: TooltipProps) {
+export function Tooltip({ label, side = 'top', delayMs = 380, disabled = false, children }: TooltipProps) {
   const [coords, setCoords] = useState<{ x: number; y: number; side: Side } | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -104,6 +109,7 @@ export function Tooltip({ label, side = 'top', delayMs = 380, children }: Toolti
   const open = useCallback(
     (element: HTMLElement) => {
       clearTimer();
+      if (disabled) return;
       timerRef.current = window.setTimeout(() => {
         const rect = element.getBoundingClientRect();
         const placed = resolveSide(side, rect);
@@ -116,7 +122,7 @@ export function Tooltip({ label, side = 'top', delayMs = 380, children }: Toolti
         setCoords({ ...anchor, side: placed });
       }, delayMs);
     },
-    [clearTimer, delayMs, side],
+    [clearTimer, delayMs, side, disabled],
   );
 
   const close = useCallback(() => {

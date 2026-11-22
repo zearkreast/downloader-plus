@@ -34,7 +34,14 @@ function when(at: number, language: string): string {
  * found, and its own few options. The desktop gives it a screen of its own;
  * a phone shows it as the third part of Downloads, without a title.
  */
-export function SubscriptionsList({ onGoHome }: { onGoHome: () => void }) {
+export function SubscriptionsList({
+  onGoHome,
+  title,
+}: {
+  onGoHome: () => void;
+  /** The desktop's title, when it names the screens beside this one. */
+  title?: React.ReactNode;
+}) {
   const { t, language } = useTranslation();
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -76,7 +83,7 @@ export function SubscriptionsList({ onGoHome }: { onGoHome: () => void }) {
       {IS_MOBILE ? (
         readNowButton && <div className="flex justify-end pb-3">{readNowButton}</div>
       ) : (
-        <PageHeader title={t('subs.title')} actions={readNowButton || undefined} />
+        <PageHeader title={title ?? t('subs.title')} actions={readNowButton || undefined} />
       )}
 
       {subscriptions != null && subscriptions.length === 0 && (
