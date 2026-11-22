@@ -1,4 +1,5 @@
 import { Segmented } from '@/components/ui/Segmented';
+import { TitleTabs } from '@/components/ui/TitleTabs';
 import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { IS_MOBILE } from '@/lib/platform';
@@ -25,6 +26,27 @@ export function MediaSwitch({
       value={current}
       onChange={onSwitch}
       className={cn(IS_MOBILE ? 'w-full' : 'w-[220px]', className)}
+      options={[
+        { value: 'editor', label: t('nav.editor') },
+        { value: 'convert', label: t('nav.convert') },
+      ]}
+    />
+  );
+}
+
+/** The desktop's version: both names as the page's title. */
+export function MediaTitle({
+  current,
+  onSwitch,
+}: {
+  current: MediaRoute;
+  onSwitch: (route: MediaRoute) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <TitleTabs
+      value={current}
+      onChange={onSwitch}
       options={[
         { value: 'editor', label: t('nav.editor') },
         { value: 'convert', label: t('nav.convert') },

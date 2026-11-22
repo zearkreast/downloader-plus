@@ -358,6 +358,8 @@ export function App() {
   const navigate = useCallback((requested: NavRequest) => {
     const current = navRef.current;
     if (IS_MOBILE && requested.route === 'history') showDownloadsSegment('history');
+    // A request for Downloads by name opens the desktop's History at that tab.
+    if (!IS_MOBILE && requested.route === 'downloads') showDownloadsSegment('active');
     if (IS_MOBILE && requested.route === 'subscriptions') showDownloadsSegment('subscriptions');
     const next: NavState = IS_MOBILE
       ? phoneState(requested, current)
@@ -385,7 +387,7 @@ export function App() {
   // A download just started is the thing to look at, whichever half of the
   // phone's Downloads was open last.
   const goToDownloads = useCallback(() => {
-    if (IS_MOBILE) showDownloadsSegment('active');
+    showDownloadsSegment('active');
     setRoute('downloads');
   }, [setRoute]);
 

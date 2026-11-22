@@ -19,7 +19,7 @@ import { IS_MOBILE } from '@/lib/platform';
  */
 
 interface PageHeaderProps {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   actions?: ReactNode;
   className?: string;

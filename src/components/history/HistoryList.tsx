@@ -85,11 +85,11 @@ async function redownload(entry: HistoryEntry): Promise<AppErrorInfo | null> {
  */
 export function HistoryList({
   onGoHome,
-  queue,
+  title,
 }: {
   onGoHome: () => void;
-  /** What is still downloading, under the title and above the history. */
-  queue?: React.ReactNode;
+  /** The desktop's title, when it is more than the word History. */
+  title?: React.ReactNode;
 }) {
 
   const { t, language } = useTranslation();
@@ -212,6 +212,17 @@ export function HistoryList({
     />
   );
 
+  const historyActions = (
+    <>
+      <div className="w-[240px]">{search}</div>
+      {total > 0 && (
+        <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
+          {t('history.clearAll')}
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <>
       {IS_MOBILE ? (
@@ -232,22 +243,8 @@ export function HistoryList({
           )}
         </div>
       ) : (
-        <PageHeader
-          title={t('history.title')}
-          actions={
-            <>
-              <div className="w-[240px]">{search}</div>
-              {total > 0 && (
-                <Button size="sm" variant="ghost" onClick={() => setConfirmClear(true)}>
-                  {t('history.clearAll')}
-                </Button>
-              )}
-            </>
-          }
-        />
+        <PageHeader title={title ?? t('history.title')} actions={historyActions} />
       )}
-
-      {queue}
 
       {/* Shown once there is a history to narrow down, and kept while a
           filter is what emptied the list -- or there would be no way back. */}

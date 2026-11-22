@@ -20,6 +20,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { ListGroup, ListGroupLabel } from '@/components/ui/ListGroup';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { TitleTabs } from '@/components/ui/TitleTabs';
 import { Progress } from '@/components/ui/Progress';
 import { Segmented } from '@/components/ui/Segmented';
 import { useTranslation } from '@/i18n';
@@ -103,8 +104,7 @@ function hasWork(tasks: DownloadTask[]): boolean {
  * A phone has no room for a History tab, so History is the second half of
  * this screen, behind a two-way switch at its top.
  */
-function PhoneDownloads({ onGoHome }: { onGoHome: () => void }) {
-  const { t } = useTranslation();
+function useDownloadsSegment(): DownloadsSegment {
   const chosen = useSegmentStore((state) => state.chosen);
 
   // The first time, the screen opens where something is to be seen: the
@@ -115,10 +115,15 @@ function PhoneDownloads({ onGoHome }: { onGoHome: () => void }) {
   const [fallback] = useState<DownloadsSegment>(() =>
     hasWork(useQueueStore.getState().tasks) ? 'active' : 'history',
   );
-  const segment = chosen ?? fallback;
   useEffect(() => {
     if (chosen == null) showDownloadsSegment(fallback);
   }, [chosen, fallback]);
+  return chosen ?? fallback;
+}
+
+function PhoneDownloads({ onGoHome }: { onGoHome: () => void }) {
+  const { t } = useTranslation();
+  const segment = useDownloadsSegment();
 
   // The new list comes in from the side of the half that was picked, and
   // under the system's reduced motion only fades: a transform string is beyond
@@ -201,21 +206,49 @@ const ENDING_LINES = {
 // -- the downloads themselves ---------------------------------------------------
 
 /**
- * The desktop's History opens with what is still downloading or waiting, and
- * what failed, above the finished downloads; it shows nothing once the queue
- * is empty. A completed download is left to the history below, which already
- * lists it.
+ * The desktop's History screen, which holds its downloads too: two tabs in the
+ * title, as Edit and Convert have. It opens where something is to be seen, as
+ * the phone's Downloads does, and keeps the tab that was left.
  */
-export function QueueSection({ onGoHome }: { onGoHome: () => void }) {
-  return <CurrentDownloads onGoHome={onGoHome} embedded />;
+export function HistoryScreen({ onGoHome }: { onGoHome: () => void }) {
+  const { t } = useTranslation();
+  const segment = useDownloadsSegment() === 'active' ? 'active' : 'history';
+  const title = (
+    <TitleTabs
+      value={segment}
+      onChange={showDownloadsSegment}
+      options={[
+        { value: 'history', label: t('nav.history') },
+        { value: 'active', label: t('downloads.title') },
+      ]}
+    />
+  );
+  return (
+    <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
+      {segment === 'active' ? (
+        <CurrentDownloads onGoHome={onGoHome} title={title} withinHistory />
+      ) : (
+        <HistoryList onGoHome={onGoHome} title={title} />
+      )}
+    </div>
+  );
 }
 
 /**
  * What is downloading, waiting, or finished and not yet cleared away, with the
  * actions that apply to all of it. On a phone this is the first half of
- * Downloads; `embedded`, it is the top of the desktop's History.
+ * Downloads. `withinHistory`, a tab of the desktop's History, it leaves the
+ * completed ones to the history, which already lists them.
  */
-function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void; embedded?: boolean }) {
+function CurrentDownloads({
+  onGoHome,
+  title,
+  withinHistory = false,
+}: {
+  onGoHome: () => void;
+  title?: React.ReactNode;
+  withinHistory?: boolean;
+}) {
   const { t } = useTranslation();
   const tasks = useQueueStore((state) => state.tasks);
 
@@ -224,13 +257,13 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
   // and no row moves.
   const { groups, anyRunning, anyQueued, anyPaused, anyFinished } = useMemo(
     () => ({
-      groups: embedded ? withoutCompleted(groupDownloads(tasks)) : groupDownloads(tasks),
+      groups: withinHistory ? withoutCompleted(groupDownloads(tasks)) : groupDownloads(tasks),
       anyRunning: selectActive(tasks).length > 0,
       anyQueued: tasks.some((task) => task.status === 'queued'),
       anyPaused: tasks.some((task) => task.status === 'paused'),
       anyFinished: selectFinished(tasks).length > 0,
     }),
-    [tasks, embedded],
+    [tasks, withinHistory],
   );
   const activity = useMemo(() => summarizeActivity(tasks), [tasks]);
 
@@ -265,56 +298,25 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
             onClick={() => void ipc.resumeAllDownloads()}
           />
         )}
-        {/* Beside History's own Clear, this one says what it clears. */}
-        {(embedded ? groups.finished.length > 0 : anyFinished) && (
+        {/* Within History, whose own Clear empties the history, this one
+            says what it clears. */}
+        {(withinHistory ? groups.finished.length > 0 : anyFinished) && (
           <Button
             size="sm"
             variant="ghost"
-            aria-label={t(embedded ? 'downloads.clearUnfinished' : 'downloads.clearFinished')}
+            aria-label={t(withinHistory ? 'downloads.clearUnfinished' : 'downloads.clearFinished')}
             onClick={() => void ipc.clearFinishedDownloads()}
           >
-            {t(embedded ? 'downloads.clearUnfinished' : 'downloads.clear')}
+            {t(withinHistory ? 'downloads.clearUnfinished' : 'downloads.clear')}
           </Button>
         )}
       </>
     ) : undefined;
 
-  if (embedded) {
-    const shown = groups.running.length + groups.pending.length + groups.finished.length;
-    return (
-      <>
-        {shown > 0 && (
-          <div className="mb-8 flex flex-col gap-4">
-            <div className="flex items-center justify-end gap-1.5">{actions}</div>
-            {isBusy(activity) && <QueueSummary activity={activity} tasks={tasks} />}
-            <div className="flex flex-col gap-5">
-              {groups.running.length > 0 && (
-                <DownloadGroup label={t('downloads.active')} count={groups.running.length}>
-                  <Rows tasks={groups.running} />
-                </DownloadGroup>
-              )}
-              {groups.pending.length > 0 && (
-                <DownloadGroup label={t('downloads.pendingGroup')} count={groups.pending.length}>
-                  <PendingRows tasks={groups.pending} />
-                </DownloadGroup>
-              )}
-              {groups.finished.length > 0 && (
-                <DownloadGroup label={t('downloads.unfinishedGroup')} count={groups.finished.length}>
-                  <FinishedRows tasks={groups.finished} />
-                </DownloadGroup>
-              )}
-            </div>
-          </div>
-        )}
-        <DownloadDetailDialog />
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader
-        title={t('downloads.title')}
+        title={title ?? t('downloads.title')}
         actions={actions}
         // Under the switch, the actions start the half, so they take no room
         // above them.
@@ -336,7 +338,7 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
         )}
       </AnimatePresence>
 
-      {tasks.length === 0 ? (
+      {groups.running.length + groups.pending.length + groups.finished.length === 0 ? (
         <EmptyState
           icon={Download}
           title={t('downloads.emptyTitle')}
@@ -360,7 +362,10 @@ function CurrentDownloads({ onGoHome, embedded = false }: { onGoHome: () => void
             </DownloadGroup>
           )}
           {groups.finished.length > 0 && (
-            <DownloadGroup label={t('downloads.finishedGroup')} count={groups.finished.length}>
+            <DownloadGroup
+              label={t(withinHistory ? 'downloads.unfinishedGroup' : 'downloads.finishedGroup')}
+              count={groups.finished.length}
+            >
               <FinishedRows tasks={groups.finished} />
             </DownloadGroup>
           )}

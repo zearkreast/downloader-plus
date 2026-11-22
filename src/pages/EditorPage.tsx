@@ -40,7 +40,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { MediaSwitch, type MediaRoute } from '@/components/layout/MediaSwitch';
+import { MediaSwitch, MediaTitle, type MediaRoute } from '@/components/layout/MediaSwitch';
 import { Progress } from '@/components/ui/Progress';
 import { useFileActions } from '@/hooks/useFileActions';
 import { errorMessage, useTranslation } from '@/i18n';
@@ -1256,8 +1256,7 @@ export function EditorPage({ settings, onBackRef, onSwitch }: EditorPageProps) {
     return (
       <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
         <PageHeader
-          title={t('editor.title')}
-          actions={onSwitch && <MediaSwitch current="editor" onSwitch={onSwitch} />}
+          title={onSwitch ? <MediaTitle current="editor" onSwitch={onSwitch} /> : t('editor.title')}
         />
         {ffmpegNotice && <div className="mb-5">{ffmpegNotice}</div>}
 
