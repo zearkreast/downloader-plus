@@ -358,16 +358,13 @@ export function App() {
   const navigate = useCallback((requested: NavRequest) => {
     const current = navRef.current;
     if (IS_MOBILE && requested.route === 'history') showDownloadsSegment('history');
-    // A request for Downloads by name opens the desktop's History at that tab.
-    if (!IS_MOBILE && requested.route === 'downloads') showDownloadsSegment('active');
     if (IS_MOBILE && requested.route === 'subscriptions') showDownloadsSegment('subscriptions');
     const next: NavState = IS_MOBILE
       ? phoneState(requested, current)
       : {
-          // The desktop's History holds the running downloads too.
-          route: requested.route === 'downloads' ? 'history' : requested.route,
+          route: requested.route,
           section: requested.route === 'settings' ? requested.section : null,
-          tab: requested.route === 'downloads' ? 'history' : requested.route,
+          tab: requested.route,
         };
     if (sameScreen(next, current)) return;
     navRef.current = next;
@@ -390,6 +387,26 @@ export function App() {
     showDownloadsSegment('active');
     setRoute('downloads');
   }, [setRoute]);
+
+  // The desktop's Downloads entry goes back to whichever of its three tabs
+  // was shown last; the first time, to the running downloads if there are
+  // any to finish, and to the history if not.
+  const downloadsTabRef = useRef<Route | null>(null);
+  useEffect(() => {
+    if (route === 'downloads' || route === 'history' || route === 'subscriptions') {
+      downloadsTabRef.current = route;
+    }
+  }, [route]);
+  const navigateFromSidebar = useCallback(
+    (next: Route) => {
+      if (next !== 'downloads') return setRoute(next);
+      const unfinished = useQueueStore
+        .getState()
+        .tasks.some((task) => !['completed', 'failed', 'canceled'].includes(task.status));
+      setRoute(downloadsTabRef.current ?? (unfinished ? 'downloads' : 'history'));
+    },
+    [setRoute],
+  );
 
   useEffect(() => {
     if (!IS_MOBILE) return;
@@ -848,15 +865,17 @@ export function App() {
           onOpenSettings={(section) => (section ? setSettingsSection(section) : setRoute('settings'))}
         />
       )}
-      {route === 'downloads' && <DownloadsPage onGoHome={() => setRoute('home')} />}
+      {route === 'downloads' && <DownloadsPage onGoHome={() => setRoute('home')} onSwitch={setRoute} />}
       {route === 'convert' && <ConvertPage settings={settings} onSwitch={setRoute} />}
       {/* On a phone it answers the Back gesture itself while a clip is open. */}
       {route === 'editor' && (
         <EditorPage settings={settings} onBackRef={editorBackRef} onSwitch={setRoute} />
       )}
       {/* The desktop's alone: a phone sends History to Downloads. */}
-      {route === 'history' && <HistoryPage onGoHome={() => setRoute('home')} />}
-      {route === 'subscriptions' && <SubscriptionsPage onGoHome={() => setRoute('home')} />}
+      {route === 'history' && <HistoryPage onGoHome={() => setRoute('home')} onSwitch={setRoute} />}
+      {route === 'subscriptions' && (
+        <SubscriptionsPage onGoHome={() => setRoute('home')} onSwitch={setRoute} />
+      )}
       {route === 'settings' && (
         <SettingsPage
           settings={settings}
@@ -886,7 +905,8 @@ export function App() {
       {!IS_MOBILE && (
         <Sidebar
           route={route}
-          onNavigate={setRoute}
+          onNavigate={navigateFromSidebar}
+          onOpenActivity={goToDownloads}
           collapsed={collapsed}
           onToggleCollapsed={toggleCollapsed}
           activeCount={inFlight}

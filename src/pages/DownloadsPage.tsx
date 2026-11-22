@@ -63,13 +63,52 @@ const TEXT_INSET = IS_MOBILE ? 96 : 104;
 /** How a removed row leaves; see the same choice in `HistoryList`. */
 const LEAVING = IS_MOBILE ? 'sync' : 'popLayout';
 
-export function DownloadsPage({ onGoHome }: { onGoHome: () => void }) {
+export function DownloadsPage({
+  onGoHome,
+  onSwitch,
+}: {
+  onGoHome: () => void;
+  onSwitch?: (route: DownloadsRoute) => void;
+}) {
   if (IS_MOBILE) return <PhoneDownloads onGoHome={onGoHome} />;
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
-      <CurrentDownloads onGoHome={onGoHome} />
+      <CurrentDownloads
+        onGoHome={onGoHome}
+        title={onSwitch ? <DownloadsTitle current="downloads" onSwitch={onSwitch} /> : undefined}
+        withinHistory
+      />
     </div>
+  );
+}
+
+/** The desktop's three screens under Downloads, each its own route. */
+export type DownloadsRoute = 'downloads' | 'history' | 'subscriptions';
+
+/**
+ * Downloads, History and Subscriptions share the desktop's Downloads entry, as
+ * the phone's Downloads tab holds all three; the title names them, as Edit's
+ * names Convert.
+ */
+export function DownloadsTitle({
+  current,
+  onSwitch,
+}: {
+  current: DownloadsRoute;
+  onSwitch: (route: DownloadsRoute) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <TitleTabs
+      value={current}
+      onChange={onSwitch}
+      options={[
+        { value: 'downloads', label: t('downloads.active') },
+        { value: 'history', label: t('nav.history') },
+        { value: 'subscriptions', label: t('nav.subscriptions') },
+      ]}
+    />
   );
 }
 
@@ -206,39 +245,10 @@ const ENDING_LINES = {
 // -- the downloads themselves ---------------------------------------------------
 
 /**
- * The desktop's History screen, which holds its downloads too: two tabs in the
- * title, as Edit and Convert have. It opens where something is to be seen, as
- * the phone's Downloads does, and keeps the tab that was left.
- */
-export function HistoryScreen({ onGoHome }: { onGoHome: () => void }) {
-  const { t } = useTranslation();
-  const segment = useDownloadsSegment() === 'active' ? 'active' : 'history';
-  const title = (
-    <TitleTabs
-      value={segment}
-      onChange={showDownloadsSegment}
-      options={[
-        { value: 'history', label: t('nav.history') },
-        { value: 'active', label: t('downloads.title') },
-      ]}
-    />
-  );
-  return (
-    <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
-      {segment === 'active' ? (
-        <CurrentDownloads onGoHome={onGoHome} title={title} withinHistory />
-      ) : (
-        <HistoryList onGoHome={onGoHome} title={title} />
-      )}
-    </div>
-  );
-}
-
-/**
  * What is downloading, waiting, or finished and not yet cleared away, with the
  * actions that apply to all of it. On a phone this is the first half of
- * Downloads. `withinHistory`, a tab of the desktop's History, it leaves the
- * completed ones to the history, which already lists them.
+ * Downloads. `withinHistory`, on the desktop beside a History tab, it leaves
+ * the completed ones to the history, which already lists them.
  */
 function CurrentDownloads({
   onGoHome,
