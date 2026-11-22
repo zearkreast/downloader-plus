@@ -44,7 +44,8 @@
 | Eski, 32 bit Android telefon | [`UMD-Plus_android_armv7.apk`]({{download}}/UMD-Plus_android_armv7.apk) |
 | **Arch Linux, CachyOS, EndeavourOS, Manjaro** | [`UMD-Plus_x86_64.pkg.tar.zst`]({{download}}/UMD-Plus_x86_64.pkg.tar.zst) |
 | **Chrome, Edge, Brave, Opera, Vivaldi** eklentisi | [`extension-full.zip`]({{download}}/extension-full.zip) |
-| **Firefox** eklentisi | [`extension-firefox.zip`]({{download}}/extension-firefox.zip) |
+| **Firefox** eklentisi (imzalı, kalıcı) | [`extension-firefox.xpi`]({{download}}/extension-firefox.xpi) |
+| Firefox eklentisi (geçici yükleme için) | [`extension-firefox.zip`]({{download}}/extension-firefox.zip) |
 
 ## Kurulum
 
@@ -102,7 +103,7 @@ Eklenti, tarayıcıda oynayan videoyu uygulamaya gönderir. Şimdilik yalnızca 
 
 Eski sürümü güncelliyorsanız dosyayı aynı klasöre açıp eklentiler sayfasında **Yeniden yükle**'ye basın.
 
-Firefox için `extension-firefox.zip`, `about:debugging` sayfasından geçici eklenti olarak yüklenir ve Firefox kapanınca kalkar.
+Firefox için `extension-firefox.xpi` dosyasını Firefox penceresine sürükleyin ya da `about:addons` sayfasında dişli simgesinden **Dosyadan eklenti yükle**'yi seçin. Mozilla imzalı olduğu için kalıcı kurulur ve sonraki sürümleri Firefox kendisi alır. Masaüstü uygulaması aynı dosyayı Ayarlar › Bağlantı'da da gösterir.
 </details>
 
 ---

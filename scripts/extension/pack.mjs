@@ -6,6 +6,13 @@
 //                                              extension/src/edition.js)
 //   node scripts/extension/pack.mjs --firefox  extension-firefox.zip, the full
 //                                              build, for addons.mozilla.org
+//   node scripts/extension/pack.mjs --firefox --update-url <url>
+//                                              the same, for signing as an unlisted
+//                                              add-on: Firefox looks for newer
+//                                              versions at <url> (see
+//                                              firefox-updates.mjs). Never for the
+//                                              listed upload, which AMO refuses
+//                                              with one.
 //   node scripts/extension/pack.mjs --full     extension-full.zip, the full build
 //                                              for Chrome, published beside the
 //                                              app and loaded unpacked
@@ -46,6 +53,11 @@ const source = join(root, 'extension', 'src');
 // the app on the same computer, never off it.
 const FIREFOX = process.argv.includes('--firefox');
 const FIREFOX_ID = 'connector@universaldownloader.app';
+const urlAt = process.argv.indexOf('--update-url');
+const UPDATE_URL = urlAt > 0 ? process.argv[urlAt + 1] : null;
+if (urlAt > 0 && !(FIREFOX && UPDATE_URL?.startsWith('https://'))) {
+  throw new Error('--update-url takes an https address, and only with --firefox');
+}
 // Any other Chrome package is the store build, unless the full one is asked for.
 const STORE = !FIREFOX && !process.argv.includes('--full');
 const target = join(
@@ -59,6 +71,7 @@ function forFirefox(manifest) {
   manifest.browser_specific_settings = {
     gecko: {
       id: FIREFOX_ID,
+      ...(UPDATE_URL ? { update_url: UPDATE_URL } : {}),
       // The data collection declaration is the newest key here: Firefox
       // reads it from 140 (the ESR line) and Firefox for Android from 142,
       // and addons.mozilla.org warns about any minimum below that.

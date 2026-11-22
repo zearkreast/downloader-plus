@@ -517,6 +517,13 @@ export const tr: Record<TranslationKey, string> = {
   'settings.extensionFolderHint':
     "Chrome, Edge ya da Brave'de uzantılar sayfasını aç, Geliştirici modunu aç, Paketlenmemiş öğe yükle'ye bas ve bu klasörü seç. Uygulama her güncellendiğinde klasörü de günceller, uzantı da kendini yeniden yükler.",
   'settings.extensionFolderOpen': 'Klasörü aç',
+  'settings.firefoxAddon': 'Firefox eklentisi',
+  'settings.firefoxAddonHint':
+    "Firefox'ta about:addons sayfasını aç, dişli simgesinden Dosyadan eklenti yükle'yi seç ve bu dosyayı göster; ya da dosyayı Firefox penceresine sürükle. Mozilla imzalı olduğu için kalıcı kurulur, sonraki sürümleri Firefox kendisi alır.",
+  'settings.firefoxAddonMissing':
+    'Bu sürümde imzalı Firefox eklentisi yok. Yayın sayfasındaki extension-firefox.zip, about:debugging sayfasından geçici olarak yüklenebilir; Firefox kapanınca kalkar.',
+  'settings.firefoxAddonShow': 'Dosyayı göster',
+  'settings.firefoxAddonFailed': 'Firefox eklentisi gösterilemedi',
   'settings.extensionFolderCopy': 'Klasör yolunu kopyala',
   'settings.extensionFolderVersion': 'Klasördeki sürüm: {version}',
   'settings.extensionFolderFailed': 'Uzantı klasörü açılamadı',

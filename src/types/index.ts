@@ -901,6 +901,8 @@ export type TransferReceipt =
 export interface ExtensionFolder {
   path: string;
   version: string | null;
+  /** The signed Firefox add-on beside the folder, when this build carries one. */
+  firefoxPath: string | null;
 }
 
 export interface BridgeStatus {

@@ -121,6 +121,7 @@ export const phoneTransferReceive = (code: string) =>
 /** The unpacked extension's folder, brought up to this version first. */
 export const extensionFolder = () => invoke<ExtensionFolder>('extension_folder');
 export const openExtensionDir = () => invoke<void>('open_extension_dir');
+export const revealFirefoxAddon = () => invoke<void>('reveal_firefox_addon');
 /** A support paste. Carries cookie names, never their values. */
 export const bridgeDiagnostics = () => invoke<string>('bridge_diagnostics');
 /**

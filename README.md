@@ -34,7 +34,7 @@
 | Older 32-bit Android phone | [`UMD-Plus_android_armv7.apk`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_android_armv7.apk) |
 | **Arch Linux, CachyOS, EndeavourOS, Manjaro** | [`UMD-Plus_x86_64.pkg.tar.zst`](https://github.com/zearkreast/downloader-plus/releases/latest/download/UMD-Plus_x86_64.pkg.tar.zst) |
 | **Chrome, Edge, Brave, Opera, Vivaldi** extension | [`extension-full.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-full.zip) |
-| **Firefox** extension | [`extension-firefox.zip`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.zip) |
+| **Firefox** extension | [`extension-firefox.xpi`](https://github.com/zearkreast/downloader-plus/releases/latest/download/extension-firefox.xpi) (signed by Mozilla; updates itself) |
 
 The links always point at the newest build. Everything else, including an MSI
 for managed installs and x86_64 Android, is on the
@@ -105,8 +105,12 @@ Windows app, for now.
 3. Turn on **Developer mode**, press **Load unpacked** and pick the folder.
 
 To update it, unzip the new file into the same folder and press **Reload** on
-the extensions page. Firefox loads `extension-firefox.zip` as a temporary
-add-on from `about:debugging`, until Firefox closes.
+the extensions page. The desktop app also keeps this folder current itself:
+Settings › Connection shows where it is.
+
+For Firefox, drag `extension-firefox.xpi` onto a Firefox window, or choose
+**Install Add-on From File** under the gear on `about:addons`. It is signed by
+Mozilla, so it stays installed, and Firefox fetches each newer version itself.
 </details>
 
 ## What it does

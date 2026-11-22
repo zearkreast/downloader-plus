@@ -336,6 +336,7 @@ pub fn run() {
             commands::open_log_dir,
             commands::extension_folder,
             commands::open_extension_dir,
+            commands::reveal_firefox_addon,
             commands::open_download_dir,
             commands::cache_stats,
             commands::clear_cache,

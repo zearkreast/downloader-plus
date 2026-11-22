@@ -80,9 +80,53 @@ jobs:
       - name: Extension tests
         run: npm run test:extension
 
+  # The Firefox add-on, signed by addons.mozilla.org as an unlisted
+  # (self-distributed) add-on: release Firefox installs nothing unsigned. The
+  # desktop builds carry the signed file, and Firefox finds the next one through
+  # firefox-updates.json on the release. Without the two AMO secrets, or if AMO
+  # fails, this job still passes and the release goes out without the file.
+  # Re-run only the failed jobs of a run: AMO signs a version once, so a fresh
+  # run of a version already signed is refused there.
+  firefox:
+    name: Firefox (signed)
+    needs: check
+    runs-on: ubuntu-latest
+    env:
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Sign with addons.mozilla.org
+        if: env.AMO_JWT_ISSUER != '' && env.AMO_JWT_SECRET != ''
+        continue-on-error: true
+        run: |
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/latest"
+          node scripts/extension/pack.mjs --firefox --update-url "$base/firefox-updates.json"
+          mkdir -p build/firefox signed out
+          unzip -q extension-firefox.zip -d build/firefox
+          npx --yes web-ext@10.1.0 sign --channel unlisted --source-dir build/firefox --artifacts-dir signed --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+          xpi=$(ls signed/*.xpi | head -n 1)
+          cp "$xpi" out/extension-firefox.xpi
+          node scripts/extension/firefox-updates.mjs build/firefox/manifest.json out/extension-firefox.xpi "$base/extension-firefox.xpi" > out/firefox-updates.json
+          ls -l out
+
+      - name: Say it was left out
+        if: env.AMO_JWT_ISSUER == '' || env.AMO_JWT_SECRET == ''
+        run: echo "::warning::No AMO_JWT_ISSUER / AMO_JWT_SECRET; the release goes out without a signed Firefox add-on. See docs/RELEASING.md."
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firefox
+          path: out/*
+          if-no-files-found: ignore
+
   windows:
     name: Windows (x64)
-    needs: check
+    needs: [check, firefox]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -96,6 +140,23 @@ jobs:
           workspaces: src-tauri -> target
           key: windows
       - run: npm ci
+
+      # The signed Firefox add-on, when the job before signed one; the app
+      # writes it beside the unpacked Chromium extension.
+      - name: Fetch the signed Firefox add-on
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: firefox
+          path: firefox
+      - name: Carry it in the build
+        shell: bash
+        run: |
+          if [ -f firefox/extension-firefox.xpi ]; then
+            echo "UD_FIREFOX_XPI=$GITHUB_WORKSPACE/firefox/extension-firefox.xpi" >> "$GITHUB_ENV"
+          else
+            echo "No signed Firefox add-on in this build."
+          fi
 
       # NSIS and MSI, as tauri.conf.json lists them. The bundler fetches NSIS
       # and WiX itself when the runner has none.
@@ -244,7 +305,7 @@ jobs:
 
   arch:
     name: Arch Linux (CachyOS)
-    needs: check
+    needs: [check, firefox]
     runs-on: ubuntu-latest
     # Built on Arch itself, against Arch's own WebKitGTK and glibc, so the
     # package runs on a rolling system. GitHub's registry rather than Docker
@@ -269,6 +330,20 @@ jobs:
           workspaces: src-tauri -> target
           key: arch
       - run: npm ci
+
+      - name: Fetch the signed Firefox add-on
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: firefox
+          path: firefox
+      - name: Carry it in the build
+        run: |
+          if [ -f firefox/extension-firefox.xpi ]; then
+            echo "UD_FIREFOX_XPI=$GITHUB_WORKSPACE/firefox/extension-firefox.xpi" >> "$GITHUB_ENV"
+          else
+            echo "No signed Firefox add-on in this build."
+          fi
 
       - name: Build
         run: npx tauri build --bundles deb
@@ -296,7 +371,7 @@ jobs:
 
   publish:
     name: Publish
-    needs: [windows, android, arch]
+    needs: [windows, android, arch, firefox]
     runs-on: ubuntu-latest
     permissions:
       contents: write
