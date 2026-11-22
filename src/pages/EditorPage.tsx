@@ -40,6 +40,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { InlineNotice } from '@/components/ui/InlineNotice';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { MediaSwitch, type MediaRoute } from '@/components/layout/MediaSwitch';
 import { Progress } from '@/components/ui/Progress';
 import { useFileActions } from '@/hooks/useFileActions';
 import { errorMessage, useTranslation } from '@/i18n';
@@ -153,6 +154,8 @@ interface EditorPageProps {
    * lose.
    */
   onBackRef?: MutableRefObject<(() => void) | null>;
+  /** Over to Convert, which shares this screen's entry; see MediaSwitch. */
+  onSwitch?: (route: MediaRoute) => void;
 }
 
 /**
@@ -170,7 +173,7 @@ interface EditorPageProps {
  * with the way out and the export, the picture, the transport, the timeline,
  * and the settings filling what is left.
  */
-export function EditorPage({ settings, onBackRef }: EditorPageProps) {
+export function EditorPage({ settings, onBackRef, onSwitch }: EditorPageProps) {
   const { t, language } = useTranslation();
 
   const pool = useEditorStore((state) => state.pool);
@@ -1201,6 +1204,7 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
               exit="exit"
               className="mx-auto w-full max-w-[760px] px-4 pb-12 pt-2"
             >
+              {onSwitch && <MediaSwitch current="editor" onSwitch={onSwitch} className="mb-3" />}
               {ffmpegNotice && <div className="mb-4">{ffmpegNotice}</div>}
 
               <div className="flex flex-col items-center rounded-[var(--radius-card)] surface-card px-6 py-9 text-center">
@@ -1251,7 +1255,10 @@ export function EditorPage({ settings, onBackRef }: EditorPageProps) {
   if (!clip) {
     return (
       <div className="mx-auto w-full max-w-[760px] px-6 pb-12">
-        <PageHeader title={t('editor.title')} />
+        <PageHeader
+          title={t('editor.title')}
+          actions={onSwitch && <MediaSwitch current="editor" onSwitch={onSwitch} />}
+        />
         {ffmpegNotice && <div className="mb-5">{ffmpegNotice}</div>}
 
         <div
