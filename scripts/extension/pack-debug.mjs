@@ -23,7 +23,7 @@ const output = join(root, 'src-tauri', 'target', 'debug', 'extension-debug');
 // src-tauri/src/bridge/protocol.rs.
 const HOST_NAME = 'com.universaldownloader.bridge';
 const DEBUG_HOST_NAME = 'com.universaldownloader.bridge.debug';
-const DEBUG_FIREFOX_ID = 'connector-debug@universaldownloader.app';
+const DEBUG_FIREFOX_ID = 'connector-debug@umdplus.app';
 
 // extension/src holds only what ships; these are left out in case one is
 // dropped in by hand. The signing key and the notes live a level up.

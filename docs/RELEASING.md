@@ -91,7 +91,7 @@ from `firefox-updates.json` on this repository's release rather than from AMO.
 
 AMO signs each version once. If a run fails after the Firefox job finished, use
 **Re-run failed jobs**, which keeps the signed file; a fresh run of the same
-version is refused by AMO. The add-on's id is `connector@universaldownloader.app`
+version is refused by AMO. The add-on's id is `connector@umdplus.app`
 (`scripts/extension/pack.mjs`); changing it makes a different add-on, which
 installed copies will not update to.
 Keep the keystore file and its password somewhere safe and backed up. Every

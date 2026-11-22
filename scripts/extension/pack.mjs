@@ -52,7 +52,7 @@ const source = join(root, 'extension', 'src');
 // declare what data it collects -- none here: what the extension sends goes to
 // the app on the same computer, never off it.
 const FIREFOX = process.argv.includes('--firefox');
-const FIREFOX_ID = 'connector@universaldownloader.app';
+const FIREFOX_ID = 'connector@umdplus.app';
 const urlAt = process.argv.indexOf('--update-url');
 const UPDATE_URL = urlAt > 0 ? process.argv[urlAt + 1] : null;
 if (urlAt > 0 && !(FIREFOX && UPDATE_URL?.startsWith('https://'))) {

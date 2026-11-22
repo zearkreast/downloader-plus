@@ -89,11 +89,11 @@ pub fn origin_allowed(origin: &str) -> bool {
 /// the Firefox host manifest's `allowed_extensions`, the field Firefox reads in
 /// place of Chrome's `allowed_origins`.
 #[cfg(not(feature = "debug-edition"))]
-pub const FIREFOX_EXTENSION_ID: &str = "connector@universaldownloader.app";
+pub const FIREFOX_EXTENSION_ID: &str = "connector@umdplus.app";
 /// Firefox allows one add-on per id, so a test copy loaded beside the one from
 /// addons.mozilla.org needs an id of its own.
 #[cfg(feature = "debug-edition")]
-pub const FIREFOX_EXTENSION_ID: &str = "connector-debug@universaldownloader.app";
+pub const FIREFOX_EXTENSION_ID: &str = "connector-debug@umdplus.app";
 
 /// Whether the browser started this host for one of our extensions, from the
 /// arguments it passed.
@@ -126,7 +126,7 @@ mod caller_tests {
 
         assert!(!caller_allowed(&args(&[exe, "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"])));
         assert!(!caller_allowed(&args(&[exe, r"C:\x\m.json", "other@example.com"])));
-        assert!(!caller_allowed(&args(&[exe, r"C:\x\m.json", "connector@universaldownloader.appx"])));
+        assert!(!caller_allowed(&args(&[exe, r"C:\x\m.json", "connector@umdplus.appx"])));
         assert!(!caller_allowed(&args(&[exe])));
     }
 }

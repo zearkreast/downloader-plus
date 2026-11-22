@@ -182,7 +182,7 @@ visible in the output rather than in the listing.
 addons.mozilla.org from the same files, as the full build. Only the manifest
 differs: the
 background runs as a module script instead of a service worker, the id is
-`connector@universaldownloader.app` (`FIREFOX_EXTENSION_ID` in
+`connector@umdplus.app` (`FIREFOX_EXTENSION_ID` in
 `src-tauri/src/bridge/protocol.rs`), and it declares that no data is collected.
 The app registers a second host manifest for Firefox under
 `HKCU\Software\Mozilla\NativeMessagingHosts`, with `allowed_extensions` where

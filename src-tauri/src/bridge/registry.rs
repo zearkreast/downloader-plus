@@ -366,7 +366,7 @@ mod tests {
             allowed_extensions: firefox_extensions(),
         })
         .unwrap();
-        assert!(json.contains(r#""allowed_extensions":["connector@universaldownloader.app"]"#), "{json}");
+        assert!(json.contains(r#""allowed_extensions":["connector@umdplus.app"]"#), "{json}");
         assert!(!json.contains("allowed_origins"), "{json}");
         assert!(manifest_lists(&json, &host, "allowed_extensions", &firefox_extensions()));
         // A Chrome manifest is not a Firefox one, whatever its path says.
