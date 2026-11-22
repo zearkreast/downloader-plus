@@ -210,6 +210,7 @@ function NavButton({
   const button = (
     <button
       type="button"
+      data-tour={`nav-${entry.route}`}
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       aria-label={collapsed ? label : undefined}

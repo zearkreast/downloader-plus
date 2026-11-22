@@ -487,7 +487,7 @@ export function HomePage({
         <Hero />
       </motion.div>
 
-      <div className={cn('shrink-0', isCollapsed && 'pt-6')}>
+      <div data-tour="link" className={cn('shrink-0', isCollapsed && 'pt-6')}>
         <UrlInput
           ref={inputRef}
           value={url}

@@ -697,6 +697,50 @@ export const en = {
 
   'intro.skip': 'Skip',
   'intro.start': 'Get started',
+  'tour.progress': '{current} of {total}',
+  'tour.skip': 'Skip tour',
+  'tour.back': 'Back',
+  'tour.next': 'Next',
+  'tour.start': "Let's go",
+  'tour.finish': 'Done',
+  'tour.replay': 'Take the app tour',
+  'tour.welcomeTitle': 'A short tour',
+  'tour.welcomeBody': 'A minute on how UMD+ works. Skip tour leaves it at any point.',
+  'tour.welcomeBodyMobile': 'A minute on how UMD+ works. Skip tour leaves it at any point.',
+  'tour.linkTitle': 'Paste a link here',
+  'tour.linkBody':
+    'Copy the address of a video, a song or a post and paste it here; with the app open, Ctrl+V is enough. Then pick the quality and format and press Download.',
+  'tour.linkBodyMobile':
+    'Copy the address of a video, a song or a post and paste it here. Then pick the quality and format and press Download.',
+  'tour.shareTitle': 'Or share from another app',
+  'tour.shareBody':
+    'In YouTube, TikTok, Instagram or the browser, press Share and pick UMD+. The link opens here, ready.',
+  'tour.downloadsTitle': 'Downloads',
+  'tour.downloadsBody':
+    'Running, waiting and finished downloads live here. Drag waiting ones to change their order, and pause or resume any of them.',
+  'tour.downloadsBodyMobile':
+    'Running, waiting and finished downloads live here, with the history of everything you downloaded and your subscriptions.',
+  'tour.editorTitle': 'Edit',
+  'tour.editorBody':
+    'Cut a video or a sound, split it, drop the parts you do not want. Keep only the sound as an MP3, or lay music under a video.',
+  'tour.convertTitle': 'Convert',
+  'tour.convertBody':
+    'Turn files into other formats: MP3 from a video, a GIF, or a video small enough for a messaging app.',
+  'tour.historyTitle': 'History',
+  'tour.historyBody':
+    'Everything you downloaded. Search it, filter by kind or site, open a file or download it again.',
+  'tour.subscriptionsTitle': 'Subscriptions',
+  'tour.subscriptionsBody':
+    'Subscribe to a channel or a playlist, and new videos download by themselves.',
+  'tour.settingsTitle': 'Settings',
+  'tour.settingsBodyDesktop':
+    'The download folder, the default quality and more. To send the video you are watching in the browser with one click, add the browser extension from Settings › Connection.',
+  'tour.settingsBodyMobile':
+    'The download folder, the default quality, downloading on Wi-Fi only and more.',
+  'tour.doneTitle': "You're set",
+  'tour.doneBody': 'Paste your first link. The tour can be taken again from the About page.',
+  'tour.doneBodyMobile':
+    'Paste your first link. The tour can be taken again from About, the ⓘ button at the top right.',
   'intro.replay': 'Watch the intro',
   'intro.share': 'Share from any app.',
   'intro.saved': 'Saved to your phone.',

@@ -83,6 +83,42 @@
   "pinBody": {
     "message": "Chrome yeni eklentileri adres çubuğunun yanındaki yapboz parçası düğmesinin arkasına gizler. Ona, sonra UMD+ Connector'ın yanındaki raptiyeye tıklayın."
   },
+  "tourIntroTitle": {
+    "message": "Hoş geldiniz"
+  },
+  "tourIntroBody": {
+    "message": "UMD+ Connector, tarayıcınızda oynayan videoyu tek tıkla UMD+ uygulamasına gönderir. Nasıl kullanılacağına birkaç adımda bakalım."
+  },
+  "tourMenuTitle": {
+    "message": "Sağ tıkla da gönderebilirsiniz"
+  },
+  "tourMenuBody": {
+    "message": "Bir bağlantıya, videoya ya da sayfanın boş bir yerine sağ tıklayıp \"UMD+'ya gönder\"i seçin. Alt+Shift+S oynayan videoyu ya da sayfayı doğrudan gönderir."
+  },
+  "tourPickTitle": {
+    "message": "Sayfadan seç"
+  },
+  "tourPickBody": {
+    "message": "Bir sayfada birden çok video ya da resim varsa, açılır pencerenin başlığındaki Sayfadan seç simgesine basın ve istediğinize tıklayın. Vazgeçmek için Esc."
+  },
+  "tourDoneTitle": {
+    "message": "Hazırsınız"
+  },
+  "tourSkip": {
+    "message": "Turu atla"
+  },
+  "tourBack": {
+    "message": "Geri"
+  },
+  "tourNext": {
+    "message": "İleri"
+  },
+  "tourStart": {
+    "message": "Başlayalım"
+  },
+  "tourFinish": {
+    "message": "Bitir"
+  },
   "privacyBody": {
     "message": "Eklenti, bu bilgisayardaki UMD+ dışında hiçbir yere bir şey göndermez; uygulama bir videoyu yalnızca siz indirmeyi seçtiğinizde indirir."
   }

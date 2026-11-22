@@ -75,6 +75,7 @@ export const BottomNav = memo(function BottomNav({
           <motion.button
             key={entry.route}
             type="button"
+            data-tour={`nav-${entry.route}`}
             onClick={() => onNavigate(entry.route)}
             aria-current={active ? 'page' : undefined}
             whileTap="pressed"

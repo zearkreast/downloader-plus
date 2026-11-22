@@ -199,6 +199,42 @@
   "pinBody": {
     "message": "Chrome hides new extensions behind the puzzle-piece button next to the address bar. Click it, then the pin beside UMD+ Connector."
   },
+  "tourIntroTitle": {
+    "message": "Welcome"
+  },
+  "tourIntroBody": {
+    "message": "UMD+ Connector sends the video playing in your browser to the UMD+ app with one click. Here is how, in a few steps."
+  },
+  "tourMenuTitle": {
+    "message": "Or right-click"
+  },
+  "tourMenuBody": {
+    "message": "Right-click a link, a video or an empty spot on the page and choose \"Send to UMD+\". Alt+Shift+S sends the playing video or the page directly."
+  },
+  "tourPickTitle": {
+    "message": "Pick from the page"
+  },
+  "tourPickBody": {
+    "message": "When a page holds several videos or pictures, press the Pick from the page icon beside the popup's heading and click the one you want. Esc cancels."
+  },
+  "tourDoneTitle": {
+    "message": "You're all set"
+  },
+  "tourSkip": {
+    "message": "Skip tour"
+  },
+  "tourBack": {
+    "message": "Back"
+  },
+  "tourNext": {
+    "message": "Next"
+  },
+  "tourStart": {
+    "message": "Let's go"
+  },
+  "tourFinish": {
+    "message": "Done"
+  },
   "privacyBody": {
     "message": "The extension sends nothing anywhere but to UMD+ on this computer, and the app downloads a video only when you choose to."
   }
