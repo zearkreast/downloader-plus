@@ -31,7 +31,7 @@ use tauri::{AppHandle, Emitter};
 use crate::downloader::control::TaskControl;
 use crate::downloader::plan;
 use crate::error::{AppError, AppResult};
-use crate::media::ffmpeg::{self, AddedSound, ExportPlan, PassSlice, ToneMap};
+use crate::media::ffmpeg::{self, AddedSound, AudioPlan, ExportPlan, PassSlice, ToneMap};
 use crate::model::{
     AspectRatio, EditSegment, ExportMode, ExportOptions, ExportRequest, ExportState, ExportStatus,
     MediaProbe,
@@ -54,8 +54,10 @@ const MIN_SEGMENT_SEC: f64 = 0.05;
 const CUT_SHARE: f64 = 50.0;
 
 /// Containers an export may be written into. An extension that reached the
-/// command line unchecked would be an output path nobody chose.
-pub(crate) const CONTAINERS: [&str; 4] = ["mp4", "mkv", "mov", "webm"];
+/// command line unchecked would be an output path nobody chose. The last five
+/// hold sound alone; see [`ffmpeg::AUDIO_CONTAINERS`].
+pub(crate) const CONTAINERS: [&str; 9] =
+    ["mp4", "mkv", "mov", "webm", "mp3", "m4a", "opus", "flac", "wav"];
 
 /// The range a chosen video bitrate is held to, in kilobits a second. Why these
 /// two is said where they are applied, in [`checked_options`].
@@ -214,6 +216,10 @@ impl ExportManager {
             None => None,
         };
 
+        if ffmpeg::is_audio_container(&options.container) && !probe.has_audio && sound.is_none() {
+            return Err(AppError::Other(format!("{} has no sound to export", probe.file_name)));
+        }
+
         let mut seeks: Vec<f64> = Vec::new();
         if options.mode == ExportMode::Lossless {
             lossless_is_possible(&options, &probe)?;
@@ -330,6 +336,9 @@ impl ExportManager {
     }
 
     async fn execute(self: &Arc<Self>, job: &Job, control: Arc<TaskControl>) -> AppResult<()> {
+        if ffmpeg::is_audio_container(&job.options.container) {
+            return self.run_audio(job, control).await;
+        }
         match job.options.mode {
             ExportMode::Lossless => self.run_lossless(job, control).await,
             ExportMode::Reencode => self.run_reencode(job, control).await,
@@ -440,6 +449,20 @@ impl ExportManager {
         }
         let _ = std::fs::remove_file(&list);
         outcome
+    }
+
+    /// The sound alone, cut, joined and finished in one process.
+    async fn run_audio(self: &Arc<Self>, job: &Job, control: Arc<TaskControl>) -> AppResult<()> {
+        let args = ffmpeg::audio_args(&AudioPlan {
+            input: &job.input,
+            output: &job.output,
+            segments: &job.segments,
+            options: &job.options,
+            original: job.keeps_original(),
+            sound: job.added_sound(),
+        })?;
+        self.pass(&args, Some(job.kept_sec()), PassSlice::whole(), control)
+            .await
     }
 
     /// Every range, cut and joined and re-shaped, in one process.
@@ -662,6 +685,20 @@ fn checked_options(mut options: ExportOptions) -> AppResult<ExportOptions> {
         1.0
     };
     options.sound_path = options.sound_path.filter(|path| !path.trim().is_empty());
+    let fade = |seconds: f64| {
+        if seconds.is_finite() {
+            seconds.clamp(0.0, ffmpeg::MAX_FADE_SEC)
+        } else {
+            0.0
+        }
+    };
+    options.fade_in_sec = fade(options.fade_in_sec);
+    options.fade_out_sec = fade(options.fade_out_sec);
+    // Sound on its own is always written afresh: there is no picture to keep
+    // untouched, and the fades and the levelling are new sound.
+    if ffmpeg::is_audio_container(&options.container) {
+        options.mode = ExportMode::Reencode;
+    }
     Ok(options)
 }
 

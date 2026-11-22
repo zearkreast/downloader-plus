@@ -1068,6 +1068,134 @@ pub fn concat_with_sound_args(
     args
 }
 
+/// Containers a sound-only export is written into, each with the one codec it
+/// is written in: the format is the choice, so there is no codec to pick.
+pub const AUDIO_CONTAINERS: [&str; 5] = ["mp3", "m4a", "opus", "flac", "wav"];
+
+pub fn is_audio_container(container: &str) -> bool {
+    AUDIO_CONTAINERS.contains(&container)
+}
+
+/// The encoder for a sound-only container, and whether it takes a bitrate.
+fn audio_only_encoder(container: &str) -> (&'static str, bool) {
+    match container {
+        "mp3" => ("libmp3lame", true),
+        "opus" => ("libopus", true),
+        "flac" => ("flac", false),
+        "wav" => ("pcm_s16le", false),
+        _ => ("aac", true),
+    }
+}
+
+/// The longest fade on offer. A slider past this is a mistake, not a fade.
+pub const MAX_FADE_SEC: f64 = 30.0;
+
+/// Everything a sound-only export needs.
+pub struct AudioPlan<'a> {
+    pub input: &'a Path,
+    pub output: &'a Path,
+    /// In order, non-overlapping, and already clamped to the source.
+    pub segments: &'a [EditSegment],
+    pub options: &'a ExportOptions,
+    /// Whether the source's own sound goes in: it has some, and it is not muted.
+    pub original: bool,
+    pub sound: Option<AddedSound<'a>>,
+}
+
+/// Every kept range of the sound, joined, levelled and faded, in one process.
+/// The picture, if the source has one, is left out.
+pub fn audio_args(plan: &AudioPlan<'_>) -> AppResult<Vec<String>> {
+    if plan.segments.is_empty() {
+        return Err(AppError::Other("there is nothing marked to export".into()));
+    }
+    if !plan.original && plan.sound.is_none() {
+        return Err(AppError::Other("there is no sound left to export".into()));
+    }
+    let container = plan.options.container.as_str();
+    let (encoder, takes_rate) = audio_only_encoder(container);
+
+    let mut args = base_args();
+    // As in a re-encode: a second short of the first kept moment, so a cut from
+    // the end of a long recording does not decode everything before it.
+    let seek = if plan.original {
+        (plan.segments[0].start_sec - 1.0).max(0.0)
+    } else {
+        0.0
+    };
+    if seek > 0.0 {
+        args.extend(["-ss".into(), seek_value(seek)]);
+    }
+    args.extend(["-i".into(), plan.input.to_string_lossy().into_owned()]);
+    if let Some(sound) = &plan.sound {
+        args.extend(["-i".into(), sound.path.to_string_lossy().into_owned()]);
+    }
+
+    args.extend(["-filter_complex".into(), audio_filter(plan, seek)]);
+    args.extend(["-map".into(), "[aout]".into(), "-vn".into()]);
+    args.extend(["-c:a".into(), encoder.into()]);
+    if takes_rate {
+        let kbps = plan.options.audio_bitrate_kbps.unwrap_or(192).clamp(32, 320);
+        args.extend(["-b:a".into(), format!("{kbps}k")]);
+    }
+    if wants_faststart(container) {
+        args.extend(["-movflags".into(), "+faststart".into()]);
+    }
+    args.push(plan.output.to_string_lossy().into_owned());
+    Ok(args)
+}
+
+fn audio_filter(plan: &AudioPlan<'_>, seek: f64) -> String {
+    let mut graph = String::new();
+    let kept: f64 = plan.segments.iter().map(EditSegment::length).sum();
+    // The source's own sound arrives under `[ac]`, or `[aorig]` when an added
+    // sound is mixed in after; the mix then ends in `[ac]`.
+    if plan.original {
+        for (index, segment) in plan.segments.iter().enumerate() {
+            let (start, end) = (segment.start_sec - seek, segment.end_sec - seek);
+            graph.push_str(&format!(
+                "[0:a:0]atrim=start={start:.3}:end={end:.3},asetpts=PTS-STARTPTS[a{index}];"
+            ));
+        }
+        for index in 0..plan.segments.len() {
+            graph.push_str(&format!("[a{index}]"));
+        }
+        let level = if plan.sound.is_some() { "[aorig]" } else { "[ac]" };
+        match plan.options.gain() {
+            Some(gain) => graph.push_str(&format!(
+                "concat=n={}:v=0:a=1[acat];[acat]volume={gain:.3}{level};",
+                plan.segments.len()
+            )),
+            None => graph.push_str(&format!("concat=n={}:v=0:a=1{level};", plan.segments.len())),
+        }
+    }
+    if let Some(sound) = &plan.sound {
+        graph.push_str(&sound_graph(sound, 1, plan.original.then_some("[aorig]")));
+        graph.push(';');
+    }
+
+    let mut finish: Vec<String> = Vec::new();
+    // Levelled before the fades, so a fade ends at the level that is heard.
+    if plan.options.normalize {
+        finish.push("loudnorm=I=-16:TP=-1.5:LRA=11".into());
+        // loudnorm works at 192 kHz and hands that rate on, which made a
+        // levelled FLAC or WAV four times the size of the source.
+        finish.push("aresample=48000".into());
+    }
+    let fade_in = plan.options.fade_in_sec.clamp(0.0, MAX_FADE_SEC).min(kept);
+    if fade_in > 0.0 {
+        finish.push(format!("afade=t=in:st=0:d={fade_in:.3}"));
+    }
+    let fade_out = plan.options.fade_out_sec.clamp(0.0, MAX_FADE_SEC).min(kept);
+    if fade_out > 0.0 {
+        finish.push(format!("afade=t=out:st={:.3}:d={fade_out:.3}", kept - fade_out));
+    }
+    if finish.is_empty() {
+        finish.push("anull".into());
+    }
+    graph.push_str(&format!("[ac]{}[aout]", finish.join(",")));
+    graph
+}
+
 /// Everything a re-encode needs that [`ExportOptions`] does not carry.
 pub struct ExportPlan<'a> {
     pub input: &'a Path,
@@ -2150,6 +2278,84 @@ mod tests {
             gain: None,
             length_sec: 30.0,
         }
+    }
+
+    fn audio_plan<'a>(options: &'a ExportOptions, segments: &'a [EditSegment]) -> AudioPlan<'a> {
+        AudioPlan {
+            input: Path::new("in.mp3"),
+            output: Path::new("out.mp3"),
+            segments,
+            options,
+            original: true,
+            sound: None,
+        }
+    }
+
+    fn after<'a>(args: &'a [String], flag: &str) -> &'a str {
+        let at = args.iter().position(|arg| arg == flag).expect(flag);
+        &args[at + 1]
+    }
+
+    #[test]
+    fn a_sound_only_export_joins_the_ranges_and_leaves_the_picture_out() {
+        let options = ExportOptions {
+            container: "mp3".into(),
+            audio_bitrate_kbps: Some(256),
+            ..ExportOptions::default()
+        };
+        let segments = [segment(5.0, 10.0), segment(20.0, 30.0)];
+        let args = audio_args(&audio_plan(&options, &segments)).unwrap();
+        assert_eq!(after(&args, "-ss"), "4.000000");
+        let graph = after(&args, "-filter_complex");
+        assert!(graph.contains("[0:a:0]atrim=start=1.000:end=6.000"), "{graph}");
+        assert!(graph.contains("[0:a:0]atrim=start=16.000:end=26.000"), "{graph}");
+        assert!(graph.contains("[a0][a1]concat=n=2:v=0:a=1[ac];"), "{graph}");
+        assert!(graph.ends_with("[ac]anull[aout]"), "{graph}");
+        assert!(args.contains(&"-vn".to_string()));
+        assert_eq!(after(&args, "-c:a"), "libmp3lame");
+        assert_eq!(after(&args, "-b:a"), "256k");
+    }
+
+    #[test]
+    fn a_sound_only_export_levels_then_fades_over_the_kept_length() {
+        let options = ExportOptions {
+            container: "flac".into(),
+            volume: 1.5,
+            fade_in_sec: 2.0,
+            fade_out_sec: 3.0,
+            normalize: true,
+            ..ExportOptions::default()
+        };
+        let segments = [segment(0.0, 10.0), segment(20.0, 30.0)];
+        let args = audio_args(&audio_plan(&options, &segments)).unwrap();
+        let graph = after(&args, "-filter_complex");
+        assert!(graph.contains("[acat]volume=1.500[ac];"), "{graph}");
+        assert!(
+            graph.ends_with(concat!(
+                "[ac]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,afade=t=in:st=0:d=2.000,",
+                "afade=t=out:st=17.000:d=3.000[aout]"
+            )),
+            "{graph}"
+        );
+        assert_eq!(after(&args, "-c:a"), "flac");
+        assert!(!args.contains(&"-b:a".to_string()), "FLAC takes no rate");
+    }
+
+    #[test]
+    fn a_sound_only_export_needs_something_to_hear() {
+        let options = ExportOptions {
+            container: "wav".into(),
+            ..ExportOptions::default()
+        };
+        let segments = [segment(0.0, 10.0)];
+        let mut plan = audio_plan(&options, &segments);
+        plan.original = false;
+        assert!(audio_args(&plan).is_err());
+        plan.sound = Some(song());
+        let args = audio_args(&plan).unwrap();
+        assert!(!args.contains(&"-ss".to_string()), "nothing of the source is read");
+        assert!(after(&args, "-filter_complex").starts_with("[1:a:0]atrim=end="));
+        assert_eq!(after(&args, "-c:a"), "pcm_s16le");
     }
 
     #[test]

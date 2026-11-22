@@ -1133,6 +1133,17 @@ pub struct ExportOptions {
     /// Linear gain on that sound, on the same scale as `volume`.
     #[serde(default = "unity_gain")]
     pub sound_volume: f64,
+    /// Seconds the sound rises from silence at the start of the export, and
+    /// falls to it at the end. Only a sound-only export applies them.
+    #[serde(default)]
+    pub fade_in_sec: f64,
+    #[serde(default)]
+    pub fade_out_sec: f64,
+    /// Even the loudness out to a steady level (EBU R128, -16 LUFS), for a
+    /// recording that is quiet in one place and loud in another. Sound-only
+    /// exports only.
+    #[serde(default)]
+    pub normalize: bool,
 }
 
 fn unity_gain() -> f64 {
@@ -1159,6 +1170,9 @@ impl Default for ExportOptions {
             hardware: false,
             sound_path: None,
             sound_volume: unity_gain(),
+            fade_in_sec: 0.0,
+            fade_out_sec: 0.0,
+            normalize: false,
         }
     }
 }

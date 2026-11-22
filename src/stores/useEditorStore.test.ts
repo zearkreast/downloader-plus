@@ -46,9 +46,8 @@ vi.mock('@/services/ipc', () => ({
   }),
 }));
 
-const { selectCuts, selectHistory, selectOptions, selectSound, useEditorStore } = await import(
-  '@/stores/useEditorStore'
-);
+const { selectCuts, selectHistory, selectOptions, selectSound, useEditorStore, withLegalMode } =
+  await import('@/stores/useEditorStore');
 
 function probeOf(patch: Partial<MediaProbe> = {}): MediaProbe {
   return {
@@ -546,13 +545,12 @@ function soundProbe(path: string): MediaProbe {
 }
 
 describe('an added sound', () => {
-  test('a sound chosen with a clip open goes under that clip, as a step that undoes', async () => {
-    const clip = await openClip('C:/tmp/a.mp4');
+  test('a sound added to an open clip goes under it, as a step that undoes', async () => {
+    await openClip('C:/tmp/a.mp4');
     backend.probe = soundProbe('C:/tmp/song.mp3');
 
-    const id = await useEditorStore.getState().open('C:/tmp/song.mp3', false);
+    expect(await useEditorStore.getState().addSound('C:/tmp/song.mp3')).toBe(true);
 
-    expect(id).toBe(clip);
     expect(useEditorStore.getState().pool).toHaveLength(1);
     expect(useEditorStore.getState().openError).toBeNull();
     expect(edit().options?.soundPath).toBe('C:/tmp/song.mp3');
@@ -621,15 +619,33 @@ describe('opening', () => {
     expect(useEditorStore.getState().openError?.message).toBe(en['editor.unknownLength']);
   });
 
-  test('a sound with nothing open to put it under is refused, and says so', async () => {
+  test('a file of sound alone opens as a clip of its own, written as sound', async () => {
     backend.probe = soundProbe('C:/tmp/podcast.mp3');
 
     const id = await useEditorStore.getState().open('C:/tmp/podcast.mp3', false);
 
-    expect(id).toBeNull();
-    expect(useEditorStore.getState().pool).toHaveLength(0);
-    expect(useEditorStore.getState().opening).toBe(false);
-    expect(useEditorStore.getState().openError?.message).toBe(en['editor.soundNeedsVideo']);
+    expect(id).not.toBeNull();
+    expect(useEditorStore.getState().pool).toHaveLength(1);
+    expect(useEditorStore.getState().openError).toBeNull();
+    expect(edit().options).toMatchObject({ container: 'mp3', mode: 'reencode' });
+    expect(edit().cuts).toHaveLength(1);
+  });
+
+  test('a sound opened while a video is open is a second clip, not its sound', async () => {
+    await openClip('C:/tmp/a.mp4');
+    backend.probe = { ...soundProbe('C:/tmp/talk.ogg'), container: 'ogg' };
+
+    await useEditorStore.getState().open('C:/tmp/talk.ogg', false);
+
+    expect(useEditorStore.getState().pool).toHaveLength(2);
+    // Ogg is written as Opus; the video it was opened beside keeps no sound.
+    expect(edit().options).toMatchObject({ container: 'opus', soundPath: null });
+  });
+
+  test('a copy is never offered for sound alone', () => {
+    const probe = soundProbe('C:/tmp/a.mp3');
+    const options = { ...edit().options!, mode: 'lossless' as const, container: 'mp3' };
+    expect(withLegalMode(options, probe).mode).toBe('reencode');
   });
 
   test('a file with neither picture nor sound is refused as having no picture', async () => {

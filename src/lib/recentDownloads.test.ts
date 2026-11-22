@@ -55,8 +55,9 @@ describe('recentDownloads', () => {
 
   it('offers what the screen accepts and passes over the rest', () => {
     const song = entry({ filePath: '/d/song.m4a', container: 'm4a' });
+    const notes = entry({ filePath: '/d/notes.vtt', container: 'vtt' });
     const film = entry({ filePath: '/d/film.mp4' });
-    expect(recentDownloads([song, film], isEditableDownload, 6)).toEqual([film]);
+    expect(recentDownloads([song, notes, film], isEditableDownload, 6)).toEqual([song, film]);
   });
 
   // The history is newest first, so the first record of a path is its latest.
@@ -92,13 +93,11 @@ describe('isConvertibleDownload', () => {
 });
 
 describe('isEditableDownload', () => {
-  it('takes a video and turns away a sound', () => {
+  it('takes a video and a sound, and turns away the rest', () => {
     expect(isEditableDownload(entry({ container: 'MKV' }))).toBe(true);
-    expect(isEditableDownload(entry({ container: 'mp3' }))).toBe(false);
-  });
-
-  it('turns away sound kept in a video container', () => {
-    expect(isEditableDownload(entry({ container: 'webm', request: request('audio') }))).toBe(false);
+    expect(isEditableDownload(entry({ container: 'mp3' }))).toBe(true);
+    expect(isEditableDownload(entry({ container: 'webm', request: request('audio') }))).toBe(true);
+    expect(isEditableDownload(entry({ container: 'jpg' }))).toBe(false);
   });
 });
 

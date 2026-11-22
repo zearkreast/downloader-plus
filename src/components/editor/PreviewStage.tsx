@@ -1,3 +1,4 @@
+import { AudioLines } from 'lucide-react';
 import { memo, useEffect, useRef, useState, type RefObject } from 'react';
 
 import { useTranslation } from '@/i18n';
@@ -105,6 +106,8 @@ interface PreviewStageProps {
   onCappedChange?: (capped: boolean) => void;
   /** A data: URI, for files the window cannot decode. */
   fallbackFrame?: string | null;
+  /** A file of sound alone, named here: there is no picture to show. */
+  soundOnly?: string | null;
   className?: string;
 }
 
@@ -130,6 +133,7 @@ export const PreviewStage = memo(function PreviewStage({
   onUnplayable,
   onCappedChange,
   fallbackFrame = null,
+  soundOnly = null,
   className,
 }: PreviewStageProps) {
   const { t } = useTranslation();
@@ -300,7 +304,7 @@ export const PreviewStage = memo(function PreviewStage({
                 // all: it reports a correct duration, plays its audio, and
                 // hands over a zero-width picture. This is the only place that
                 // failure announces itself.
-                if (video.videoWidth === 0) {
+                if (video.videoWidth === 0 && soundOnly == null) {
                   onUnplayable();
                   return;
                 }
@@ -319,6 +323,15 @@ export const PreviewStage = memo(function PreviewStage({
               className="no-drag h-full w-full object-contain"
             />
           ) : null}
+
+          {soundOnly != null && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+              <span className="flex size-16 items-center justify-center rounded-full bg-fill text-fg-muted">
+                <AudioLines size={30} aria-hidden="true" />
+              </span>
+              <span className="max-w-full truncate text-[13px] text-fg-muted">{soundOnly}</span>
+            </div>
+          )}
 
           {/* What FILL crops away, covered rather than outlined: a clip with
               nothing reframed should look like a plain picture and not like a

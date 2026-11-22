@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { Link2, Plus, X } from 'lucide-react';
+import { AudioLines, Link2, Plus, X } from 'lucide-react';
 import { memo, useEffect, useState } from 'react';
 
 import { IconButton } from '@/components/ui/IconButton';
@@ -78,11 +78,12 @@ function remember(key: string, dataUrl: string) {
  * cannot be read is still perfectly editable, and an error marker here would
  * be a complaint about something the user cannot act on.
  */
-function useClipFrame(path: string, durationSec: number): string | null {
+function useClipFrame(path: string, durationSec: number, wanted = true): string | null {
   const key = `${path}|${FRAME_HEIGHT}|${(durationSec * FRAME_FRACTION).toFixed(2)}`;
   const [src, setSrc] = useState<string | null>(() => memory.get(key) ?? null);
 
   useEffect(() => {
+    if (!wanted) return;
     const cached = memory.get(key);
     if (cached) {
       setSrc(cached);
@@ -110,7 +111,7 @@ function useClipFrame(path: string, durationSec: number): string | null {
     return () => {
       active = false;
     };
-  }, [durationSec, key, path]);
+  }, [durationSec, key, path, wanted]);
 
   return src;
 }
@@ -123,6 +124,8 @@ export interface MediaRailClip {
   name: string;
   path: string;
   durationSec: number;
+  /** Sound alone: a mark stands in for the frame there is none of. */
+  soundOnly?: boolean;
 }
 
 interface MediaRailProps {
@@ -273,7 +276,7 @@ interface ClipChipProps {
  */
 const ClipChip = memo(function ClipChip({ clip, active, onActivate, onRemove }: ClipChipProps) {
   const { t } = useTranslation();
-  const frame = useClipFrame(clip.path, clip.durationSec);
+  const frame = useClipFrame(clip.path, clip.durationSec, !clip.soundOnly);
 
   return (
     <motion.div
@@ -301,12 +304,16 @@ const ClipChip = memo(function ClipChip({ clip, active, onActivate, onRemove }: 
             )}
             style={{ width: THUMB_WIDTH, height: THUMB_HEIGHT }}
           >
-            {frame != null && (
-              <img
-                src={frame}
-                alt=""
-                className="no-drag h-full w-full object-cover"
-              />
+            {clip.soundOnly ? (
+              <AudioLines aria-hidden="true" size={20} className="m-auto h-full text-fg-muted" />
+            ) : (
+              frame != null && (
+                <img
+                  src={frame}
+                  alt=""
+                  className="no-drag h-full w-full object-cover"
+                />
+              )
             )}
           </span>
           <span
@@ -350,7 +357,7 @@ const StripChip = memo(function StripChip({
   onRemove,
 }: StripChipProps) {
   const { t } = useTranslation();
-  const frame = useClipFrame(clip.path, clip.durationSec);
+  const frame = useClipFrame(clip.path, clip.durationSec, !clip.soundOnly);
 
   return (
     <motion.div
@@ -372,8 +379,12 @@ const StripChip = memo(function StripChip({
           className="relative block overflow-hidden rounded-[var(--radius-thumb)] bg-surface-active"
           style={{ width: STRIP_WIDTH, height: STRIP_HEIGHT }}
         >
-          {frame != null && (
-            <img src={frame} alt="" className="no-drag h-full w-full object-cover" />
+          {clip.soundOnly ? (
+            <AudioLines aria-hidden="true" size={20} className="m-auto h-full text-fg-muted" />
+          ) : (
+            frame != null && (
+              <img src={frame} alt="" className="no-drag h-full w-full object-cover" />
+            )
           )}
           {/* Over the frame rather than on its box, where the picture would
               cover it. */}

@@ -189,6 +189,9 @@ describe('the mode follows the settings', () => {
       hardware: false,
       soundPath: null,
       soundVolume: 1,
+      fadeInSec: 0,
+      fadeOutSec: 0,
+      normalize: false,
     };
     expect(withLegalMode(blocked, probe).mode).toBe('reencode');
     expect(withLegalMode({ ...blocked, fps: null }, probe).mode).toBe('lossless');
