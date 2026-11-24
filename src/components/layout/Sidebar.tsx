@@ -230,9 +230,6 @@ function NavButton({
           // as the selection moving rather than two highlights crossfading.
           // The mark's gradient travels with it as a short bar on its edge.
           layoutId="sidebar-active"
-          // Measured only when the selection moves: the sidebar narrowing
-          // re-renders every row, and the highlight is not to travel for it.
-          layoutDependency={active}
           transition={SPRING.glide}
           className="absolute inset-0 rounded-[10px] bg-fill-active"
         >

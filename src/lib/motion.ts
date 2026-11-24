@@ -142,12 +142,25 @@ export const COLLAPSE: Variants = {
 /**
  * A screen replacing another. Short, and mostly opacity: the navigation itself
  * already said where the user went, so the page only has to not blink.
+ *
+ * Between two tabs of one title -- Edit and Convert, Running, History and
+ * Subscriptions -- the custom value is the way the tabs moved: 1 to a tab on
+ * the right, -1 to one on the left. The new screen then comes in from that
+ * side and the old one leaves by the other, as the tabs read; 0 is any other
+ * change, which rises as before.
  */
 export const SCREEN: Variants = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0, transition: T.spatial },
-  exit: { opacity: 0, y: -4, transition: T.spatialOut },
+  initial: (side: number = 0) =>
+    side === 0 ? { opacity: 0, x: 0, y: 6 } : { opacity: 0, x: side * SIDEWAYS_SCREEN, y: 0 },
+  animate: { opacity: 1, x: 0, y: 0, transition: T.spatial },
+  exit: (side: number = 0) =>
+    side === 0
+      ? { opacity: 0, x: 0, y: -4, transition: T.spatialOut }
+      : { opacity: 0, x: -side * SIDEWAYS_SCREEN, y: 0, transition: T.spatialOut },
 };
+
+/** How far a tab's screen travels sideways on the desktop: enough to say which way. */
+const SIDEWAYS_SCREEN = 24;
 
 /**
  * How a screen on the phone relates to the one it replaces, which decides the
