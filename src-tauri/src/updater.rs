@@ -1,10 +1,11 @@
 //! Checking for, and installing, a newer build of the app.
 //!
-//! Releases have no version numbers: there is one rolling release on the
-//! `latest` tag whose files are replaced in place, and the tag is moved to the
-//! commit they were built from once they are up. A build knows its own commit
-//! (see `build.rs`), so a newer one exists exactly when the tag points
-//! somewhere else.
+//! Every version is a release of its own, on its `v<version>` tag, and the
+//! newest is the one GitHub marks as latest. A build knows its own commit (see
+//! `build.rs`), so a newer one exists exactly when that release's tag points
+//! somewhere else. Copies from before 3.3.3 read a rolling release on the
+//! `latest` tag instead, which the release workflow still fills for them; this
+//! copy falls back to it when no versioned release is marked latest.
 //!
 //! The phone hands the new APK to the system installer, which asks the user
 //! and checks the signature. The Windows app replaces itself: it stages the
@@ -25,7 +26,9 @@ const REPOSITORY: &str = "zearkreast/downloader-plus";
 /// Every name the repository has had. GitHub answers for an old name but
 /// writes the download addresses with the current one, so a copy that knew
 /// only the name it was built under refused every update after a rename.
-const REPOSITORY_NAMES: [&str; 2] = [REPOSITORY, "zearkreast/UMD-plus"];
+/// Compared without regard to case, as GitHub compares them: `UMD-plus`
+/// becoming `umd-plus` once stopped every copy from updating.
+const REPOSITORY_NAMES: [&str; 3] = [REPOSITORY, "zearkreast/UMD-plus", "zearkreast/umd-plus"];
 const RELEASE_TAG: &str = "latest";
 const API: &str = "https://api.github.com";
 
@@ -122,6 +125,8 @@ struct GitObject {
 
 #[derive(Deserialize)]
 struct Release {
+    #[serde(default)]
+    tag_name: String,
     published_at: Option<String>,
     #[serde(default)]
     assets: Vec<ReleaseAsset>,
@@ -170,11 +175,24 @@ async fn get_json<T: serde::de::DeserializeOwned>(
     Ok(response.json::<T>().await?)
 }
 
-/// The commit the release tag points at. A lightweight tag names the commit
-/// directly; an annotated one names a tag object that has to be followed.
-async fn tagged_commit(client: &reqwest::Client) -> AppResult<String> {
+/// Whether `tag` names a version, `v` and dotted numbers: the only tags a
+/// release this copy installs from may sit on, besides `latest`.
+fn is_version_tag(tag: &str) -> bool {
+    let Some(numbers) = tag.strip_prefix('v') else {
+        return false;
+    };
+    let parts: Vec<&str> = numbers.split('.').collect();
+    let number = |part: &&str| {
+        !part.is_empty() && part.len() <= 6 && part.bytes().all(|byte| byte.is_ascii_digit())
+    };
+    (1..=4).contains(&parts.len()) && parts.iter().all(number)
+}
+
+/// The commit `tag` points at. A lightweight tag names the commit directly; an
+/// annotated one names a tag object that has to be followed.
+async fn tagged_commit(client: &reqwest::Client, tag: &str) -> AppResult<String> {
     let reference: GitRef =
-        get_json(client, &format!("/repos/{REPOSITORY}/git/ref/tags/{RELEASE_TAG}")).await?;
+        get_json(client, &format!("/repos/{REPOSITORY}/git/ref/tags/{tag}")).await?;
     if reference.object.kind != "tag" {
         return Ok(reference.object.sha);
     }
@@ -230,7 +248,19 @@ pub async fn check(settings: &Settings) -> AppResult<Option<AppUpdate>> {
     }
 
     let client = net::client(settings)?;
-    let tagged = tagged_commit(&client).await?;
+    // The release GitHub marks as latest, when it is a version's own; the
+    // rolling one otherwise.
+    let latest = format!("/repos/{REPOSITORY}/releases/latest");
+    let newest = match get_json::<Release>(&client, &latest).await {
+        Ok(release) if is_version_tag(&release.tag_name) => Some(release),
+        Ok(_) | Err(AppError::NotFound { .. }) => None,
+        Err(err) => return Err(err),
+    };
+    let tag = newest
+        .as_ref()
+        .map_or(RELEASE_TAG, |release| release.tag_name.as_str())
+        .to_string();
+    let tagged = tagged_commit(&client, &tag).await?;
     if tagged.eq_ignore_ascii_case(current) {
         return Ok(None);
     }
@@ -243,8 +273,13 @@ pub async fn check(settings: &Settings) -> AppResult<Option<AppUpdate>> {
         return Ok(None);
     }
 
-    let release: Release =
-        get_json(&client, &format!("/repos/{REPOSITORY}/releases/tags/{RELEASE_TAG}")).await?;
+    let release = match newest {
+        Some(release) => release,
+        None => {
+            let rolling = format!("/repos/{REPOSITORY}/releases/tags/{RELEASE_TAG}");
+            get_json(&client, &rolling).await?
+        }
+    };
     let Some(asset) = release.assets.into_iter().find(|asset| asset.name == wanted) else {
         return Ok(None);
     };
@@ -373,9 +408,16 @@ fn vet(update: &AppUpdate, asset: &str) -> AppResult<()> {
     }
 
     // The whole address rather than how it starts: a longer path could climb
-    // out of the repository with `..` and still begin the right way.
+    // out of the repository with `..` and still begin the right way. The tag
+    // is `latest` or a version, and the file name is exactly the asset.
     let ours = REPOSITORY_NAMES.iter().any(|name| {
-        update.asset_url == format!("https://github.com/{name}/releases/download/{RELEASE_TAG}/{asset}")
+        let prefix = format!("https://github.com/{name}/releases/download/");
+        let url = update.asset_url.as_str();
+        url.get(..prefix.len())
+            .is_some_and(|head| head.eq_ignore_ascii_case(&prefix))
+            .then(|| &url[prefix.len()..])
+            .and_then(|rest| rest.split_once('/'))
+            .is_some_and(|(tag, file)| (tag == RELEASE_TAG || is_version_tag(tag)) && file == asset)
     });
     if !ours {
         return refuse("the file is not from this project's releases");
@@ -711,6 +753,31 @@ mod tests {
     }
 
     #[test]
+    fn an_update_is_taken_from_a_version_release_and_any_case_of_the_name() {
+        for url in [
+            format!("https://github.com/zearkreast/umd-plus/releases/download/latest/{NSIS_ASSET}"),
+            format!("https://github.com/zearkreast/umd-plus/releases/download/v3.3.3/{NSIS_ASSET}"),
+            format!("https://github.com/zearkreast/UMD-Plus/releases/download/v10.0/{NSIS_ASSET}"),
+        ] {
+            let update = AppUpdate {
+                asset_url: url.clone(),
+                ..desktop_update()
+            };
+            assert!(vet(&update, NSIS_ASSET).is_ok(), "{url}");
+        }
+    }
+
+    #[test]
+    fn only_version_tags_are_versions() {
+        for tag in ["v3.3.3", "v2", "v10.0.1.2"] {
+            assert!(is_version_tag(tag), "{tag}");
+        }
+        for tag in ["latest", "3.3.3", "v", "v3..3", "v3.3.x", "v1.2.3.4.5", "v3/../x", "v1234567"] {
+            assert!(!is_version_tag(tag), "{tag}");
+        }
+    }
+
+    #[test]
     fn an_update_from_anywhere_else_is_refused() {
         let file = NSIS_ASSET;
         for url in [
@@ -721,9 +788,12 @@ mod tests {
             format!("https://github.com/zearkreast/downloader-plus/releases/download/../../../../someone/else/releases/download/latest/{file}"),
             format!("https://github.com/zearkreast/downloader-plus/releases/download/../{file}"),
             format!("https://github.com/zearkreast/downloader-plus/releases/download/{file}"),
-            // There is one release, and it is not this one.
+            // Neither `latest` nor a version.
             format!("https://github.com/zearkreast/downloader-plus/releases/download/nightly/{file}"),
             format!("https://github.com/zearkreast/downloader-plus/releases/download/latest/{file}?x=1"),
+            format!("https://github.com/zearkreast/umd-plus/releases/download/v3.3/../latest/{file}"),
+            format!("https://github.com/zearkreast/umd-plus/releases/download/v3.3.3/x/{file}"),
+            format!("https://github.com/zearkreast/umd-plus-evil/releases/download/v3.3.3/{file}"),
             "https://github.com/zearkreast/downloader-plus/releases/download/latest/evil.exe".to_string(),
             // The other installer kind is not what this copy was installed with.
             format!("https://github.com/zearkreast/downloader-plus/releases/download/latest/{MSI_ASSET}"),
