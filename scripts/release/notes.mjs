@@ -5,7 +5,8 @@
 //
 // The version comes from tauri.conf.json, the repository and the commit from
 // GITHUB_REPOSITORY and GITHUB_SHA (or the local checkout). CHANGES, when set,
-// stands in for the Turkish part of the version's file.
+// stands in for the Turkish part of the version's file. DOWNLOAD_TAG points the
+// download links at that tag's release.
 //
 // The version's file has a Turkish part and, after a line `## English`, an
 // English one. Without a file the page links to the commits instead.
@@ -38,7 +39,11 @@ const values = {
   // The default branch rather than this commit: one release is replaced in
   // place, and its pictures should follow the newest files.
   raw: `https://raw.githubusercontent.com/${repo}/main`,
-  download: `https://github.com/${repo}/releases/latest/download`,
+  // A version's own release links to its own files; without DOWNLOAD_TAG, to
+  // whichever release is the latest.
+  download: process.env.DOWNLOAD_TAG
+    ? `https://github.com/${repo}/releases/download/${process.env.DOWNLOAD_TAG}`
+    : `https://github.com/${repo}/releases/latest/download`,
   changes,
   changes_en: changesEn,
 };

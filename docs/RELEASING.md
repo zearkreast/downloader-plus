@@ -1,8 +1,13 @@
 # Releasing
 
 `.github/workflows/release.yml` builds the app for Windows, Android and Arch
-Linux and publishes the files to the rolling `latest` release. Run it by hand:
+Linux and publishes the files as a release of their own, `v<version>`, with
+that version's notes, marked latest. Run it by hand:
 **Actions → Release → Run workflow**, on the default branch.
+
+The same files also go to the rolling `latest` release, which is kept as a
+pre-release for copies from before 3.3.3: those read only that release. From
+3.3.3 the updater reads whichever release GitHub marks as latest.
 
 ## What it publishes
 
@@ -16,7 +21,8 @@ Linux and publishes the files to the rolling `latest` release. Run it by hand:
 | `SHA256SUMS.txt` | | |
 
 The names are fixed. The updater (`src-tauri/src/updater.rs`) looks files up
-by name, and the README links to `releases/latest/download/<name>`.
+by name, and the README links to `releases/latest/download/<name>`, which
+GitHub sends to the release marked latest.
 
 ## How a run goes
 
@@ -27,12 +33,15 @@ by name, and the README links to `releases/latest/download/<name>`.
    builds carry the signed add-on (`UD_FIREFOX_XPI`, read by `build.rs`), and
    the app writes it beside the unpacked extension folder. A failed or skipped
    signing does not stop the run: that release simply has no `.xpi`.
-3. **Publish.** Only if all three built. The files replace the release's old
-   ones, and then the `latest` tag is moved to the commit they were built
-   from.
+3. **Publish.** Only if all three built. The files replace the rolling
+   release's old ones and the `latest` tag is moved to the commit they were
+   built from. Then the version is tagged, its release is made as a draft,
+   filled, and published as latest, and the rolling release is marked a
+   pre-release so it never takes that mark.
 
 The order in step 3 matters. Installed apps decide whether there is something
-new by comparing their own commit with the one `latest` points at. If the tag
+new by comparing their own commit with the one their tag points at: `latest`
+for copies before 3.3.3, the latest release's `v<version>` after. If the tag
 moved first, an app could download the old file under the new commit's name,
 install it, and find itself out of date again on the next start.
 
@@ -210,3 +219,11 @@ package is refused under a different one.
 - **Signing the Arch package.** It is unsigned. pacman installs an unsigned
   package from a local file, but not straight from a URL, so the README says
   to download it first.
+
+## Versions from before releases had their own
+
+Until 3.3.2 every version went only to the rolling release. The one-off
+`.github/workflows/backfill-releases.yml` gives those versions releases of
+their own from the files their Release runs kept as artifacts (kept 90 days),
+with the notes `scripts/release/version-notes.mjs` takes from
+`docs/releases`. It compiles nothing.

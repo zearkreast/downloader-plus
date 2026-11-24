@@ -1,0 +1,92 @@
+# One-off: give every version that only ever went to the rolling `latest`
+# release a release of its own, from the files its own Release run built.
+# Nothing is compiled again; the extension packages, which that run packed in
+# its publish step rather than keeping as artifacts, are packed again from the
+# version's tag the way that version packed them.
+#
+# Run from the Actions tab with a JSON list, oldest first, e.g.
+#   [{"version":"2.5.1","run":"41607165287"},{"version":"2.5.2","run":"41613822021"}]
+# One at a time, so the releases are created, and listed, in version order.
+# A version that already has a release is filled and left unmarked.
+
+name: Backfill releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: JSON list of {"version","run"}, oldest first
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: v${{ matrix.version }}
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.versions) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ matrix.version }}
+      RUN: ${{ matrix.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: The files its run built
+        run: |
+          gh run download "$RUN" --dir artifacts
+          mkdir -p files
+          find artifacts -type f -exec mv -t files {} +
+          ls -l files
+
+      - name: The extension, packed as that version packed it
+        run: |
+          git worktree add --detach ../at-tag "v$VERSION"
+          cd ../at-tag
+          if [ -f scripts/extension/pack.mjs ]; then pack=scripts/extension/pack.mjs; else pack=scripts/pack-extension.mjs; fi
+          node "$pack" --full
+          node "$pack" --firefox || echo "::warning::v$VERSION: no Firefox package"
+          mv extension-full.zip "$GITHUB_WORKSPACE/files/"
+          if [ -f extension-firefox.zip ]; then mv extension-firefox.zip "$GITHUB_WORKSPACE/files/"; fi
+
+      - name: Checksums
+        working-directory: files
+        run: |
+          rm -f SHA256SUMS.txt
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Notes
+        run: |
+          sha=$(git rev-list -n 1 "v$VERSION")
+          current=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$VERSION" = "$current" ]; then
+            GITHUB_SHA="$sha" DOWNLOAD_TAG="v$VERSION" node scripts/release/notes.mjs > notes.md
+          else
+            node scripts/release/version-notes.mjs "$VERSION" "$sha" > notes.md
+          fi
+          cat notes.md
+
+      - name: Release
+        run: |
+          title="Universal Media Downloader+ $VERSION"
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            gh release upload "v$VERSION" files/* --clobber
+            gh release edit "v$VERSION" --title "$title" --notes-file notes.md --draft=false
+          else
+            gh release create "v$VERSION" files/* --verify-tag --latest=false \
+              --title "$title" --notes-file notes.md
+          fi

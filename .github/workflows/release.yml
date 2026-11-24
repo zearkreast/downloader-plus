@@ -1,13 +1,17 @@
-# Builds UMD+ for Windows, Android and Arch Linux, and publishes the files to
-# the rolling `latest` release.
+# Builds UMD+ for Windows, Android and Arch Linux, and publishes them as a
+# release of their own, on the tag `v<version>`, with that version's notes.
 #
 # The app's updater (src-tauri/src/updater.rs) reads releases a particular way,
 # and this workflow keeps to it:
 #
-#   * There is one release, on the tag `latest`, and its files are replaced in
-#     place under fixed names. There are no version numbers.
+#   * Each version is its own release, marked latest once its files are up: it
+#     is made as a draft, filled, and only then published. From 3.3.3 the
+#     updater asks GitHub for the latest release and installs from its tag.
+#   * Copies from before 3.3.3 read one rolling release on the tag `latest`
+#     instead, whose files are replaced in place under fixed names. It is kept
+#     filled for them as a pre-release, so it never takes the latest mark.
 #   * A build knows the commit it was made from. The Windows and Android apps
-#     compare it with the commit `latest` points at, so the tag is moved only
+#     compare it with the commit their tag points at, so `latest` is moved only
 #     once every new file is up. Moved earlier, a PC or phone would fetch the
 #     old file believing it to be the new one, and do it again on every start.
 #   * For the same reason Windows and Android are always built together: a run
@@ -401,14 +405,16 @@ jobs:
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # The rolling release, for copies from before 3.3.3.
       - name: Upload the files
         run: |
           if ! gh release view latest > /dev/null 2>&1; then
             gh release create latest \
               --title 'UMD+' \
-              --notes 'The current build of UMD+. The files are replaced in place whenever a new build goes out.' \
+              --notes 'Kept for copies of UMD+ from before 3.3.3.' \
               --target "$GITHUB_SHA" \
-              --latest
+              --prerelease \
+              --latest=false
           fi
           gh release upload latest release/* --clobber
 
@@ -420,16 +426,8 @@ jobs:
             -f sha="$GITHUB_SHA" -F force=true > /dev/null
           echo "latest -> $GITHUB_SHA"
 
-      - name: Title and release page
-        env:
-          CHANGES: ${{ inputs.notes }}
-        run: |
-          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          node scripts/release/notes.mjs > "$RUNNER_TEMP/notes.md"
-          gh release edit latest --title "Universal Media Downloader+ $version" --notes-file "$RUNNER_TEMP/notes.md"
-
-      # A fixed name for this version beside the rolling one. One already
-      # there is left alone: a version is released once.
+      # A fixed name for this version. One already there is left alone: a
+      # version is released once.
       - name: Tag the version
         run: |
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
@@ -440,10 +438,42 @@ jobs:
             echo "v$version -> $GITHUB_SHA"
           fi
 
+      # Made as a draft and published once every file is on it, because from
+      # 3.3.3 the updater installs from whichever release is marked latest.
+      - name: Publish this version's release
+        env:
+          CHANGES: ${{ inputs.notes }}
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          tag="v$version"
+          DOWNLOAD_TAG="$tag" node scripts/release/notes.mjs > "$RUNNER_TEMP/notes.md"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" release/* --clobber
+            gh release edit "$tag" --title "Universal Media Downloader+ $version" \
+              --notes-file "$RUNNER_TEMP/notes.md" --draft=false --prerelease=false --latest
+          else
+            gh release create "$tag" release/* --verify-tag --draft \
+              --title "Universal Media Downloader+ $version" --notes-file "$RUNNER_TEMP/notes.md"
+            gh release edit "$tag" --draft=false --latest
+          fi
+
+      - name: Keep the rolling release out of the way
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          latest_page="https://github.com/$GITHUB_REPOSITORY/releases/latest"
+          {
+            echo "Bu yayın, 3.3.2 ve öncesi kurulu kopyaların kendini güncelleyebilmesi için tutuluyor ve her sürümde yenileniyor; şu an $version dosyalarını taşıyor. İndirmek için [en son sürümü]($latest_page) kullanın."
+            echo
+            echo "Kept so that copies of UMD+ 3.3.2 and older can update themselves; it now carries $version. To download, use [the latest release]($latest_page)."
+          } > "$RUNNER_TEMP/rolling.md"
+          gh release edit latest --prerelease --latest=false \
+            --title "UMD+ otomatik güncelleme (3.3.2 ve öncesi için)" \
+            --notes-file "$RUNNER_TEMP/rolling.md"
+
       - name: Summary
         run: |
           {
-            echo "### Published $(git rev-parse --short HEAD) to \`latest\`"
+            echo "### Published $(git rev-parse --short HEAD) as a release and to \`latest\`"
             echo
             echo '```'
             cat release/SHA256SUMS.txt
