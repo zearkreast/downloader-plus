@@ -525,9 +525,10 @@ export const en = {
   'settings.extensionFolderOpen': 'Open folder',
   'settings.firefoxAddon': 'Firefox add-on',
   'settings.firefoxAddonHint':
-    'In Firefox, open about:addons, choose Install Add-on From File under the gear and pick this file, or drag the file onto a Firefox window. It is signed by Mozilla, so it stays installed, and Firefox fetches each newer version itself.',
-  'settings.firefoxAddonMissing':
-    'This build carries no signed Firefox add-on. extension-firefox.zip from the release page can be loaded for the session from about:debugging, and is gone when Firefox closes.',
+    'Install it from Firefox Add-ons, or use this file: in Firefox, choose Install Add-on From File under the gear on about:addons, or drag the file onto a Firefox window. Either is signed by Mozilla, so it stays installed, and Firefox fetches each newer version itself.',
+  'settings.firefoxAddonAmo':
+    'Install it from Firefox Add-ons (addons.mozilla.org). It is reviewed by Mozilla, so it stays installed, and Firefox fetches each newer version itself.',
+  'settings.firefoxAddonOpen': 'Open on AMO',
   'settings.firefoxAddonShow': 'Show file',
   'settings.firefoxAddonFailed': 'The Firefox add-on could not be shown',
   'settings.extensionFolderCopy': 'Copy the folder path',

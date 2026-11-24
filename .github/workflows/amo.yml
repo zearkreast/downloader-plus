@@ -1,0 +1,97 @@
+# Sends the Firefox add-on to addons.mozilla.org as a new version of the listed
+# add-on. Run it by hand, from the Actions tab: Firefox (AMO) -> Run workflow,
+# usually after a release.
+#
+# Mozilla reviews the version and Firefox users who installed from AMO take it
+# from there, so nothing is waited for and no file comes back.
+#
+# AMO takes a version number once, across both channels, and the Release
+# workflow already sends each version to the unlisted (self-distributed)
+# channel under the app's own number. So this one sends it as that number with
+# a fourth part, `.1` unless a version is given: 3.3.4 goes to AMO as 3.3.4.1.
+# Running it again for a version already sent needs the next one, 3.3.4.2.
+# The release notes on AMO come from docs/releases/<x.y.z>.md, when it exists.
+#
+# It needs the AMO_JWT_ISSUER and AMO_JWT_SECRET secrets; see docs/RELEASING.md.
+
+name: Firefox (AMO)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to send to AMO, e.g. 3.3.4.2 (optional; otherwise the app's version with .1)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: amo
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    name: Submit to addons.mozilla.org
+    runs-on: ubuntu-latest
+    env:
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+      REQUESTED: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: The AMO secrets are set
+        run: |
+          if [ -z "$AMO_JWT_ISSUER" ] || [ -z "$AMO_JWT_SECRET" ]; then
+            echo "::error::AMO_JWT_ISSUER and AMO_JWT_SECRET are needed. See docs/RELEASING.md."
+            exit 1
+          fi
+
+      - name: Extension tests
+        run: npm ci && npm run test:extension
+
+      # A listed version carries no update_url: AMO hands out its updates.
+      - name: Pack the Firefox build
+        run: |
+          node scripts/extension/pack.mjs --firefox
+          mkdir -p build/firefox
+          unzip -q extension-firefox.zip -d build/firefox
+          base=$(node -p "require('./build/firefox/manifest.json').version")
+          version="${REQUESTED:-$base.1}"
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then
+            echo "::error::$version is not a version AMO takes (up to four numbers, dot-separated)."
+            exit 1
+          fi
+          node -e "
+            const fs = require('fs');
+            const file = 'build/firefox/manifest.json';
+            const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+            manifest.version = process.argv[1];
+            fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n');
+          " "$version"
+          echo "base=$base" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_ENV"
+          echo "Sending $version (the app's $base)"
+
+      - name: Release notes for AMO
+        run: node scripts/extension/amo-metadata.mjs "$base" > amo-metadata.json && cat amo-metadata.json
+
+      - name: Submit
+        run: |
+          npx --yes web-ext@10.1.0 sign --channel listed --approval-timeout 0 \
+            --source-dir build/firefox --artifacts-dir signed \
+            --amo-metadata amo-metadata.json \
+            --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Sent $version to addons.mozilla.org for review"
+            echo
+            echo "Follow it at https://addons.mozilla.org/developers/addon/connector@umdplus.app/versions"
+          } >> "$GITHUB_STEP_SUMMARY"

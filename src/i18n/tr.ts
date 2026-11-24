@@ -519,9 +519,10 @@ export const tr: Record<TranslationKey, string> = {
   'settings.extensionFolderOpen': 'Klasörü aç',
   'settings.firefoxAddon': 'Firefox eklentisi',
   'settings.firefoxAddonHint':
-    "Firefox'ta about:addons sayfasını aç, dişli simgesinden Dosyadan eklenti yükle'yi seç ve bu dosyayı göster; ya da dosyayı Firefox penceresine sürükle. Mozilla imzalı olduğu için kalıcı kurulur, sonraki sürümleri Firefox kendisi alır.",
-  'settings.firefoxAddonMissing':
-    'Bu sürümde imzalı Firefox eklentisi yok. Yayın sayfasındaki extension-firefox.zip, about:debugging sayfasından geçici olarak yüklenebilir; Firefox kapanınca kalkar.',
+    "Firefox Eklentileri'nden kur ya da bu dosyayı kullan: Firefox'ta about:addons sayfasında dişli simgesinden Dosyadan eklenti yükle'yi seç veya dosyayı Firefox penceresine sürükle. İkisi de Mozilla imzalı olduğu için kalıcı kurulur, sonraki sürümleri Firefox kendisi alır.",
+  'settings.firefoxAddonAmo':
+    "Firefox Eklentileri'nden (addons.mozilla.org) kur. Mozilla onaylı olduğu için kalıcı kurulur, sonraki sürümleri Firefox kendisi alır.",
+  'settings.firefoxAddonOpen': "AMO'da aç",
   'settings.firefoxAddonShow': 'Dosyayı göster',
   'settings.firefoxAddonFailed': 'Firefox eklentisi gösterilemedi',
   'settings.extensionFolderCopy': 'Klasör yolunu kopyala',
