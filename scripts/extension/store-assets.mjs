@@ -31,7 +31,8 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const extension = join(repo, 'extension', 'src');
 const work = join(repo, '.store-build');
 const outRoot = join(repo, 'extension', 'store-assets');
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+// CHROME names another browser binary, for a run that is not on Windows.
+const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
 // The popup follows the browser's theme, so either is a true picture of it.
 // Dark by default: it is what the desktop app opens in, and the listing showed
@@ -249,10 +250,12 @@ const COPY = {
 if (existsSync(work)) rmSync(work, { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
 
-for (const file of ['popup.html', 'popup.css', 'theme.css', 'popup.js', 'i18n.js', 'media.js', 'edition.js']) {
+for (const file of ['popup.html', 'popup.css', 'theme.css', 'popup.js', 'i18n.js', 'media.js', 'describe.js', 'edition.js']) {
   writeFileSync(join(work, file), forStore(file, readFileSync(join(extension, file))));
 }
 cpSync(join(extension, 'fonts'), join(work, 'fonts'), { recursive: true });
+// The popup's heading shows the toolbar icon.
+cpSync(join(extension, 'icons'), join(work, 'icons'), { recursive: true });
 
 const server = createServer((req, res) => {
   const name = (req.url ?? '').replace(/^\/|\.svg$/g, '');
@@ -442,6 +445,8 @@ for (const shot of shots) {
   mkdirSync(join(shot.out, '..'), { recursive: true });
   await capture([
     '--headless=new',
+    // Chrome will not start its sandbox as root, as in a container.
+    ...(process.getuid?.() === 0 ? ['--no-sandbox'] : []),
     '--disable-gpu',
     '--no-first-run',
     '--no-default-browser-check',
