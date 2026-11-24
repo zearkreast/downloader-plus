@@ -83,6 +83,21 @@ interface NavState {
 
 type NavRequest = Pick<NavState, 'route' | 'section'>;
 
+/** The screens that share one title as tabs, in the order the tabs read. */
+const TITLE_TABS: readonly (readonly Route[])[] = [
+  ['editor', 'convert'],
+  ['downloads', 'history', 'subscriptions'],
+];
+
+/** 1 when `to` is a tab right of `from` in the same title, -1 left of it, 0 otherwise. */
+function titleTabSide(from: Route, to: Route): number {
+  for (const tabs of TITLE_TABS) {
+    const [a, b] = [tabs.indexOf(from), tabs.indexOf(to)];
+    if (a >= 0 && b >= 0 && a !== b) return b > a ? 1 : -1;
+  }
+  return 0;
+}
+
 const HOME: NavState = { route: 'home', section: null, tab: 'home' };
 
 /** A page the phone opens over a tab rather than in its place. */
@@ -289,6 +304,16 @@ export function App() {
     move: 'none',
   });
   const route = nav.route;
+  // Which way the desktop's screen moves: sideways between tabs of one title,
+  // by the side the new tab is on. Worked out when the route changes, so the
+  // screen leaving and the one arriving are told the same.
+  const shownRouteRef = useRef(route);
+  const sideRef = useRef(0);
+  if (shownRouteRef.current !== route) {
+    sideRef.current = titleTabSide(shownRouteRef.current, route);
+    shownRouteRef.current = route;
+  }
+  const screenSide = sideRef.current;
   // The phone's slides are written as a whole `transform`, which the reduced
   // motion of `MotionConfig` does not reach -- it stills `x` and `scale`, not
   // a transform string -- so the system's own setting is asked here, and a
@@ -973,9 +998,10 @@ export function App() {
             ref={mainRef}
             className="relative z-10 min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
           >
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" custom={screenSide}>
               <motion.div
                 key={route}
+                custom={screenSide}
                 variants={SCREEN}
                 initial="initial"
                 animate="animate"
