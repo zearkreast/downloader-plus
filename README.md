@@ -108,7 +108,8 @@ To update it, unzip the new file into the same folder and press **Reload** on
 the extensions page. The desktop app also keeps this folder current itself:
 Settings › Connection shows where it is.
 
-For Firefox, drag `extension-firefox.xpi` onto a Firefox window, or choose
+For Firefox, install it from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/connector@umdplus.app/), or drag
+`extension-firefox.xpi` onto a Firefox window, or choose
 **Install Add-on From File** under the gear on `about:addons`. It is signed by
 Mozilla, so it stays installed, and Firefox fetches each newer version itself.
 </details>

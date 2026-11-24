@@ -98,6 +98,20 @@ from `firefox-updates.json` on this repository's release rather than from AMO.
    credentials. Put the **JWT issuer** in `AMO_JWT_ISSUER` and the **JWT
    secret** in `AMO_JWT_SECRET`.
 
+### Firefox Add-ons (AMO)
+
+The Release workflow sends the build to the unlisted channel only. To publish
+a version on the add-on's AMO page as well, run **Actions → Firefox (AMO) →
+Run workflow** (`.github/workflows/amo.yml`). It submits the Firefox build to
+the listed channel, with no `update_url`, and with release notes from
+`docs/releases/<version>.md`. Mozilla reviews it; nothing comes back to the
+release.
+
+AMO takes a version number once across both channels, and the Release workflow
+has already used the app's own number for the unlisted channel. So the listed
+one goes out with a fourth part, `.1` unless a version is given: 3.3.4 goes to
+AMO as 3.3.4.1, and a second try needs 3.3.4.2.
+
 AMO signs each version once. If a run fails after the Firefox job finished, use
 **Re-run failed jobs**, which keeps the signed file; a fresh run of the same
 version is refused by AMO. The add-on's id is `connector@umdplus.app`

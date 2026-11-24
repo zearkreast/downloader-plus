@@ -789,11 +789,14 @@ function ExtensionFolderRow() {
   );
 }
 
+/** Where Firefox users install the add-on, which AMO then keeps up to date. */
+const AMO_LISTING = 'https://addons.mozilla.org/firefox/addon/connector@umdplus.app/';
+
 /**
- * The Firefox add-on, signed by addons.mozilla.org: release Firefox will not
- * keep an unpacked one past a restart, so this is a file to install instead
- * of a folder. Once installed, Firefox fetches each newer signed version
- * itself from the release.
+ * The Firefox add-on. Release Firefox will not keep an unpacked one past a
+ * restart, so it is installed either from addons.mozilla.org, which keeps it
+ * up to date, or from the signed file a build carries, which Firefox updates
+ * from the release.
  */
 function FirefoxAddonRow({ file }: { file: string | null }) {
   const { t } = useTranslation();
@@ -812,7 +815,17 @@ function FirefoxAddonRow({ file }: { file: string | null }) {
     <SettingRow
       stacked
       title={t('settings.firefoxAddon')}
-      description={t(file ? 'settings.firefoxAddonHint' : 'settings.firefoxAddonMissing')}
+      description={t(file ? 'settings.firefoxAddonHint' : 'settings.firefoxAddonAmo')}
+      control={
+        <Button
+          size="sm"
+          variant="secondary"
+          iconRight={<ExternalLink size={13} />}
+          onClick={() => void openUrl(AMO_LISTING)}
+        >
+          {t('settings.firefoxAddonOpen')}
+        </Button>
+      }
     >
       {file && (
         <div className="flex min-w-0 items-center gap-1.5">
