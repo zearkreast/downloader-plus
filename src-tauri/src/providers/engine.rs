@@ -511,6 +511,21 @@ pub fn classify_engine_error(stderr: &str) -> AppError {
         return AppError::Protected(UNNAMED_SITE.to_string());
     }
 
+    // Ahead of the not-found words: TikTok's region refusal arrives as "Video
+    // not available, status code 10231", its page naming it
+    // `cross_border_violation`.
+    if has(&[
+        "status code 10231",
+        "cross_border",
+        "not available in your country",
+        "not available in your region",
+        "not made this video available in your country",
+        "geo restricted",
+        "geo-restricted",
+    ]) {
+        return AppError::RegionBlocked(first_error_line(stderr));
+    }
+
     if has(&[
         "http error 404",
         "http error 410",
@@ -1685,7 +1700,6 @@ mod tests {
             "ERROR: Login required",
             "ERROR: HTTP Error 401: Unauthorized",
             "ERROR: HTTP Error 429: Too Many Requests",
-            "ERROR: This video is not available in your country",
         ];
         for message in messages {
             assert_eq!(
@@ -1693,6 +1707,20 @@ mod tests {
                 "forbidden",
                 "misclassified: {message}"
             );
+        }
+    }
+
+    #[test]
+    fn a_region_refusal_is_told_apart_from_a_sign_in_wall() {
+        let messages = [
+            "ERROR: This video is not available in your country",
+            "ERROR: [TikTok] 7690222358904196374: Video not available, status code 10231; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U",
+            "ERROR: [youtube] AbCdEf12345: The uploader has not made this video available in your country",
+        ];
+        for message in messages {
+            let err = classify_engine_error(message);
+            assert_eq!(err.code(), "regionBlocked", "misclassified: {message}");
+            assert!(!err.retryable(), "no retry changes a region refusal");
         }
     }
 

@@ -53,6 +53,11 @@ pub enum AppError {
     #[error("not found ({status})")]
     NotFound { status: u16, detail: String },
 
+    /// Held back from viewers in this country. Kept apart from `Forbidden`,
+    /// whose sentence suggests a sign-in: no session changes this answer.
+    #[error("not shown in this region: {0}")]
+    RegionBlocked(String),
+
     /// A stream's own address, turned away with nothing from its page behind
     /// it. Kept apart from `NotFound` because "deleted or made private" is what
     /// happens to a post: this one usually plays on.
@@ -138,6 +143,7 @@ impl AppError {
                 ..
             } => "tiktokNotForAccount",
             Self::NotFound { .. } => "notFound",
+            Self::RegionBlocked(_) => "regionBlocked",
             Self::StreamLink(_) => "streamLink",
             Self::FileMissing(_) => "fileMissing",
             Self::NoMatch(_) => "noMatch",
@@ -243,6 +249,10 @@ impl AppError {
             "notFound" => (
                 "This media no longer exists",
                 "The post may have been deleted or made private.",
+            ),
+            "regionBlocked" => (
+                "This video isn't shown in your region",
+                "The source holds it back from viewers in your country, signed in or not.",
             ),
             "streamLink" => (
                 "This stream link doesn't open on its own",

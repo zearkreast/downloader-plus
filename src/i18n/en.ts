@@ -976,6 +976,8 @@ export const en = {
   'error.fileMissing.message': "It's no longer where it was saved.",
   'error.noMatch.title': "This song couldn't be found",
   'error.noMatch.message': 'No recording of it turned up on YouTube.',
+  'error.regionBlocked.title': "This video isn't shown in your region",
+  'error.regionBlocked.message': 'The source holds it back from viewers in your country, signed in or not.',
   'error.protected.title': "This service can't be downloaded from",
   'error.protected.message':
     'It encrypts what it streams, so there is nothing a downloader can save.',

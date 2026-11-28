@@ -310,11 +310,12 @@ fn post_item(page: &str) -> AppResult<Option<Value>> {
                 detail: "this TikTok post is private".into(),
             })
         }
-        10204 => {
-            return Err(AppError::Forbidden {
-                status: 403,
-                detail: "TikTok does not show this post in this region".into(),
-            })
+        // 10231 is `cross_border_violation`: a post from a region TikTok keeps
+        // apart from this one.
+        10204 | 10231 => {
+            return Err(AppError::RegionBlocked(
+                "TikTok does not show this post in this region".into(),
+            ))
         }
         code => {
             return Err(AppError::NotFound {
@@ -747,7 +748,8 @@ mod tests {
     #[test]
     fn a_private_or_missing_post_says_so() {
         assert_eq!(parse_page(&page(serde_json::json!({}), 10222), "u").unwrap_err().code(), "forbidden");
-        assert_eq!(parse_page(&page(serde_json::json!({}), 10204), "u").unwrap_err().code(), "forbidden");
+        assert_eq!(parse_page(&page(serde_json::json!({}), 10204), "u").unwrap_err().code(), "regionBlocked");
+        assert_eq!(parse_page(&page(serde_json::json!({}), 10231), "u").unwrap_err().code(), "regionBlocked");
         assert_eq!(parse_page(&page(serde_json::json!({}), 10000), "u").unwrap_err().code(), "notFound");
         assert!(parse_page("<html>nothing</html>", "u").is_err());
     }

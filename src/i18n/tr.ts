@@ -970,6 +970,9 @@ export const tr: Record<TranslationKey, string> = {
   'error.fileMissing.message': 'Kaydedildiği yerde artık yok.',
   'error.noMatch.title': 'Bu şarkı bulunamadı',
   'error.noMatch.message': "YouTube'da bu şarkının bir kaydı çıkmadı.",
+  'error.regionBlocked.title': 'Bu video senin bölgende gösterilmiyor',
+  'error.regionBlocked.message':
+    'Kaynak bu videoyu senin ülkendeki izleyicilere göstermiyor; oturum açmak da bunu değiştirmez.',
   'error.protected.title': 'Bu servisten indirme yapılamaz',
   'error.protected.message':
     'Yayınladığı her şeyi şifreliyor, bu yüzden hiçbir indirici kaydedemez.',
