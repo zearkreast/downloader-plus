@@ -9,6 +9,12 @@
 //! number whose hash matches the one given, and gets the post once a cookie
 //! carries the answer. The same work is done here; it takes a fraction of a
 //! second and is the check doing what it is for, not a way around it.
+//!
+//! Video posts are read here too, for the engine that cannot: TikTok refuses
+//! its page to a client that does not look like a browser at the TLS level,
+//! and the engine only does once `curl_cffi` is installed beside it. The
+//! Windows build carries that; the phone's Python does not, so every TikTok
+//! link failed there with a 403 on the page.
 
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use base64::engine::DecodePaddingMode;
@@ -20,11 +26,15 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::error::{AppError, AppResult};
-use crate::model::{FormatKind, MediaFormat, MediaMetadata, PlatformId};
+use crate::model::{
+    FormatKind, MediaFormat, MediaKind, MediaMetadata, PlatformId, WatermarkSupport,
+};
 use crate::providers::{detect, image_format};
 use crate::settings::Settings;
 
-use super::{count, cookie_header, response_cookies, title_from_text, upload_date, Post};
+use super::{
+    count, cookie_header, response_cookies, title_from_text, upload_date, Post, PROVIDER_ID,
+};
 
 const PAGE_ACCEPT: &str = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
@@ -75,11 +85,38 @@ pub async fn analyze(url: &str, settings: &Settings) -> AppResult<Option<MediaMe
         return Ok(None);
     };
 
-    // The `/video/` page carries the post's data whatever kind it is; the
-    // `/photo/` page leaves it to be loaded by script.
-    let page_url = format!("https://www.tiktok.com/@{}/video/{}", address.user.as_deref().unwrap_or("_"), address.id);
-    let page = fetch_post_page(&page_url, settings).await?;
-    parse_page(&page, url)
+    let page = fetch_post_page(&page_url_of(&address), settings).await?;
+    parse_page(&page.body, url)
+}
+
+/// Read a video post, short links included. `None` for anything that is not
+/// one post's address, or a post of photos.
+pub async fn analyze_video(url: &str, settings: &Settings) -> AppResult<Option<MediaMetadata>> {
+    let target = if is_short_link(url) {
+        let client = crate::net::client(settings)?;
+        let response = client.get(url).header(ACCEPT, PAGE_ACCEPT).send().await?;
+        response.url().to_string()
+    } else {
+        url.to_string()
+    };
+    let Some(address) = post_address(&target).filter(|address| !address.photo) else {
+        return Ok(None);
+    };
+    let page = fetch_post_page(&page_url_of(&address), settings).await?;
+    let Some(item) = post_item(&page.body)? else {
+        return Ok(None);
+    };
+    Ok(parse_video(&item, url, &page.cookies))
+}
+
+/// The `/video/` page carries the post's data whatever kind it is; the
+/// `/photo/` page leaves it to be loaded by script.
+fn page_url_of(address: &PostAddress) -> String {
+    format!(
+        "https://www.tiktok.com/@{}/video/{}",
+        address.user.as_deref().unwrap_or("_"),
+        address.id
+    )
 }
 
 struct PostAddress {
@@ -123,7 +160,14 @@ fn post_address(url: &str) -> Option<PostAddress> {
     })
 }
 
-async fn fetch_post_page(page_url: &str, settings: &Settings) -> AppResult<String> {
+/// The post page, and every cookie it set on the way: the video's own address
+/// is refused without them.
+struct PostPage {
+    body: String,
+    cookies: Vec<(String, String)>,
+}
+
+async fn fetch_post_page(page_url: &str, settings: &Settings) -> AppResult<PostPage> {
     let client = crate::net::client(settings)?;
 
     let first = client.get(page_url).header(ACCEPT, PAGE_ACCEPT).send().await?;
@@ -131,7 +175,7 @@ async fn fetch_post_page(page_url: &str, settings: &Settings) -> AppResult<Strin
     let mut cookies = response_cookies(first.headers());
     let body = first.text().await?;
     if UNIVERSAL_DATA.is_match(&body) {
-        return Ok(body);
+        return Ok(PostPage { body, cookies });
     }
 
     let challenge = Challenge::from_page(&body).ok_or_else(|| {
@@ -152,7 +196,14 @@ async fn fetch_post_page(page_url: &str, settings: &Settings) -> AppResult<Strin
         .send()
         .await?;
     check_page(&second)?;
-    Ok(second.text().await?)
+    for (name, value) in response_cookies(second.headers()) {
+        cookies.retain(|(held, _)| *held != name);
+        cookies.push((name, value));
+    }
+    Ok(PostPage {
+        body: second.text().await?,
+        cookies,
+    })
 }
 
 fn check_page(response: &reqwest::Response) -> AppResult<()> {
@@ -235,6 +286,12 @@ fn class_of(page: &str, id: &str) -> Option<String> {
 
 /// The post from its page, as photos; `None` when it is a video.
 fn parse_page(page: &str, requested_url: &str) -> AppResult<Option<MediaMetadata>> {
+    Ok(post_item(page)?.and_then(|item| parse_item(&item, requested_url)))
+}
+
+/// The post's own data from its page. An error for a post that is private,
+/// held back in this region or gone.
+fn post_item(page: &str) -> AppResult<Option<Value>> {
     let data = UNIVERSAL_DATA
         .captures(page)
         .and_then(|found| found.get(1))
@@ -253,11 +310,12 @@ fn parse_page(page: &str, requested_url: &str) -> AppResult<Option<MediaMetadata
                 detail: "this TikTok post is private".into(),
             })
         }
-        10204 => {
-            return Err(AppError::Forbidden {
-                status: 403,
-                detail: "TikTok does not show this post in this region".into(),
-            })
+        // 10231 is `cross_border_violation`: a post from a region TikTok keeps
+        // apart from this one.
+        10204 | 10231 => {
+            return Err(AppError::RegionBlocked(
+                "TikTok does not show this post in this region".into(),
+            ))
         }
         code => {
             return Err(AppError::NotFound {
@@ -267,10 +325,181 @@ fn parse_page(page: &str, requested_url: &str) -> AppResult<Option<MediaMetadata
         }
     }
 
-    let Some(item) = detail.pointer("/itemInfo/itemStruct") else {
-        return Ok(None);
+    Ok(detail.pointer("/itemInfo/itemStruct").cloned())
+}
+
+/// A video post, with every rendition its page lists. `None` for a post of
+/// photos, or one whose page names no stream.
+fn parse_video(item: &Value, requested_url: &str, cookies: &[(String, String)]) -> Option<MediaMetadata> {
+    if item.pointer("/imagePost/images").is_some() {
+        return None;
+    }
+    let video = item.get("video")?;
+    let id = item.get("id").and_then(Value::as_str)?;
+    let mut headers = vec![("Referer".to_string(), "https://www.tiktok.com/".to_string())];
+    if !cookies.is_empty() {
+        headers.push(("Cookie".to_string(), cookie_header(cookies)));
+    }
+    let formats = video_formats(video, &headers);
+    if formats.is_empty() {
+        return None;
+    }
+
+    let author = item.get("author");
+    let handle = author.and_then(|author| author.get("uniqueId")).and_then(Value::as_str);
+    let nickname = author.and_then(|author| author.get("nickname")).and_then(Value::as_str);
+    let caption = item.get("desc").and_then(Value::as_str).unwrap_or_default();
+    let title = title_from_text(caption, TITLE_CHARS)
+        .or_else(|| nickname.or(handle).map(|name| format!("Video by {name}")))
+        .unwrap_or_else(|| format!("TikTok video {id}"));
+    let address = |key: &str| {
+        video
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("http"))
+            .map(str::to_string)
     };
-    Ok(parse_item(item, requested_url))
+
+    Some(MediaMetadata {
+        url: requested_url.to_string(),
+        canonical_url: format!("https://www.tiktok.com/@{}/video/{id}", handle.unwrap_or("_")),
+        platform: PlatformId::Tiktok,
+        platform_label: PlatformId::Tiktok.label().to_string(),
+        provider_id: PROVIDER_ID.to_string(),
+        range_fetchable: false,
+        media_kind: MediaKind::Video,
+        title,
+        creator: handle.or(nickname).map(str::to_string),
+        description: (!caption.trim().is_empty()).then(|| caption.to_string()),
+        thumbnail_url: address("originCover").or_else(|| address("cover")),
+        duration_sec: video.get("duration").and_then(Value::as_f64).filter(|seconds| *seconds > 0.0),
+        view_count: count(item.pointer("/stats/playCount")),
+        like_count: count(item.pointer("/stats/diggCount")),
+        upload_date: item
+            .get("createTime")
+            .and_then(|time| time.as_i64().or_else(|| time.as_str()?.parse().ok()))
+            .and_then(upload_date),
+        is_live: false,
+        formats,
+        entry_count: None,
+        watermark_support: WatermarkSupport::CleanAvailable,
+        warnings: Vec::new(),
+        entries: Vec::new(),
+        tracks: Vec::new(),
+        items: Vec::new(),
+        music: None,
+        listing: false,
+        list_url: None,
+        subtitles: Vec::new(),
+        file_tags: Default::default(),
+    })
+}
+
+/// The renditions a video's page lists: each of `bitrateInfo`, and `playAddr`
+/// when it is not one of them. `downloadAddr` is left out: it is the copy with
+/// TikTok's watermark burned in.
+fn video_formats(video: &Value, headers: &[(String, String)]) -> Vec<MediaFormat> {
+    let dimension = |value: Option<&Value>| {
+        value
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .filter(|value| *value > 0)
+    };
+    let mut formats: Vec<MediaFormat> = Vec::new();
+
+    for rendition in video.get("bitrateInfo").and_then(Value::as_array).into_iter().flatten() {
+        let Some(url) = rendition
+            .pointer("/PlayAddr/UrlList")
+            .and_then(Value::as_array)
+            .and_then(|list| list.iter().filter_map(Value::as_str).find(|url| url.starts_with("http")))
+        else {
+            continue;
+        };
+        let size = rendition
+            .pointer("/PlayAddr/DataSize")
+            .and_then(|size| size.as_u64().or_else(|| size.as_str()?.parse().ok()));
+        formats.push(video_format(Rendition {
+            id: rendition.get("GearName").and_then(Value::as_str).unwrap_or("video"),
+            url,
+            width: dimension(rendition.pointer("/PlayAddr/Width")),
+            height: dimension(rendition.pointer("/PlayAddr/Height")),
+            codec: rendition.get("CodecType").and_then(Value::as_str),
+            bits_per_second: rendition.get("Bitrate").and_then(Value::as_f64),
+            size,
+            headers,
+        }));
+    }
+
+    if let Some(play) = video.get("playAddr").and_then(Value::as_str).filter(|url| url.starts_with("http")) {
+        if !formats.iter().any(|format| format.url.as_deref() == Some(play)) {
+            formats.push(video_format(Rendition {
+                id: "play",
+                url: play,
+                width: dimension(video.get("width")),
+                height: dimension(video.get("height")),
+                codec: video.get("codecType").and_then(Value::as_str),
+                bits_per_second: video.get("bitrate").and_then(Value::as_f64),
+                size: None,
+                headers,
+            }));
+        }
+    }
+    formats
+}
+
+struct Rendition<'a> {
+    id: &'a str,
+    url: &'a str,
+    width: Option<u32>,
+    height: Option<u32>,
+    codec: Option<&'a str>,
+    bits_per_second: Option<f64>,
+    size: Option<u64>,
+    headers: &'a [(String, String)],
+}
+
+fn video_format(rendition: Rendition<'_>) -> MediaFormat {
+    // TikTok names H.265 `h265_hvc1` or `bytevc1`; the engine calls it `h265`.
+    let vcodec = rendition.codec.map(|codec| {
+        let codec = codec.to_ascii_lowercase();
+        if codec.starts_with("h265") || codec.starts_with("bytevc1") || codec.starts_with("hevc") {
+            "h265".to_string()
+        } else if codec.starts_with("h264") || codec.starts_with("avc") {
+            "h264".to_string()
+        } else {
+            codec
+        }
+    });
+    let quality_label = match rendition.width.zip(rendition.height) {
+        Some((width, height)) => format!("{}p", width.min(height)),
+        None => "Original".to_string(),
+    };
+    MediaFormat {
+        id: rendition.id.to_string(),
+        kind: FormatKind::Muxed,
+        container: "mp4".to_string(),
+        protocol: "https".to_string(),
+        has_video: true,
+        has_audio: true,
+        width: rendition.width,
+        height: rendition.height,
+        fps: None,
+        vcodec,
+        acodec: Some("aac".to_string()),
+        tbr: rendition.bits_per_second.map(|bits| bits / 1000.0).filter(|kbps| *kbps > 0.0),
+        vbr: None,
+        abr: None,
+        filesize: rendition.size.filter(|size| *size > 0),
+        filesize_approx: None,
+        quality_label,
+        watermarked: Some(false),
+        note: None,
+        needs_engine_download: false,
+        language: None,
+        language_preference: None,
+        url: Some(rendition.url.to_string()),
+        http_headers: rendition.headers.to_vec(),
+    }
 }
 
 fn parse_item(item: &Value, requested_url: &str) -> Option<MediaMetadata> {
@@ -519,8 +748,109 @@ mod tests {
     #[test]
     fn a_private_or_missing_post_says_so() {
         assert_eq!(parse_page(&page(serde_json::json!({}), 10222), "u").unwrap_err().code(), "forbidden");
-        assert_eq!(parse_page(&page(serde_json::json!({}), 10204), "u").unwrap_err().code(), "forbidden");
+        assert_eq!(parse_page(&page(serde_json::json!({}), 10204), "u").unwrap_err().code(), "regionBlocked");
+        assert_eq!(parse_page(&page(serde_json::json!({}), 10231), "u").unwrap_err().code(), "regionBlocked");
         assert_eq!(parse_page(&page(serde_json::json!({}), 10000), "u").unwrap_err().code(), "notFound");
         assert!(parse_page("<html>nothing</html>", "u").is_err());
+    }
+
+    /// The shape TikTok's page gave on 2026-11-28 for a public video.
+    fn video_post() -> Value {
+        serde_json::json!({
+            "id": "7692876833091603719",
+            "desc": "a caption #tag",
+            "createTime": "1764288000",
+            "author": { "uniqueId": "lexivity5", "nickname": "Lex" },
+            "stats": { "playCount": 1200, "diggCount": 30 },
+            "video": {
+                "width": 576, "height": 1024, "duration": 19, "codecType": "h264",
+                "bitrate": 98908,
+                "cover": "https://p16.example/cover.jpg",
+                "playAddr": "https://v16.example/play.mp4",
+                "downloadAddr": "https://v16.example/watermarked.mp4",
+                "bitrateInfo": [
+                    {
+                        "GearName": "adapt_lower_720_1", "Bitrate": 138300, "CodecType": "h265_hvc1",
+                        "PlayAddr": { "UrlList": ["https://v16.example/720.mp4"], "Width": 720,
+                                      "Height": 1280, "DataSize": "336001" }
+                    },
+                    {
+                        "GearName": "lower_540_0", "Bitrate": 98908, "CodecType": "h264",
+                        "PlayAddr": { "UrlList": ["https://v16.example/play.mp4"], "Width": 576,
+                                      "Height": 1024, "DataSize": 240298 }
+                    }
+                ]
+            }
+        })
+    }
+
+    #[test]
+    fn a_video_post_lists_its_renditions_with_the_page_cookies() {
+        let item = post_item(&page(video_post(), 0)).unwrap().unwrap();
+        let cookies = vec![
+            ("tt_chain_token".to_string(), "abc".to_string()),
+            ("_waftokenid".to_string(), "xyz".to_string()),
+        ];
+        let metadata = parse_video(&item, "https://vm.tiktok.com/x", &cookies).unwrap();
+
+        assert_eq!(metadata.media_kind, MediaKind::Video);
+        assert_eq!(metadata.url, "https://vm.tiktok.com/x");
+        assert_eq!(metadata.canonical_url, "https://www.tiktok.com/@lexivity5/video/7692876833091603719");
+        assert_eq!(metadata.title, "a caption #tag");
+        assert_eq!(metadata.creator.as_deref(), Some("lexivity5"));
+        assert_eq!(metadata.duration_sec, Some(19.0));
+        assert_eq!(metadata.thumbnail_url.as_deref(), Some("https://p16.example/cover.jpg"));
+
+        // `playAddr` is the 540p rendition already listed, and the watermarked
+        // download is never offered.
+        let ids: Vec<&str> = metadata.formats.iter().map(|format| format.id.as_str()).collect();
+        assert_eq!(ids, ["adapt_lower_720_1", "lower_540_0"]);
+        let hd = &metadata.formats[0];
+        assert_eq!((hd.width, hd.height), (Some(720), Some(1280)));
+        assert_eq!(hd.vcodec.as_deref(), Some("h265"));
+        assert_eq!(hd.filesize, Some(336_001));
+        assert_eq!(hd.quality_label, "720p");
+        assert!(!hd.needs_engine_download);
+        assert_eq!(metadata.formats[1].filesize, Some(240_298));
+        assert!(metadata.formats.iter().all(|format| format.url.as_deref() != Some("https://v16.example/watermarked.mp4")));
+        assert!(hd.http_headers.contains(&("Referer".to_string(), "https://www.tiktok.com/".to_string())));
+        assert!(hd.http_headers.contains(&("Cookie".to_string(), "tt_chain_token=abc; _waftokenid=xyz".to_string())));
+    }
+
+    #[test]
+    fn play_address_alone_is_still_a_video() {
+        let mut item = video_post();
+        item["video"]["bitrateInfo"] = serde_json::json!([]);
+        let metadata = parse_video(&item, "u", &[]).unwrap();
+        assert_eq!(metadata.formats.len(), 1);
+        assert_eq!(metadata.formats[0].id, "play");
+        assert_eq!(metadata.formats[0].vcodec.as_deref(), Some("h264"));
+        assert_eq!(metadata.formats[0].http_headers.len(), 1, "no cookies, no Cookie header");
+    }
+
+    /// Run with `cargo test reads_a_live_tiktok_video -- --ignored`: it reads
+    /// tiktok.com and asks for the first kilobyte of the stream, which is what
+    /// the phone does without the engine.
+    #[tokio::test]
+    #[ignore = "reads tiktok.com"]
+    async fn reads_a_live_tiktok_video() {
+        let settings = Settings::default();
+        let url = "https://www.tiktok.com/@lexivity5/video/7692876833091603719";
+        let metadata = analyze_video(url, &settings).await.unwrap().expect("a video post");
+        let format = metadata.formats.first().expect("a rendition");
+        let mut request = crate::net::client(&settings).unwrap().get(format.url.clone().unwrap());
+        for (name, value) in &format.http_headers {
+            request = request.header(name.as_str(), value.as_str());
+        }
+        let response = request.header("Range", "bytes=0-1023").send().await.unwrap();
+        assert!(response.status().is_success(), "{}", response.status());
+    }
+
+    #[test]
+    fn a_photo_post_or_a_streamless_one_is_not_a_video() {
+        assert!(parse_video(&photo_post(2), "u", &[]).is_none());
+        let mut item = video_post();
+        item["video"] = serde_json::json!({ "width": 576 });
+        assert!(parse_video(&item, "u", &[]).is_none());
     }
 }

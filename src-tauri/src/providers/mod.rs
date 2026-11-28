@@ -33,7 +33,7 @@ use crate::model::{
     DownloadRequest, FormatKind, GalleryItem, MediaFormat, MediaKind, MediaMetadata, PlatformId, SourceContext,
 };
 use crate::settings::Settings;
-use crate::{log_debug, log_warn, tools};
+use crate::{log_debug, log_info, log_warn, tools};
 
 use direct::DirectProvider;
 use engine::EngineProvider;
@@ -184,6 +184,17 @@ pub async fn analyze_with_source(
         Err(err) => log_warn!("providers", "photo reader failed for {}: {err}", info.host),
     }
 
+    // The phone's engine cannot open a TikTok page (see `photos::tiktok`), so
+    // there a video post is read here first and the engine is what is left.
+    let tiktok = info.platform == PlatformId::Tiktok;
+    if tiktok && cfg!(target_os = "android") {
+        match photos::tiktok::analyze_video(url, settings).await {
+            Ok(Some(metadata)) => return Ok(metadata),
+            Ok(None) => {}
+            Err(err) => log_warn!("providers", "the TikTok page reader failed: {err}"),
+        }
+    }
+
     // Discovery runs in the background at launch, and a link shared to the
     // phone can start the app and be queued before it has finished.
     if tools::engine_path().is_none() {
@@ -204,6 +215,20 @@ pub async fn analyze_with_source(
                         return Err(hidden_post(&detail));
                     }
                     engine_error = Some(AppError::Unsupported(detail));
+                }
+                // Refused where the page reader may still get in: an engine
+                // without `curl_cffi`, or a session TikTok will not take.
+                Err(err) if tiktok && !cfg!(target_os = "android") => {
+                    match photos::tiktok::analyze_video(url, settings).await {
+                        Ok(Some(metadata)) => {
+                            log_info!(
+                                "providers",
+                                "the engine was refused ({err}); read the TikTok page instead"
+                            );
+                            return Ok(metadata);
+                        }
+                        _ => return Err(err),
+                    }
                 }
                 Err(err) => return Err(bare_stream_refusal(err, url, source)),
             }
